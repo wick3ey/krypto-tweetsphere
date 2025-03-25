@@ -4,6 +4,6 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-// Remove StrictMode to prevent double-rendering
+// Initialize root without StrictMode to prevent double-rendering
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
