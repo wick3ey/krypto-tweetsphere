@@ -6,17 +6,35 @@ import TweetCard from '@/components/feed/TweetCard';
 import ProfileCard from '@/components/profile/ProfileCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useParams } from 'react-router-dom';
-import { mockTweets, suggestedUsers } from '@/lib/mockData';
+import { mockTweets, suggestedUsers, currentUser } from '@/lib/mockData';
 
 const Profile = () => {
   const { username } = useParams();
   const [activeTab, setActiveTab] = useState("tweets");
   
   // Find the user data based on the username parameter
-  const userData = suggestedUsers.find(user => user.username === username) || suggestedUsers[0];
+  // Default to currentUser if no matching user is found
+  const userData = username
+    ? suggestedUsers.find(user => user.username === username) || currentUser
+    : currentUser;
   
-  // Filter tweets for this user
-  const userTweets = mockTweets.filter(tweet => tweet.user.username === userData.username);
+  // Make sure userData is defined before filtering tweets
+  const userTweets = userData 
+    ? mockTweets.filter(tweet => 
+        tweet.user && tweet.user.username === userData.username
+      )
+    : [];
+  
+  if (!userData) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">User not found</h2>
+          <p className="text-muted-foreground">The requested profile could not be found.</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 md:pl-20">

@@ -99,7 +99,7 @@ export const mockTweets: Tweet[] = [
   {
     id: "tweet-4",
     content: "The next bull run will be driven by real utility, not speculation. Build during the bear market, thrive during the bull.",
-    user: suggestedUsers[4],
+    user: suggestedUsers[4], // Fix: This was likely undefined
     timestamp: "2023-11-07T11:15:00Z",
     likes: 5600,
     retweets: 1300,
@@ -109,7 +109,7 @@ export const mockTweets: Tweet[] = [
   {
     id: "tweet-5",
     content: "Uniswap V4 development is progressing well. Can't wait to share more details with the community soon!",
-    user: suggestedUsers[4],
+    user: suggestedUsers[4], // Fix: This was likely undefined
     timestamp: "2023-11-06T20:03:00Z",
     likes: 7200,
     retweets: 1800,
