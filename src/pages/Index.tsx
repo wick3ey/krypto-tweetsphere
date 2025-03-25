@@ -1,7 +1,4 @@
-
 import { useState, useEffect } from 'react';
-import Header from '@/components/layout/Header';
-import Navigation from '@/components/layout/Navigation';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import AnimatedCard from '@/components/common/AnimatedCard';
 import TokenTicker from '@/components/crypto/TokenTicker';
@@ -66,13 +63,16 @@ const Index = () => {
     
     // Add the new tweet to the top of the list
     setTweets([newTweet, ...tweets]);
+    
+    // Visa bekräftelsetoast
+    toast({
+      title: "Tweet publicerad!",
+      description: "Din tweet har publicerats.",
+    });
   };
   
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 md:pl-20">
-      <Header />
-      <Navigation />
-      
+    <>
       <TokenTicker speed="slow" />
       
       <main className="container max-w-7xl pt-6 px-4">
@@ -224,7 +224,7 @@ const Index = () => {
           </div>
         </div>
       </main>
-    </div>
+    </>
   );
 };
 
