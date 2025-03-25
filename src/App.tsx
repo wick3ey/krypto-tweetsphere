@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,32 +12,37 @@ import Explore from "./pages/Explore";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 
+// Create a client
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:username" element={<Profile />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/messages" element={<Messages />} />
-          {/* Placeholder routes for the remaining pages */}
-          <Route path="/tweets" element={<Index />} />
-          <Route path="/network" element={<Explore />} />
-          <Route path="/notifications" element={<Index />} />
-          <Route path="/settings" element={<Index />} />
-          <Route path="/hashtag/:tag" element={<Explore />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/:username" element={<Profile />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/explore" element={<Explore />} />
+              <Route path="/messages" element={<Messages />} />
+              {/* Placeholder routes for the remaining pages */}
+              <Route path="/tweets" element={<Index />} />
+              <Route path="/network" element={<Explore />} />
+              <Route path="/notifications" element={<Index />} />
+              <Route path="/settings" element={<Index />} />
+              <Route path="/hashtag/:tag" element={<Explore />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </React.StrictMode>
+  );
+};
 
 export default App;
