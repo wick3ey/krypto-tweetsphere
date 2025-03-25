@@ -24,7 +24,7 @@ const Profile = () => {
       <Navigation />
       
       <main className="container max-w-4xl pt-20 px-4">
-        <ProfileCard user={userData} />
+        <ProfileCard profile={userData} />
         
         <div className="mt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

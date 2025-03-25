@@ -12,6 +12,12 @@ interface TweetCardProps {
 }
 
 const TweetCard = ({ tweet, className, style }: TweetCardProps) => {
+  // Add null check to ensure tweet and tweet.user exist
+  if (!tweet || !tweet.user) {
+    console.error("Tweet or tweet.user is undefined:", tweet);
+    return null;
+  }
+
   const formattedDate = formatDistanceToNow(new Date(tweet.timestamp), { addSuffix: true });
   
   const formatNumber = (num: number): string => {

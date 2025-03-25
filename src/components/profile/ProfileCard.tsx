@@ -1,11 +1,11 @@
 
 import { Calendar, Link, MapPin, MessageCircle, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { UserProfile } from '@/lib/types';
+import { User, UserProfile } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ProfileCardProps {
-  profile: UserProfile;
+  profile: UserProfile | User;
 }
 
 const ProfileCard = ({ profile }: ProfileCardProps) => {
