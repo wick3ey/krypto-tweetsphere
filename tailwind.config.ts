@@ -19,6 +19,9 @@ export default {
       },
     },
     extend: {
+      screens: {
+        "xxs": "360px",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -64,10 +67,11 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
         crypto: {
-          blue: "#0EA5E9",
-          lightBlue: "#38BDF8",
-          green: "#10B981",
-          red: "#F43F5E",
+          blue: "hsl(var(--crypto-blue))",
+          green: "hsl(var(--crypto-green))",
+          red: "hsl(var(--crypto-red))",
+          yellow: "hsl(var(--crypto-yellow))",
+          purple: "hsl(var(--crypto-purple))",
           neutral: "#F8FAFC",
           dark: "#111827",
           card: "#FFFFFF",
@@ -111,6 +115,18 @@ export default {
           "0%": { backgroundPosition: "-1000px 0" },
           "100%": { backgroundPosition: "1000px 0" },
         },
+        "ticker": {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(-100%)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-5px)" },
+        },
+        "glow": {
+          "0%, 100%": { opacity: "0" },
+          "50%": { opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -121,16 +137,25 @@ export default {
         "scale-in": "scale-in 0.3s ease-out",
         "pulse-subtle": "pulse-subtle 2s infinite ease-in-out",
         "shimmer": "shimmer 2s infinite linear",
+        "ticker": "ticker 30s infinite linear",
+        "float": "float 3s ease-in-out infinite",
+        "glow": "glow 4s infinite",
+        "delay-100": "delay-100",
+        "delay-200": "delay-200",
+        "delay-300": "delay-300",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "shimmer": "linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0) 40%)",
         "glass": "linear-gradient(to bottom right, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05))",
+        "neo-glass": "linear-gradient(to bottom right, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.2))"
       },
       boxShadow: {
         "glass": "0 4px 30px rgba(0, 0, 0, 0.1)",
         "card": "0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03)",
         "neon": "0 0 10px rgba(14, 165, 233, 0.3), 0 0 30px rgba(14, 165, 233, 0.1)",
+        "neo": "0 8px 30px rgba(0, 0, 0, 0.12)",
+        "glow-blue": "0 0 5px rgba(14, 165, 233, 0.5), 0 0 20px rgba(14, 165, 233, 0.1)",
       },
       backdropBlur: {
         xs: '2px',
