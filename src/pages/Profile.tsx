@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   Bell, Calendar, ChevronDown, Edit, ExternalLink, 
@@ -75,30 +75,38 @@ const Profile = () => {
     ? userProfile 
     : null;
 
+  // Reset state when username changes
   useEffect(() => {
-    // Reset state when username changes
     setActiveTab("tweets");
     setViewMode("grid");
     setShowSettings(false);
     setIsFollowing(false);
   }, [username]);
 
-  // Animate in when component mounts
+  // Animate in when component mounts - with stability fix
   useEffect(() => {
-    document.querySelectorAll('.animate-on-load').forEach((el, index) => {
-      (el as HTMLElement).style.animationDelay = `${index * 100}ms`;
+    const elements = document.querySelectorAll('.animate-on-load');
+    elements.forEach((el, index) => {
+      if (el instanceof HTMLElement) {
+        el.style.animationDelay = `${index * 100}ms`;
+      }
     });
-  }, []);
+  }, [activeTab]); // Re-run animation when tab changes
 
-  const handleFollow = () => {
+  const handleFollow = useCallback(() => {
     setIsFollowing(!isFollowing);
     setLikeAnimation(true);
     setTimeout(() => setLikeAnimation(false), 1000);
-  };
+  }, [isFollowing]);
 
-  const handleTweetHover = (id: string) => {
+  const handleTweetHover = useCallback((id: string) => {
     setHighlightedTweet(id);
-  };
+  }, []);
+
+  // Handle tab change with stability
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value);
+  }, []);
 
   if (!userData) {
     return (
@@ -297,7 +305,12 @@ const Profile = () => {
         
         {/* Tab Navigation with Animated Underline */}
         <div className="mt-6 animate-fade-in animate-on-load" style={{ animationDelay: '100ms' }}>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs 
+            defaultValue={activeTab} 
+            value={activeTab} 
+            onValueChange={handleTabChange} 
+            className="w-full"
+          >
             <TabsList className="w-full bg-transparent">
               <TabsTrigger value="tweets" className="flex-1 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-crypto-blue rounded-none">
                 Tweets
@@ -381,7 +394,7 @@ const Profile = () => {
               </AnimatedCard>
             </TabsContent>
             
-            <TabsContent value="assets" className="mt-6">
+            <TabsContent value="assets" className="mt-6 min-h-[200px]">
               {profileDetails && profileDetails.tokens ? (
                 <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                   {profileDetails.tokens.map((token, index) => (
@@ -429,7 +442,7 @@ const Profile = () => {
               )}
             </TabsContent>
             
-            <TabsContent value="transactions" className="mt-6">
+            <TabsContent value="transactions" className="mt-6 min-h-[200px]">
               {profileDetails && profileDetails.transactions ? (
                 <AnimatedCard className="divide-y divide-border">
                   {profileDetails.transactions.map((tx, index) => (

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Header from '@/components/layout/Header';
 import Navigation from '@/components/layout/Navigation';
 import AnimatedCard from '@/components/common/AnimatedCard';
@@ -108,6 +108,17 @@ const Messages = () => {
       )
     : mockConversations;
   
+  const handleSelectConversation = useCallback((id: number) => {
+    setSelectedConversation(id);
+  }, []);
+  
+  const handleSendMessage = useCallback(() => {
+    if (messageText.trim()) {
+      // Här skulle vi skicka meddelandet till backend
+      setMessageText('');
+    }
+  }, [messageText]);
+  
   return (
     <div className="min-h-screen bg-background md:pl-20">
       <Header />
@@ -146,7 +157,7 @@ const Messages = () => {
                     selectedConversation === conversation.id && "bg-secondary/50",
                     conversation.unread > 0 && "bg-crypto-blue/5"
                   )}
-                  onClick={() => setSelectedConversation(conversation.id)}
+                  onClick={() => handleSelectConversation(conversation.id)}
                 >
                   <div className="h-12 w-12 rounded-full overflow-hidden mr-3 flex-shrink-0">
                     <img 
@@ -306,8 +317,7 @@ const Messages = () => {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey && messageText.trim()) {
                           e.preventDefault();
-                          // TODO: Send message
-                          setMessageText('');
+                          handleSendMessage();
                         }
                       }}
                     />
@@ -316,6 +326,7 @@ const Messages = () => {
                       size="icon" 
                       className="rounded-full"
                       disabled={!messageText.trim()}
+                      onClick={handleSendMessage}
                     >
                       <Send className="h-5 w-5" />
                     </Button>
