@@ -2,6 +2,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface Props {
   children: ReactNode;
@@ -25,7 +26,7 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
-    // Uppdatera state så att nästa render visar fallback UI
+    // Update state so the next render shows fallback UI
     return { 
       hasError: true, 
       error, 
@@ -34,17 +35,24 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // Logga detaljerad felinformation för debugging
+    // Log error information for debugging
     console.error("Error caught by ErrorBoundary:", error);
     console.error("Component stack:", errorInfo.componentStack);
     
-    // Uppdatera state med errorInfo för att visa mer information
+    // Show toast notification
+    toast({
+      title: "Ett fel uppstod",
+      description: "Vi har loggat felet och arbetar på en lösning.",
+      variant: "destructive",
+    });
+    
+    // Update state with errorInfo to show more information
     this.setState({
       errorInfo: errorInfo
     });
   }
 
-  // Metod för att återställa error state
+  // Method to reset error state
   resetError = () => {
     this.setState({
       hasError: false,

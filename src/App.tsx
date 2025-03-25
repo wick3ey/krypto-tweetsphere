@@ -1,5 +1,5 @@
 
-import React, { Suspense } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,27 +9,14 @@ import AppLayout from '@/components/layout/AppLayout';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import NotFound from "./pages/NotFound";
 
-// Lazy loading av sidorna för att förbättra prestanda
-const Index = React.lazy(() => import('./pages/Index'));
-const Profile = React.lazy(() => import('./pages/Profile'));
-const Dashboard = React.lazy(() => import('./pages/Dashboard'));
-const Explore = React.lazy(() => import('./pages/Explore'));
-const Messages = React.lazy(() => import('./pages/Messages'));
+// Improve lazy loading with proper error handling and fallbacks
+const Index = lazy(() => import('./pages/Index'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Explore = lazy(() => import('./pages/Explore'));
+const Messages = lazy(() => import('./pages/Messages'));
 
-// Skapa en förbättrad QueryClient med stabila inställningar som minskar flicker
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minuter
-      suspense: false, // Inaktivera React Query's inbyggda suspense
-      useErrorBoundary: true, // Använd ErrorBoundary för att fånga query-fel
-    },
-  },
-});
-
-// Laddningskomponent för Suspense
+// Loading fallback for Suspense
 const LoadingFallback = () => (
   <div className="min-h-[60vh] flex items-center justify-center">
     <div className="animate-pulse flex flex-col items-center gap-4">
@@ -39,40 +26,130 @@ const LoadingFallback = () => (
   </div>
 );
 
+// Create a more stable QueryClient with optimized settings
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      suspense: false, // Disable React Query's built-in suspense
+      useErrorBoundary: true, // Use ErrorBoundary for query errors
+      refetchOnMount: false, // Prevent unnecessary refetching
+      refetchOnReconnect: false, // Prevent unnecessary refetching
+    },
+  },
+});
+
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <BrowserRouter>
           <ErrorBoundary>
-            <Suspense fallback={<LoadingFallback />}>
-              <Routes>
-                {/* Main layout med alla routes som använder standard layouten */}
-                <Route element={<AppLayout />}>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/profile/:username" element={<Profile />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/explore" element={<Explore />} />
-                  <Route path="/messages" element={<Messages />} />
-                  <Route path="/tweets" element={<Index />} />
-                  <Route path="/network" element={<Explore />} />
-                  <Route path="/notifications" element={<Index />} />
-                  <Route path="/settings" element={<Index />} />
-                  <Route path="/hashtag/:tag" element={<Explore />} />
-                  {/* Redirect för eventuella felaktiga URL:er */}
-                  <Route path="*" element={<Navigate to="/404" replace />} />
-                </Route>
-                {/* Lägg 404-sidan utanför AppLayout eftersom den har egen layout */}
-                <Route path="/404" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+            <Routes>
+              {/* Main layout with all routes using standard layout */}
+              <Route element={<AppLayout />}>
+                <Route
+                  path="/"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Index />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Profile />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/profile/:username"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Profile />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Dashboard />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/explore"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Explore />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/messages"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Messages />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/tweets"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Index />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/network"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Explore />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/notifications"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Index />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Index />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="/hashtag/:tag"
+                  element={
+                    <Suspense fallback={<LoadingFallback />}>
+                      <Explore />
+                    </Suspense>
+                  }
+                />
+                {/* Redirect for invalid URLs */}
+                <Route path="*" element={<Navigate to="/404" replace />} />
+              </Route>
+              {/* Place the 404 page outside AppLayout since it has its own layout */}
+              <Route path="/404" element={<NotFound />} />
+            </Routes>
           </ErrorBoundary>
+          
+          {/* Place toasters outside routing to prevent them from disappearing on route changes */}
+          <Toaster />
+          <Sonner />
         </BrowserRouter>
-        
-        {/* Placera toasters utanför routing för att undvika att de försvinner vid route-ändringar */}
-        <Toaster />
-        <Sonner />
       </TooltipProvider>
     </QueryClientProvider>
   );
