@@ -9,7 +9,7 @@ import TrendingTopics from '@/components/crypto/TrendingTopics';
 import CryptoNews from '@/components/crypto/CryptoNews';
 import MarketStats from '@/components/crypto/MarketStats';
 import NFTGallery from '@/components/crypto/NFTGallery';
-import { mockTweets, suggestedUsers } from '@/lib/mockData';
+import { mockTweets, suggestedUsers, currentUser } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Pencil, Sparkles, Zap, Lightbulb, Filter, Shield, Image, FileText, AtSign, Smile } from 'lucide-react';
@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { toast } from "@/hooks/use-toast";
+import { Tweet } from '@/lib/types';
 
 const Index = () => {
   const [tweets, setTweets] = useState(mockTweets);
@@ -37,8 +38,8 @@ const Index = () => {
   const handleTweet = () => {
     if (!tweetContent.trim()) return;
     
-    // Create a new tweet
-    const newTweet = {
+    // Create a new tweet with all required User properties
+    const newTweet: Tweet = {
       id: `tweet-${Date.now()}`,
       content: tweetContent,
       timestamp: new Date().toISOString(),
@@ -50,13 +51,16 @@ const Index = () => {
         .filter(word => word.startsWith('#'))
         .map(tag => tag.substring(1)),
       user: {
-        id: "user-1",
-        displayName: "You",
-        username: "satoshi",
-        verified: true,
-        avatarUrl: "https://api.dicebear.com/7.x/identicon/svg?seed=satoshi",
-        followers: 1024,
-        following: 256,
+        id: currentUser.id,
+        displayName: currentUser.displayName,
+        username: currentUser.username,
+        verified: currentUser.verified,
+        avatarUrl: currentUser.avatarUrl,
+        followers: currentUser.followers,
+        following: currentUser.following,
+        walletAddress: currentUser.walletAddress,
+        bio: currentUser.bio,
+        joinedDate: currentUser.joinedDate
       }
     };
     
