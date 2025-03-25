@@ -10,21 +10,21 @@ import CryptoNews from '@/components/crypto/CryptoNews';
 import MarketStats from '@/components/crypto/MarketStats';
 import NFTGallery from '@/components/crypto/NFTGallery';
 import { mockTweets, suggestedUsers, currentUser } from '@/lib/mockData';
+import { Sparkles, Zap, Lightbulb, Filter, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Pencil, Sparkles, Zap, Lightbulb, Filter, Shield, Image, FileText, AtSign, Smile } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { toast } from "@/hooks/use-toast";
 import { Tweet } from '@/lib/types';
+import ComposeDialog from '@/components/feed/ComposeDialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Index = () => {
   const [tweets, setTweets] = useState(mockTweets);
-  const [tweetContent, setTweetContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [activeFeed, setActiveFeed] = useState('trending'); // trending, latest, following
-  const [showComposeDialog, setShowComposeDialog] = useState(false);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     // Simulate loading time
@@ -35,7 +35,7 @@ const Index = () => {
     return () => clearTimeout(timer);
   }, []);
   
-  const handleTweet = () => {
+  const handleTweet = (tweetContent: string) => {
     if (!tweetContent.trim()) return;
     
     // Create a new tweet with all required User properties
@@ -66,15 +66,6 @@ const Index = () => {
     
     // Add the new tweet to the top of the list
     setTweets([newTweet, ...tweets]);
-    
-    // Clear the input
-    setTweetContent('');
-    
-    // Show a success message
-    toast({
-      title: "Posted!",
-      description: "Your tweet has been posted successfully.",
-    });
   };
   
   return (
@@ -87,73 +78,11 @@ const Index = () => {
       <main className="container max-w-7xl pt-6 px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            {/* Desktop Compose Tweet */}
-            <AnimatedCard className="p-4">
-              <div className="flex space-x-3">
-                <img
-                  src="https://api.dicebear.com/7.x/identicon/svg?seed=satoshi"
-                  alt="Your profile"
-                  className="h-10 w-10 rounded-full object-cover border border-border"
-                />
-                <div className="flex-1">
-                  <div className="relative">
-                    <Input
-                      placeholder="What's happening in the cryptoverse?"
-                      className="border-none crypto-input text-base shadow-none focus-visible:ring-0 p-0 h-auto min-h-[60px]"
-                      value={tweetContent}
-                      onChange={(e) => setTweetContent(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey && tweetContent.trim()) {
-                          e.preventDefault();
-                          handleTweet();
-                        }
-                      }}
-                    />
-                    {tweetContent.length > 100 && (
-                      <div className="absolute right-0 bottom-0 text-xs text-muted-foreground">
-                        {tweetContent.length}/280
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-3 flex justify-between items-center">
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
-                        <Image className="h-5 w-5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
-                        <FileText className="h-5 w-5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
-                        <AtSign className="h-5 w-5" />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
-                        <Smile className="h-5 w-5" />
-                      </Button>
-                    </div>
-                    <Button 
-                      size="sm"
-                      className="rounded-full bg-crypto-blue hover:bg-crypto-blue/90 text-white"
-                      disabled={!tweetContent.trim()}
-                      onClick={handleTweet}
-                    >
-                      <Pencil className="h-4 w-4 mr-1" />
-                      Tweet
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </AnimatedCard>
+            {/* Desktop and Mobile Compose Tweet */}
+            <ComposeDialog onSubmit={handleTweet} />
             
-            {/* Mobile Floating Action Button for Compose */}
-            <Button 
-              className="fixed right-4 bottom-20 md:hidden rounded-full h-14 w-14 shadow-lg bg-crypto-blue hover:bg-crypto-blue/90 z-20"
-              onClick={() => setShowComposeDialog(true)}
-            >
-              <Pencil className="h-6 w-6" />
-            </Button>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <div className="flex items-center justify-between overflow-x-auto">
+              <div className="flex gap-2 pb-2 scrollbar-none w-fit">
                 <Button 
                   variant={activeFeed === 'trending' ? 'default' : 'outline'} 
                   size="sm" 
@@ -170,7 +99,7 @@ const Index = () => {
                   onClick={() => setActiveFeed('latest')}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  Latest
+                  Senaste
                 </Button>
                 <Button 
                   variant={activeFeed === 'following' ? 'default' : 'outline'} 
@@ -179,14 +108,14 @@ const Index = () => {
                   onClick={() => setActiveFeed('following')}
                 >
                   <Lightbulb className="h-3.5 w-3.5" />
-                  Following
+                  Följer
                 </Button>
               </div>
               
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="rounded-full flex items-center gap-1"
+                className="rounded-full flex items-center gap-1 shrink-0"
               >
                 <Filter className="h-3.5 w-3.5" />
                 Filter
@@ -201,7 +130,7 @@ const Index = () => {
                     className="crypto-card p-4 animate-pulse space-y-3"
                   >
                     <div className="flex items-start space-x-3">
-                      <div className="rounded-full bg-muted/50 h-10 w-10"></div>
+                      <div className="rounded-full bg-muted/50 h-10 w-10 shrink-0"></div>
                       <div className="space-y-2 flex-1">
                         <div className="flex justify-between">
                           <div className="h-4 bg-muted/50 rounded w-1/3"></div>
@@ -245,7 +174,7 @@ const Index = () => {
             <AnimatedCard className="p-4" delay={250}>
               <div className="flex items-center space-x-2 mb-4">
                 <Sparkles className="h-5 w-5 text-crypto-blue" />
-                <h3 className="font-semibold">Who to follow</h3>
+                <h3 className="font-semibold">Vem att följa</h3>
               </div>
               
               <div className="space-y-3">
@@ -283,12 +212,12 @@ const Index = () => {
                       </div>
                     </Link>
                     <Button variant="outline" size="sm" className="rounded-full text-xs group-hover:bg-primary group-hover:text-white">
-                      Follow
+                      Följ
                     </Button>
                   </div>
                 ))}
                 <Button variant="ghost" className="w-full text-xs text-crypto-blue">
-                  Show more
+                  Visa mer
                 </Button>
               </div>
             </AnimatedCard>

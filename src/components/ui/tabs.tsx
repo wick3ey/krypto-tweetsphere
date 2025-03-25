@@ -43,12 +43,11 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 block", // Lade till "block" för att säkerställa att innehållet visas
+      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 block", // Added 'block' to ensure display
       className
     )}
-    // Säkerställer att innehållet finns kvar i DOM även när det inte är aktivt
-    forceMount
     {...props}
+    forceMount // Added forceMount to keep content in DOM
   />
 ))
 TabsContent.displayName = TabsPrimitive.Content.displayName
