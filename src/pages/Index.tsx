@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Navigation from '@/components/layout/Navigation';
@@ -12,7 +11,7 @@ import NFTGallery from '@/components/crypto/NFTGallery';
 import { mockTweets, suggestedUsers } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Sparkles, Zap, Lightbulb, Filter } from 'lucide-react';
+import { Pencil, Sparkles, Zap, Lightbulb, Filter, Shield } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
