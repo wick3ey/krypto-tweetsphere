@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Profile from "./pages/Profile";
 import Dashboard from "./pages/Dashboard";
 import Explore from "./pages/Explore";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,9 +25,12 @@ const App = () => (
           <Route path="/profile/:username" element={<Profile />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/explore" element={<Explore />} />
+          <Route path="/messages" element={<Messages />} />
           {/* Placeholder routes for the remaining pages */}
           <Route path="/tweets" element={<Index />} />
           <Route path="/network" element={<Explore />} />
+          <Route path="/notifications" element={<Index />} />
+          <Route path="/settings" element={<Index />} />
           <Route path="/hashtag/:tag" element={<Explore />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { Home, BarChart, Compass, Users, MessageSquare, BellRing, Settings, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Home, BarChart, Compass, Users, MessageSquare, BellRing, Settings, Menu, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/badge';
 
 const Navigation = () => {
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -23,6 +25,25 @@ const Navigation = () => {
     { icon: BellRing, label: 'Notifications', path: '/notifications', notify: 5 },
     { icon: Settings, label: 'Settings', path: '/settings', notify: false },
   ];
+  
+  // Close sidebar when clicking outside of it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node) && !isCollapsed) {
+        setIsCollapsed(true);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCollapsed]);
+  
+  // Close sidebar when navigating on mobile
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <>
@@ -72,6 +93,7 @@ const Navigation = () => {
 
       {/* Desktop side navigation */}
       <nav 
+        ref={sidebarRef}
         className={cn(
           "fixed left-4 top-20 bottom-4 hidden md:flex md:flex-col md:items-center md:justify-start md:py-4 z-20",
           "border border-border/50 rounded-2xl backdrop-blur-lg transition-all duration-300",
@@ -140,6 +162,73 @@ const Navigation = () => {
           ))}
         </div>
       </nav>
+      
+      {/* Mobile side menu overlay */}
+      <div
+        className={cn(
+          "fixed inset-0 bg-black/50 z-30 md:hidden transition-opacity",
+          isMobileMenuOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setIsMobileMenuOpen(false)}
+      />
+      
+      {/* Mobile side menu */}
+      <div 
+        className={cn(
+          "fixed top-0 bottom-0 left-0 w-64 bg-background border-r border-border z-40 md:hidden transition-transform",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="font-bold text-xl">Menu</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+        
+        <div className="p-4">
+          <div className="space-y-2">
+            {navigationItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  "flex items-center space-x-3 p-2 rounded-md",
+                  isActive(item.path) 
+                    ? "bg-crypto-blue/10 text-crypto-blue"
+                    : "hover:bg-secondary/50"
+                )}
+              >
+                <div className="relative">
+                  <item.icon className="h-5 w-5" />
+                  {item.notify && (
+                    <Badge 
+                      className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-crypto-red text-white text-[10px]"
+                    >
+                      {item.notify}
+                    </Badge>
+                  )}
+                </div>
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Mobile menu trigger */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed left-4 top-4 z-30 md:hidden rounded-full bg-background/50 backdrop-blur-lg"
+        onClick={() => setIsMobileMenuOpen(true)}
+      >
+        <Menu className="h-5 w-5" />
+      </Button>
     </>
   );
 };

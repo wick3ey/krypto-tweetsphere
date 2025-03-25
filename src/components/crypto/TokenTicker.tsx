@@ -1,84 +1,102 @@
 
 import { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type TokenData = {
-  name: string;
-  symbol: string;
-  price: number;
-  change24h: number;
-};
+interface TokenTickerProps {
+  className?: string;
+  speed?: 'slow' | 'medium' | 'fast';
+}
 
-const mockTokens: TokenData[] = [
-  { name: 'Bitcoin', symbol: 'BTC', price: 68254.35, change24h: 2.5 },
-  { name: 'Ethereum', symbol: 'ETH', price: 3421.76, change24h: 1.3 },
-  { name: 'Solana', symbol: 'SOL', price: 143.87, change24h: 5.1 },
-  { name: 'Cardano', symbol: 'ADA', price: 0.56, change24h: -1.2 },
-  { name: 'Polkadot', symbol: 'DOT', price: 7.84, change24h: 3.2 },
-  { name: 'Avalanche', symbol: 'AVAX', price: 35.62, change24h: 4.7 },
-  { name: 'Chainlink', symbol: 'LINK', price: 14.53, change24h: 2.8 },
-  { name: 'Uniswap', symbol: 'UNI', price: 10.24, change24h: -0.5 },
-  { name: 'Polygon', symbol: 'MATIC', price: 0.89, change24h: 1.7 },
-  { name: 'Arbitrum', symbol: 'ARB', price: 1.23, change24h: 6.5 },
-  { name: 'Dogecoin', symbol: 'DOGE', price: 0.13, change24h: -2.1 },
-  { name: 'Shiba Inu', symbol: 'SHIB', price: 0.000022, change24h: 3.8 },
-  { name: 'Binance Coin', symbol: 'BNB', price: 572.38, change24h: 0.9 },
-  { name: 'XRP', symbol: 'XRP', price: 0.58, change24h: -0.7 },
-  { name: 'Litecoin', symbol: 'LTC', price: 78.91, change24h: 1.5 },
-  { name: 'Cosmos', symbol: 'ATOM', price: 8.72, change24h: 2.3 },
-  { name: 'Near Protocol', symbol: 'NEAR', price: 5.63, change24h: 4.2 },
-  { name: 'Algorand', symbol: 'ALGO', price: 0.18, change24h: -1.8 },
-  { name: 'Optimism', symbol: 'OP', price: 2.84, change24h: 7.1 },
-  { name: 'Fantom', symbol: 'FTM', price: 0.53, change24h: 3.4 },
+const tokenData = [
+  { symbol: 'BTC', name: 'Bitcoin', price: 58642.23, change: 2.3 },
+  { symbol: 'ETH', name: 'Ethereum', price: 2943.16, change: 1.7 },
+  { symbol: 'BNB', name: 'Binance Coin', price: 412.94, change: -0.8 },
+  { symbol: 'SOL', name: 'Solana', price: 103.22, change: 4.2 },
+  { symbol: 'ADA', name: 'Cardano', price: 0.53, change: -1.2 },
+  { symbol: 'XRP', name: 'Ripple', price: 0.58, change: 0.3 },
+  { symbol: 'DOT', name: 'Polkadot', price: 6.87, change: 2.1 },
+  { symbol: 'DOGE', name: 'Dogecoin', price: 0.13, change: 5.2 },
+  { symbol: 'AVAX', name: 'Avalanche', price: 36.42, change: -2.4 },
+  { symbol: 'SHIB', name: 'Shiba Inu', price: 0.00002784, change: 3.7 },
+  { symbol: 'MATIC', name: 'Polygon', price: 0.64, change: 0.9 },
+  { symbol: 'LINK', name: 'Chainlink', price: 14.27, change: 2.6 },
+  { symbol: 'UNI', name: 'Uniswap', price: 7.92, change: -1.4 },
+  { symbol: 'ATOM', name: 'Cosmos', price: 8.21, change: 1.1 },
+  { symbol: 'FTM', name: 'Fantom', price: 0.57, change: 3.3 },
 ];
 
-const TokenTicker = () => {
-  const [tokens, setTokens] = useState(mockTokens);
+const TokenTicker = ({ className, speed = 'medium' }: TokenTickerProps) => {
+  const [scrollPosition, setScrollPosition] = useState(0);
+  
+  const getAnimationDuration = () => {
+    switch (speed) {
+      case 'slow': return '60s';
+      case 'fast': return '20s';
+      case 'medium':
+      default: return '40s';
+    }
+  };
 
-  // Simulate live price updates
   useEffect(() => {
     const interval = setInterval(() => {
-      setTokens(prevTokens => 
-        prevTokens.map(token => ({
-          ...token,
-          price: Math.max(0.000001, token.price * (1 + (Math.random() * 0.01 - 0.005))),
-          change24h: token.change24h + (Math.random() * 0.4 - 0.2),
-        }))
-      );
-    }, 3000);
-
+      setScrollPosition(prev => (prev + 1) % tokenData.length);
+    }, speed === 'slow' ? 5000 : speed === 'medium' ? 3000 : 2000);
+    
     return () => clearInterval(interval);
-  }, []);
-
+  }, [speed]);
+  
   return (
-    <div className="token-ticker border-y border-border/50 bg-background/50 backdrop-blur-sm">
-      <div className="token-ticker-content">
-        {tokens.map((token, index) => (
-          <span
-            key={token.symbol}
-            className={cn(
-              "inline-flex items-center mx-3",
-              "animate-pulse-slow",
-              { "animate-delay-100": index % 3 === 0 },
-              { "animate-delay-200": index % 3 === 1 }
-            )}
-            style={{ animationDelay: `${index * 100}ms` }}
-          >
-            <span className="font-semibold text-foreground">{token.symbol}</span>
-            <span className="mx-1 text-muted-foreground">$</span>
-            <span className="font-mono">{token.price.toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
-            <span 
-              className={cn(
-                "ml-1 flex items-center",
-                token.change24h >= 0 ? "text-crypto-green" : "text-crypto-red"
-              )}
+    <div className={cn(
+      "bg-background/90 backdrop-blur-lg border-b border-border/50 overflow-hidden sticky top-16 z-40 flex py-2 h-12",
+      className
+    )}>
+      <div className="flex items-center px-3 font-semibold text-xs md:text-sm text-crypto-blue">
+        <span className="hidden md:inline">CRYPTO</span>
+        <span className="md:hidden">$</span>
+      </div>
+      
+      <div className="flex items-center overflow-hidden flex-1 relative">
+        <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent z-10"></div>
+        <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent z-10"></div>
+        
+        <div 
+          className="flex animate-none space-x-6 whitespace-nowrap px-4"
+          style={{
+            transition: "transform 0.5s ease-in-out",
+            transform: `translateX(-${scrollPosition * 150}px)`,
+          }}
+        >
+          {tokenData.map((token, index) => (
+            <div 
+              key={`${token.symbol}-${index}`} 
+              className="flex items-center space-x-2 text-sm"
             >
-              {token.change24h >= 0 ? <ArrowUp className="h-3 w-3 mr-0.5" /> : <ArrowDown className="h-3 w-3 mr-0.5" />}
-              {Math.abs(token.change24h).toFixed(1)}%
-            </span>
-          </span>
-        ))}
+              <span className="font-medium">{token.symbol}</span>
+              <span className="hidden md:inline text-muted-foreground text-xs">{token.name}</span>
+              <div className="flex items-center">
+                <span className="font-medium">
+                  {token.symbol === 'SHIB' 
+                    ? token.price.toFixed(8) 
+                    : token.price < 1 
+                      ? token.price.toFixed(4) 
+                      : token.price.toFixed(2)}
+                </span>
+                <div className={cn(
+                  "flex items-center ml-1",
+                  token.change >= 0 ? "text-crypto-green" : "text-crypto-red"
+                )}>
+                  {token.change >= 0 ? (
+                    <ArrowUpRight className="h-3 w-3" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3" />
+                  )}
+                  <span className="text-xs">{Math.abs(token.change).toFixed(1)}%</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

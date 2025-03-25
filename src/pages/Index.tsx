@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import Navigation from '@/components/layout/Navigation';
@@ -11,16 +12,18 @@ import NFTGallery from '@/components/crypto/NFTGallery';
 import { mockTweets, suggestedUsers } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Sparkles, Zap, Lightbulb, Filter, Shield } from 'lucide-react';
+import { Pencil, Sparkles, Zap, Lightbulb, Filter, Shield, Image, FileText, AtSign, Smile } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { toast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [tweets, setTweets] = useState(mockTweets);
   const [tweetContent, setTweetContent] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [activeFeed, setActiveFeed] = useState('trending'); // trending, latest, following
+  const [showComposeDialog, setShowComposeDialog] = useState(false);
   
   useEffect(() => {
     // Simulate loading time
@@ -31,16 +34,56 @@ const Index = () => {
     return () => clearTimeout(timer);
   }, []);
   
+  const handleTweet = () => {
+    if (!tweetContent.trim()) return;
+    
+    // Create a new tweet
+    const newTweet = {
+      id: `tweet-${Date.now()}`,
+      content: tweetContent,
+      timestamp: new Date().toISOString(),
+      likes: 0,
+      retweets: 0,
+      comments: 0,
+      hashtags: tweetContent
+        .split(' ')
+        .filter(word => word.startsWith('#'))
+        .map(tag => tag.substring(1)),
+      user: {
+        id: "user-1",
+        displayName: "You",
+        username: "satoshi",
+        verified: true,
+        avatarUrl: "https://api.dicebear.com/7.x/identicon/svg?seed=satoshi",
+        followers: 1024,
+        following: 256,
+      }
+    };
+    
+    // Add the new tweet to the top of the list
+    setTweets([newTweet, ...tweets]);
+    
+    // Clear the input
+    setTweetContent('');
+    
+    // Show a success message
+    toast({
+      title: "Posted!",
+      description: "Your tweet has been posted successfully.",
+    });
+  };
+  
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 md:pl-20">
       <Header />
       <Navigation />
       
-      <TokenTicker />
+      <TokenTicker speed="slow" />
       
       <main className="container max-w-7xl pt-6 px-4">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {/* Desktop Compose Tweet */}
             <AnimatedCard className="p-4">
               <div className="flex space-x-3">
                 <img
@@ -49,40 +92,45 @@ const Index = () => {
                   className="h-10 w-10 rounded-full object-cover border border-border"
                 />
                 <div className="flex-1">
-                  <Input
-                    placeholder="What's happening in the cryptoverse?"
-                    className="border-none crypto-input text-base shadow-none focus-visible:ring-0 p-0 h-auto"
-                    value={tweetContent}
-                    onChange={(e) => setTweetContent(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      placeholder="What's happening in the cryptoverse?"
+                      className="border-none crypto-input text-base shadow-none focus-visible:ring-0 p-0 h-auto min-h-[60px]"
+                      value={tweetContent}
+                      onChange={(e) => setTweetContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey && tweetContent.trim()) {
+                          e.preventDefault();
+                          handleTweet();
+                        }
+                      }}
+                    />
+                    {tweetContent.length > 100 && (
+                      <div className="absolute right-0 bottom-0 text-xs text-muted-foreground">
+                        {tweetContent.length}/280
+                      </div>
+                    )}
+                  </div>
                   <div className="mt-3 flex justify-between items-center">
                     <div className="flex space-x-2">
                       <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <rect width="18" height="18" x="3" y="3" rx="2" />
-                          <circle cx="9" cy="9" r="2" />
-                          <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                        </svg>
+                        <Image className="h-5 w-5" />
                       </Button>
                       <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                          <polyline points="14 2 14 8 20 8" />
-                        </svg>
+                        <FileText className="h-5 w-5" />
                       </Button>
                       <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z" />
-                          <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                          <line x1="9" x2="9.01" y1="9" y2="9" />
-                          <line x1="15" x2="15.01" y1="9" y2="9" />
-                        </svg>
+                        <AtSign className="h-5 w-5" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="rounded-full text-crypto-blue">
+                        <Smile className="h-5 w-5" />
                       </Button>
                     </div>
                     <Button 
-                      size="sm" 
-                      className="rounded-full" 
+                      size="sm"
+                      className="rounded-full bg-crypto-blue hover:bg-crypto-blue/90 text-white"
                       disabled={!tweetContent.trim()}
+                      onClick={handleTweet}
                     >
                       <Pencil className="h-4 w-4 mr-1" />
                       Tweet
@@ -92,12 +140,20 @@ const Index = () => {
               </div>
             </AnimatedCard>
             
+            {/* Mobile Floating Action Button for Compose */}
+            <Button 
+              className="fixed right-4 bottom-20 md:hidden rounded-full h-14 w-14 shadow-lg bg-crypto-blue hover:bg-crypto-blue/90 z-20"
+              onClick={() => setShowComposeDialog(true)}
+            >
+              <Pencil className="h-6 w-6" />
+            </Button>
+            
             <div className="flex items-center justify-between">
-              <div className="flex gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 <Button 
                   variant={activeFeed === 'trending' ? 'default' : 'outline'} 
                   size="sm" 
-                  className="rounded-full flex items-center gap-1"
+                  className="rounded-full flex items-center gap-1 whitespace-nowrap"
                   onClick={() => setActiveFeed('trending')}
                 >
                   <Zap className="h-3.5 w-3.5" />
@@ -106,7 +162,7 @@ const Index = () => {
                 <Button 
                   variant={activeFeed === 'latest' ? 'default' : 'outline'} 
                   size="sm" 
-                  className="rounded-full flex items-center gap-1"
+                  className="rounded-full flex items-center gap-1 whitespace-nowrap"
                   onClick={() => setActiveFeed('latest')}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
@@ -115,7 +171,7 @@ const Index = () => {
                 <Button 
                   variant={activeFeed === 'following' ? 'default' : 'outline'} 
                   size="sm" 
-                  className="rounded-full flex items-center gap-1"
+                  className="rounded-full flex items-center gap-1 whitespace-nowrap"
                   onClick={() => setActiveFeed('following')}
                 >
                   <Lightbulb className="h-3.5 w-3.5" />
@@ -160,7 +216,7 @@ const Index = () => {
                   </div>
                 ))
               ) : (
-                tweets.map((tweet, index) => (
+                tweets.map((tweet) => (
                   tweet && tweet.user ? (
                     <EnhancedTweetCard
                       key={tweet.id}

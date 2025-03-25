@@ -1,10 +1,9 @@
 
 import { useState, useEffect } from 'react';
-import { Bell, Search, Menu, X, Moon, Sun } from 'lucide-react';
+import { Bell, Menu, X, Moon, Sun, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import WalletConnect from '@/components/common/WalletConnect';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -55,14 +54,6 @@ const Header = () => {
               KryptoSphere
             </span>
           </Link>
-          
-          <div className="hidden md:flex relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input 
-              placeholder="Search KryptoSphere..." 
-              className="pl-9 w-[200px] lg:w-[300px] crypto-input rounded-full"
-            />
-          </div>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -73,6 +64,15 @@ const Header = () => {
             onClick={() => setIsDark(!isDark)}
           >
             {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+          
+          <Button 
+            variant="outline"
+            size="sm"
+            className="rounded-full hidden md:flex items-center gap-1"
+          >
+            <PlusCircle className="h-4 w-4 mr-1" />
+            <span>New</span>
           </Button>
           
           <Button variant="ghost" size="icon" className="relative rounded-full">
@@ -115,14 +115,6 @@ const Header = () => {
         mobileMenu ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-full pointer-events-none"
       )}>
         <div className="flex flex-col p-4 space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input 
-              placeholder="Search KryptoSphere..." 
-              className="pl-9 crypto-input rounded-full"
-            />
-          </div>
-          
           <nav className="space-y-2">
             {[
               { text: 'Home', path: '/' },
