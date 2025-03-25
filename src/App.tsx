@@ -1,144 +1,78 @@
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import Index from "./pages/Index";
-import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard";
-import Explore from "./pages/Explore";
-import Messages from "./pages/Messages";
-import NotFound from "./pages/NotFound";
-import Header from '@/components/layout/Header';
-import Navigation from '@/components/layout/Navigation';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import AppLayout from '@/components/layout/AppLayout';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import NotFound from "./pages/NotFound";
 
-// Skapa en QueryClient med stabila inställningar
+// Lazy loading av sidorna för att förbättra prestanda
+const Index = React.lazy(() => import('./pages/Index'));
+const Profile = React.lazy(() => import('./pages/Profile'));
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const Explore = React.lazy(() => import('./pages/Explore'));
+const Messages = React.lazy(() => import('./pages/Messages'));
+
+// Skapa en förbättrad QueryClient med stabila inställningar som minskar flicker
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000, // 5 minuter
+      suspense: false, // Inaktivera React Query's inbyggda suspense
+      useErrorBoundary: true, // Använd ErrorBoundary för att fånga query-fel
     },
   },
 });
 
-// Wrapper-komponent för layout
-const AppLayout = ({ children }) => {
-  return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0 md:pl-20">
-      <Header />
-      <Navigation />
-      <ErrorBoundary>
-        {children}
-      </ErrorBoundary>
+// Laddningskomponent för Suspense
+const LoadingFallback = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="animate-pulse flex flex-col items-center gap-4">
+      <div className="h-12 w-12 rounded-full bg-muted"></div>
+      <div className="h-4 w-32 bg-muted rounded"></div>
     </div>
-  );
-};
+  </div>
+);
 
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <BrowserRouter>
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
+                {/* Main layout med alla routes som använder standard layouten */}
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/profile/:username" element={<Profile />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/explore" element={<Explore />} />
+                  <Route path="/messages" element={<Messages />} />
+                  <Route path="/tweets" element={<Index />} />
+                  <Route path="/network" element={<Explore />} />
+                  <Route path="/notifications" element={<Index />} />
+                  <Route path="/settings" element={<Index />} />
+                  <Route path="/hashtag/:tag" element={<Explore />} />
+                  {/* Redirect för eventuella felaktiga URL:er */}
+                  <Route path="*" element={<Navigate to="/404" replace />} />
+                </Route>
+                {/* Lägg 404-sidan utanför AppLayout eftersom den har egen layout */}
+                <Route path="/404" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
+        </BrowserRouter>
+        
+        {/* Placera toasters utanför routing för att undvika att de försvinner vid route-ändringar */}
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route 
-              path="/" 
-              element={
-                <AppLayout>
-                  <Index />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/profile" 
-              element={
-                <AppLayout>
-                  <Profile />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/profile/:username" 
-              element={
-                <AppLayout>
-                  <Profile />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/dashboard" 
-              element={
-                <AppLayout>
-                  <Dashboard />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/explore" 
-              element={
-                <AppLayout>
-                  <Explore />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/messages" 
-              element={
-                <AppLayout>
-                  <Messages />
-                </AppLayout>
-              } 
-            />
-            {/* Placeholder routes for the remaining pages */}
-            <Route 
-              path="/tweets" 
-              element={
-                <AppLayout>
-                  <Index />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/network" 
-              element={
-                <AppLayout>
-                  <Explore />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/notifications" 
-              element={
-                <AppLayout>
-                  <Index />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/settings" 
-              element={
-                <AppLayout>
-                  <Index />
-                </AppLayout>
-              } 
-            />
-            <Route 
-              path="/hashtag/:tag" 
-              element={
-                <AppLayout>
-                  <Explore />
-                </AppLayout>
-              } 
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
   );

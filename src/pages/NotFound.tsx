@@ -1,8 +1,8 @@
 
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { X } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
@@ -24,11 +24,21 @@ const NotFound = () => {
         <p className="text-muted-foreground mb-6">
           Vi kunde inte hitta sidan du letade efter. Den kan ha flyttats eller tagits bort.
         </p>
-        <Link to="/">
-          <Button className="w-full">
-            Tillbaka till hemsidan
+        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+          <Link to="/">
+            <Button className="w-full">
+              Tillbaka till hemsidan
+            </Button>
+          </Link>
+          <Button 
+            variant="outline" 
+            className="w-full mt-2 sm:mt-0"
+            onClick={() => window.history.back()}
+          >
+            <X className="mr-2 h-4 w-4" />
+            Stäng
           </Button>
-        </Link>
+        </div>
       </div>
     </div>
   );

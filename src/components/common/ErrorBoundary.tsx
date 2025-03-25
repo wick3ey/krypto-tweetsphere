@@ -11,21 +11,47 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorInfo: ErrorInfo | null;
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { 
+      hasError: false, 
+      error: null, 
+      errorInfo: null 
+    };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    // Uppdatera state så att nästa render visar fallback UI
+    return { 
+      hasError: true, 
+      error, 
+      errorInfo: null 
+    };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error("Error caught by ErrorBoundary:", error, errorInfo);
+    // Logga detaljerad felinformation för debugging
+    console.error("Error caught by ErrorBoundary:", error);
+    console.error("Component stack:", errorInfo.componentStack);
+    
+    // Uppdatera state med errorInfo för att visa mer information
+    this.setState({
+      errorInfo: errorInfo
+    });
   }
+
+  // Metod för att återställa error state
+  resetError = () => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
+    });
+  };
 
   render(): ReactNode {
     if (this.state.hasError) {
@@ -46,10 +72,25 @@ class ErrorBoundary extends Component<Props, State> {
             <Button onClick={() => window.location.reload()}>
               Ladda om sidan
             </Button>
+            <Button 
+              variant="outline" 
+              onClick={this.resetError} 
+              className="ml-2"
+            >
+              Försök igen
+            </Button>
           </div>
           {this.state.error && (
             <div className="mt-4 p-4 bg-muted/50 rounded-md text-sm overflow-auto max-w-md text-left">
               <p className="font-mono">{this.state.error.toString()}</p>
+              {this.state.errorInfo && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs opacity-70">Teknisk information</summary>
+                  <pre className="mt-2 text-xs overflow-auto max-h-[200px] p-2 bg-muted/80 rounded">
+                    {this.state.errorInfo.componentStack}
+                  </pre>
+                </details>
+              )}
             </div>
           )}
         </div>
