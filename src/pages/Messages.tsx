@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import Header from '@/components/layout/Header';
 import Navigation from '@/components/layout/Navigation';
@@ -57,7 +58,7 @@ const mockConversations = [
       avatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=sbf',
       verified: false,
     },
-    lastMessage: 'Can I borrow some funds for a bit? Promise I'll return them.',
+    lastMessage: "Can I borrow some funds for a bit? Promise I'll return them.",
     timestamp: '2023-04-10T22:15:00',
     unread: 0,
   },
