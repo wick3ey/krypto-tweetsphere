@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import Header from '@/components/layout/Header';
 import Navigation from '@/components/layout/Navigation';
@@ -38,7 +37,6 @@ const Profile = () => {
                     key={tweet.id}
                     tweet={tweet}
                     className="animate-fade-in"
-                    style={{ animationDelay: `${index * 100}ms` }}
                   />
                 ))
               ) : (

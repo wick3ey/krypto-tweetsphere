@@ -1,4 +1,3 @@
-
 import { Heart, MessageSquare, Repeat2, Share } from 'lucide-react';
 import { Tweet } from '@/lib/types';
 import { Link } from 'react-router-dom';
@@ -8,9 +7,10 @@ import { cn } from '@/lib/utils';
 interface TweetCardProps {
   tweet: Tweet;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-const TweetCard = ({ tweet, className }: TweetCardProps) => {
+const TweetCard = ({ tweet, className, style }: TweetCardProps) => {
   const formattedDate = formatDistanceToNow(new Date(tweet.timestamp), { addSuffix: true });
   
   const formatNumber = (num: number): string => {
@@ -27,7 +27,10 @@ const TweetCard = ({ tweet, className }: TweetCardProps) => {
   };
 
   return (
-    <div className={cn("glass-card p-4 overflow-hidden transition-all duration-300 hover-scale", className)}>
+    <div 
+      className={cn("glass-card p-4 overflow-hidden transition-all duration-300 hover-scale", className)}
+      style={style}
+    >
       <div className="flex space-x-3">
         <Link to={`/profile/${tweet.user.username}`} className="flex-shrink-0">
           <img

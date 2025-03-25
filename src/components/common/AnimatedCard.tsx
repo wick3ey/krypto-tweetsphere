@@ -6,15 +6,18 @@ interface AnimatedCardProps {
   children: React.ReactNode;
   className?: string;
   delay?: number;
+  style?: React.CSSProperties;
 }
 
 const AnimatedCard: React.FC<AnimatedCardProps> = ({
   children,
   className,
-  delay = 0
+  delay = 0,
+  style = {}
 }) => {
   const animationStyle = {
-    animationDelay: delay ? `${delay}ms` : undefined
+    animationDelay: delay ? `${delay}ms` : undefined,
+    ...style
   };
 
   return (

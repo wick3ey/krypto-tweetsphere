@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import Header from '@/components/layout/Header';
 import Navigation from '@/components/layout/Navigation';
@@ -7,7 +6,7 @@ import AnimatedCard from '@/components/common/AnimatedCard';
 import { mockTweets, suggestedUsers } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Pencil, Sparkles, Trending } from 'lucide-react';
+import { Pencil, Sparkles, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const Index = () => {
@@ -67,7 +66,6 @@ const Index = () => {
                   key={tweet.id} 
                   tweet={tweet} 
                   className="animate-fade-in"
-                  style={{ animationDelay: `${index * 100}ms` }}
                 />
               ))}
             </div>
@@ -76,7 +74,7 @@ const Index = () => {
           <div className="hidden md:block space-y-6">
             <AnimatedCard className="p-4">
               <div className="flex items-center space-x-2 mb-4">
-                <Trending className="h-5 w-5 text-crypto-blue" />
+                <TrendingUp className="h-5 w-5 text-crypto-blue" />
                 <h3 className="font-semibold">Trending in Crypto</h3>
               </div>
               
