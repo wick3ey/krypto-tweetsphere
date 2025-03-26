@@ -22,9 +22,9 @@ const AppLayout = () => {
       <Navigation />
       <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
-          <div className="min-h-[calc(100vh-4rem)]">
+          <main className="pt-16 min-h-[calc(100vh-4rem)]">
             <Outlet />
-          </div>
+          </main>
         </Suspense>
       </ErrorBoundary>
     </div>

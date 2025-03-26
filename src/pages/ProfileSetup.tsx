@@ -13,8 +13,10 @@ const ProfileSetupPage = () => {
   }
   
   return (
-    <div className="container max-w-screen-md mx-auto py-12">
-      <ProfileSetup />
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="w-full max-w-screen-md bg-card rounded-xl shadow-lg border border-border/50 overflow-hidden">
+        <ProfileSetup />
+      </div>
     </div>
   );
 };

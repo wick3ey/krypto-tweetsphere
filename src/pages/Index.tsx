@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import AnimatedCard from '@/components/common/AnimatedCard';
 import TokenTicker from '@/components/crypto/TokenTicker';
@@ -19,7 +19,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { tweetService } from '@/api/tweetService';
 import { authService } from '@/api/authService';
 import { exploreService } from '@/api/exploreService';
-import { userService } from '@/api/userService'; // Added missing import
+import { userService } from '@/api/userService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {
@@ -109,13 +109,15 @@ const Index = () => {
     <>
       <TokenTicker speed="slow" />
       
-      <main className="container max-w-7xl pt-6 px-4">
+      <div className="container max-w-7xl px-4 pt-2 pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            {/* Desktop and Mobile Compose Tweet */}
-            <ComposeDialog onSubmit={handleTweet} />
+          <div className="lg:col-span-2 space-y-5">
+            {/* Desktop Compose Tweet - Properly positioned and visible */}
+            <div className="mt-4 mb-6">
+              <ComposeDialog onSubmit={handleTweet} />
+            </div>
             
-            <div className="flex items-center justify-between overflow-x-auto">
+            <div className="flex items-center justify-between overflow-x-auto mb-4">
               <div className="flex gap-2 pb-2 scrollbar-none w-fit">
                 <Button 
                   variant={activeFeed === 'trending' ? 'default' : 'outline'} 
@@ -277,7 +279,7 @@ const Index = () => {
             </AnimatedCard>
           </div>
         </div>
-      </main>
+      </div>
     </>
   );
 };

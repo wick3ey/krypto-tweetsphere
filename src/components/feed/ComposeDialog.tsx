@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -46,19 +46,19 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
       <DialogTrigger asChild>
         {isMobile ? (
           <Button 
-            className="fixed right-4 bottom-20 md:hidden rounded-full h-14 w-14 shadow-lg bg-crypto-blue hover:bg-crypto-blue/90 z-20"
+            className="fixed right-4 bottom-24 md:hidden rounded-full h-14 w-14 shadow-lg z-20 bg-crypto-blue hover:bg-crypto-blue/90"
             onClick={() => setIsOpen(true)}
           >
             <Pencil className="h-6 w-6" />
           </Button>
         ) : (
           <div className="w-full">
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-card/80 border border-border/50 cursor-text" onClick={() => setIsOpen(true)}>
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-text" onClick={() => setIsOpen(true)}>
               <Avatar className="h-10 w-10 border border-border/50">
                 <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} />
                 <AvatarFallback>{currentUser.displayName.charAt(0)}</AvatarFallback>
               </Avatar>
-              <div className="text-muted-foreground text-base flex-1">
+              <div className="text-muted-foreground text-base flex-1 font-medium">
                 Vad händer i kryptovärlden?
               </div>
             </div>
@@ -74,6 +74,9 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
               <X className="h-4 w-4" />
             </Button>
           </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Dela dina tankar om kryptomarknaden med andra
+          </DialogDescription>
         </DialogHeader>
         
         <div className="p-4">
