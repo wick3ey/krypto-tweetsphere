@@ -24,7 +24,7 @@ const queryClient = new QueryClient({
       retry: 1,
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000,
-      suspense: false,
+      // Removed suspense property
       useErrorBoundary: true,
     },
   },

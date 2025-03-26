@@ -6,6 +6,13 @@ import { toast } from 'sonner';
 import { authService } from '@/api/authService';
 import { ethers } from 'ethers';
 
+// Add TypeScript declaration for window.ethereum
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+
 interface WalletConnectProps {
   onConnect?: (address: string) => void;
   className?: string;

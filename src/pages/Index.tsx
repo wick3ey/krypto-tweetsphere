@@ -19,6 +19,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { tweetService } from '@/api/tweetService';
 import { authService } from '@/api/authService';
 import { exploreService } from '@/api/exploreService';
+import { userService } from '@/api/userService'; // Added missing import
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {
