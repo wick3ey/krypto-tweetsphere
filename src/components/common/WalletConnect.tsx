@@ -7,10 +7,13 @@ import { authService } from '@/api/authService';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
-// Add TypeScript declaration for window.solana
+// Add TypeScript declaration for window.solana and window.phantom
 declare global {
   interface Window {
     solana?: any;
+    phantom?: {
+      solana?: any;
+    };
   }
 }
 
@@ -26,119 +29,210 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // When component mounts
+  // Get Phantom provider
+  const getProvider = () => {
+    if ('phantom' in window) {
+      const provider = window.phantom?.solana;
+      
+      if (provider?.isPhantom) {
+        return provider;
+      }
+    }
+    
+    // Phantom is not installed, redirect to Phantom website
+    window.open('https://phantom.app/', '_blank');
+    return null;
+  };
+  
+  // When component mounts, try to eagerly connect
   useEffect(() => {
     console.debug("WalletConnect component mounted");
     
-    // Check if user is already logged in
-    const checkStoredCredentials = () => {
-      const storedAddress = localStorage.getItem('wallet_address');
-      const storedToken = localStorage.getItem('jwt_token');
+    const tryEagerConnect = async () => {
+      const provider = getProvider();
+      if (!provider) return;
       
-      if (storedAddress && storedToken) {
-        setWalletAddress(storedAddress);
+      try {
+        // Try to eagerly connect if the user has already connected before
+        const resp = await provider.connect({ onlyIfTrusted: true });
+        const address = resp.publicKey.toString();
+        console.info("Eagerly connected to wallet", { address });
+        
+        setWalletAddress(address);
         setIsConnected(true);
-        console.info("User already connected with stored credentials", { walletAddress: storedAddress });
+        
+        // Check if token exists in localStorage
+        const storedToken = localStorage.getItem('jwt_token');
+        if (!storedToken) {
+          // Verify with the server
+          await verifyWalletConnection(provider, address);
+        } else {
+          // Just update localStorage with wallet address
+          localStorage.setItem('wallet_address', address);
+          
+          // Let the parent component know about the connection
+          if (onConnect) {
+            onConnect(address);
+          }
+        }
+      } catch (error) {
+        console.debug("No eager connection available", error);
+        // This is expected if the wallet hasn't connected before
       }
     };
     
-    checkStoredCredentials();
+    // Setup account change handler
+    const setupAccountChangeListener = () => {
+      const provider = getProvider();
+      if (!provider) return;
+      
+      provider.on('accountChanged', (publicKey: any) => {
+        if (publicKey) {
+          // User switched to a connected account
+          const newAddress = publicKey.toString();
+          console.info("Switched wallet account", { newAddress });
+          
+          setWalletAddress(newAddress);
+          localStorage.setItem('wallet_address', newAddress);
+          
+          // Invalidate any cached user data
+          queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+          
+          if (onConnect) {
+            onConnect(newAddress);
+          }
+        } else {
+          // User switched to an account that isn't connected to the app
+          // Try to reconnect
+          handleConnect();
+        }
+      });
+      
+      // Listen for disconnect events
+      provider.on('disconnect', () => {
+        console.info("Wallet disconnected");
+        setIsConnected(false);
+        setWalletAddress('');
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('wallet_address');
+        
+        // Invalidate any cached user data
+        queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      });
+    };
+    
+    tryEagerConnect();
+    setupAccountChangeListener();
     
     // Cleanup when component unmounts
     return () => {
+      const provider = getProvider();
+      if (provider) {
+        provider.removeAllListeners('accountChanged');
+        provider.removeAllListeners('disconnect');
+      }
       console.debug("WalletConnect component unmounted");
     };
   }, []);
   
-  const handleConnect = async () => {
-    if (!window.solana) {
-      const errorMsg = "Solana wallet not found";
-      console.warn(errorMsg, { userAgent: navigator.userAgent });
+  const verifyWalletConnection = async (provider: any, address: string) => {
+    try {
+      // Get nonce and authentication message from the server
+      console.debug("Requesting authentication nonce", { address });
+      const authData = await authService.getNonce(address);
       
-      toast.error(errorMsg, {
-        description: "Please install a Solana wallet extension like Phantom to connect",
+      if (!authData || !authData.nonce || !authData.message) {
+        const errorMsg = "Failed to get valid authentication data from server";
+        console.error(errorMsg, { authData });
+        throw new Error(errorMsg);
+      }
+      
+      const { message } = authData;
+      console.debug("Received authentication message", { message });
+      
+      // Create a signature using the message from the server
+      const encodedMessage = new TextEncoder().encode(message);
+      
+      // Sign the message
+      console.debug("Requesting user to sign message", { message });
+      const signedMessage = await provider.signMessage(encodedMessage, "utf8");
+      console.info("Message signed successfully", { 
+        signature: signedMessage.signature.substring(0, 20) + '...'
       });
-      return;
+      
+      // Verify signature with the server and get JWT token
+      console.debug("Verifying signature with server");
+      const authResult = await authService.verifySignature(address, signedMessage.signature);
+      console.info("Signature verified successfully", 
+        { userId: authResult.user.id, isNewUser: authResult.isNewUser });
+      
+      // Invalidate any cached user data
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      
+      if (onConnect) {
+        onConnect(address);
+      }
+      
+      // Check if this is a new user who needs to complete profile setup
+      if (authResult.isNewUser) {
+        console.info("New user detected, redirecting to profile setup", 
+          { userId: authResult.user.id });
+          
+        toast.success("Wallet connected! Let's set up your profile", {
+          description: "Complete your profile to get started",
+        });
+        
+        // Redirect to profile setup
+        navigate('/setup-profile');
+      } else {
+        console.info("Existing user logged in successfully", 
+          { userId: authResult.user.id, username: authResult.user.username });
+          
+        toast.success("Wallet connected successfully", {
+          description: `Connected to ${formatWalletAddress(address)}`,
+        });
+      }
+    } catch (error: any) {
+      console.error("Authentication error", { error });
+      toast.error("Authentication failed", {
+        description: error.message || "Failed to authenticate with the server. Please try again.",
+      });
+      throw error;
     }
+  };
+  
+  const handleConnect = async () => {
+    const provider = getProvider();
+    if (!provider) return;
     
     setIsConnecting(true);
     console.info("Initiating wallet connection");
     
     try {
-      // First, request wallet connection
+      // Request wallet connection
       console.debug("Requesting connection to wallet");
-      const resp = await window.solana.connect();
+      const resp = await provider.connect();
       const address = resp.publicKey.toString();
       console.info("Connected to wallet", { address });
       
-      try {
-        // Get nonce and authentication message from the server
-        console.debug("Requesting authentication nonce", { address });
-        const authData = await authService.getNonce(address);
-        
-        if (!authData || !authData.nonce || !authData.message) {
-          const errorMsg = "Failed to get valid authentication data from server";
-          console.error(errorMsg, { authData });
-          throw new Error(errorMsg);
-        }
-        
-        const { message } = authData;
-        console.debug("Received authentication message", { message });
-        
-        // Create a signature using the message from the server
-        const encodedMessage = new TextEncoder().encode(message);
-        
-        // Sign the message
-        console.debug("Requesting user to sign message", { message });
-        const signedMessage = await window.solana.signMessage(encodedMessage, "utf8");
-        console.info("Message signed successfully", { signature: !!signedMessage });
-        
-        // Verify signature with the server and get JWT token
-        console.debug("Verifying signature with server");
-        const authResult = await authService.verifySignature(address, signedMessage.signature);
-        console.info("Signature verified successfully", 
-          { userId: authResult.user.id, isNewUser: authResult.isNewUser });
-        
-        setWalletAddress(address);
-        setIsConnected(true);
-        
-        // Invalidate any cached user data
-        queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-        
-        if (onConnect) {
-          onConnect(address);
-        }
-        
-        // Check if this is a new user who needs to complete profile setup
-        if (authResult.isNewUser) {
-          console.info("New user detected, redirecting to profile setup", 
-            { userId: authResult.user.id });
-            
-          toast.success("Wallet connected! Let's set up your profile", {
-            description: "Complete your profile to get started",
-          });
-          
-          // Redirect to profile setup
-          navigate('/setup-profile');
-        } else {
-          console.info("Existing user logged in successfully", 
-            { userId: authResult.user.id, username: authResult.user.username });
-            
-          toast.success("Wallet connected successfully", {
-            description: `Connected to ${formatWalletAddress(address)}`,
-          });
-        }
-      } catch (error: any) {
-        console.error("Authentication error", { error, address });
-        toast.error("Authentication failed", {
-          description: error.message || "Failed to authenticate with the server. Please try again.",
-        });
-      }
+      setWalletAddress(address);
+      setIsConnected(true);
+      
+      // Verify with the server to get a JWT token
+      await verifyWalletConnection(provider, address);
     } catch (error: any) {
       console.error("Wallet connection error", { error });
-      toast.error("Connection failed", {
-        description: error.message || "Failed to connect wallet. Please try again.",
-      });
+      
+      if (error.code === 4001) {
+        // User rejected the connection
+        toast.error("Connection cancelled", {
+          description: "You rejected the connection request.",
+        });
+      } else {
+        toast.error("Connection failed", {
+          description: error.message || "Failed to connect wallet. Please try again.",
+        });
+      }
     } finally {
       setIsConnecting(false);
     }

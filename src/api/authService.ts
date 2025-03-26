@@ -83,14 +83,32 @@ export const authService = {
   logout: async () => {
     try {
       console.info("Logging out user", {});
+      
+      // Get Phantom provider if available
+      const provider = window.phantom?.solana;
+      if (provider && provider.isConnected) {
+        try {
+          // Disconnect from Phantom wallet
+          await provider.disconnect();
+          console.info("Disconnected from Phantom wallet");
+        } catch (walletError) {
+          console.error("Error disconnecting from wallet", { walletError });
+        }
+      }
+      
+      // Call server-side logout
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/logout');
+      
+      // Clear local storage even if API call succeeds or fails
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
+      
       console.info("User logged out successfully", {});
       toast.success("Logged out successfully");
       return response.data;
     } catch (error) {
       console.error('Error during logout', { error });
+      
       // Still clear local storage even if the API call fails
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');

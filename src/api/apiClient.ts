@@ -79,6 +79,17 @@ apiClient.interceptors.response.use(
     if (error.response) {
       if (error.response.status === 401) {
         console.log('Unauthorized request detected, clearing auth data');
+        
+        // Try to disconnect from Phantom if it's available
+        const provider = window.phantom?.solana;
+        if (provider && provider.isConnected) {
+          try {
+            provider.disconnect();
+          } catch (walletError) {
+            console.error("Error disconnecting from wallet during auth error", { walletError });
+          }
+        }
+        
         localStorage.removeItem('jwt_token');
         localStorage.removeItem('wallet_address');
         
