@@ -5,7 +5,7 @@ import { TrendingData, CommunitiesData, SuggestedUser } from '@/lib/types';
 export const exploreService = {
   getTrending: async (): Promise<TrendingData> => {
     try {
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/explore/trending');
+      const response = await apiClient.get('/api/explore/trending');
       // Ensure we always return an object with empty arrays as defaults
       return {
         topics: Array.isArray(response.data.topics) ? response.data.topics : [],
@@ -21,7 +21,7 @@ export const exploreService = {
   
   getHashtagTweets: async (tag: string, sort?: string): Promise<any[]> => {
     try {
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/explore/hashtags/${tag}`, {
+      const response = await apiClient.get(`/api/explore/hashtags/${tag}`, {
         params: sort ? { sort } : undefined
       });
       return Array.isArray(response.data) ? response.data : [];
@@ -33,7 +33,7 @@ export const exploreService = {
   
   getCommunities: async (): Promise<CommunitiesData> => {
     try {
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/explore/communities');
+      const response = await apiClient.get('/api/explore/communities');
       // Ensure we always return an object with empty arrays as defaults
       return {
         topics: Array.isArray(response.data.topics) ? response.data.topics : [],
@@ -56,7 +56,7 @@ export const exploreService = {
         return [];
       }
       
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/explore/users');
+      const response = await apiClient.get('/api/explore/users');
       
       // Handle successful response
       if (response && response.data) {
