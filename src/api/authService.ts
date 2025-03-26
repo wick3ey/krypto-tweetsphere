@@ -36,9 +36,11 @@ export const authService = {
     try {
       console.info("Verifying signature", { walletAddress, signaturePreview: signature.substring(0, 20) + '...' });
       
+      // Send the exact payload format expected by the API
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/verify', { 
         walletAddress, 
-        signature
+        signature,
+        encoding: 'base64' // Explicitly specify the signature encoding format
       });
       
       // Check if the authentication was successful
