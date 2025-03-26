@@ -1,11 +1,8 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = 'https://f3oci3ty.xyz/api';
-
 // Create an axios instance with default config
 const apiClient = axios.create({
-  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -30,6 +27,7 @@ apiClient.interceptors.response.use(
     // Handle auth errors
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('jwt_token');
+      localStorage.removeItem('wallet_address');
       window.location.href = '/';
     }
     return Promise.reject(error);

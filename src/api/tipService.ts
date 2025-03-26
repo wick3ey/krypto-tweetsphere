@@ -3,32 +3,32 @@ import apiClient from './apiClient';
 
 export const tipService = {
   getTweetTips: async (tweetId: string) => {
-    const response = await apiClient.get(`/tips/tweet/${tweetId}`);
+    const response = await apiClient.get(`https://f3oci3ty.xyz/api/tips/tweet/${tweetId}`);
     return response.data;
   },
   
   getTip: async (id: string) => {
-    const response = await apiClient.get(`/tips/${id}`);
+    const response = await apiClient.get(`https://f3oci3ty.xyz/api/tips/${id}`);
     return response.data;
   },
   
   createTip: async (toUserId: string, amount: number, txHash: string) => {
-    const response = await apiClient.post('/tips', { toUserId, amount, txHash });
+    const response = await apiClient.post('https://f3oci3ty.xyz/api/tips', { toUserId, amount, txHash });
     return response.data;
   },
   
   getSentTips: async () => {
-    const response = await apiClient.get('/tips/sent');
+    const response = await apiClient.get('https://f3oci3ty.xyz/api/tips/sent');
     return response.data;
   },
   
   getReceivedTips: async () => {
-    const response = await apiClient.get('/tips/received');
+    const response = await apiClient.get('https://f3oci3ty.xyz/api/tips/received');
     return response.data;
   },
   
   updateTipStatus: async (txHash: string, status: 'pending' | 'confirmed' | 'failed') => {
-    const response = await apiClient.put(`/tips/${txHash}/status`, { status });
+    const response = await apiClient.put(`https://f3oci3ty.xyz/api/tips/${txHash}/status`, { status });
     return response.data;
   }
 };

@@ -21,7 +21,7 @@ interface WalletConnectProps {
 const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(!!localStorage.getItem('jwt_token'));
-  const [walletAddress, setWalletAddress] = useState<string>('');
+  const [walletAddress, setWalletAddress] = useState<string>(localStorage.getItem('wallet_address') || '');
   
   const handleConnect = async () => {
     if (!window.ethereum) {
@@ -51,6 +51,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       
       // Save token to localStorage
       localStorage.setItem('jwt_token', token);
+      localStorage.setItem('wallet_address', address);
       
       setWalletAddress(address);
       setIsConnected(true);
@@ -85,7 +86,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     >
       <Wallet className="mr-2 h-4 w-4" />
       {isConnecting ? "Connecting..." : 
-       isConnected ? formatWalletAddress(walletAddress || localStorage.getItem('wallet_address') || '') : "Connect Wallet"}
+       isConnected ? formatWalletAddress(walletAddress) : "Connect Wallet"}
     </Button>
   );
 };
