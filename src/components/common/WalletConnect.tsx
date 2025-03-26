@@ -29,6 +29,17 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
+  // Helper function to convert Uint8Array to base64 string
+  const arrayToBase64 = (buffer: Uint8Array): string => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  };
+  
   // Get Phantom provider
   const getProvider = () => {
     if ('phantom' in window) {
@@ -158,7 +169,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       const signedMessage = await provider.signMessage(encodedMessage, "utf8");
       
       // Convert the signature buffer to a base64 string for sending to the server
-      const signature = Buffer.from(signedMessage.signature).toString('base64');
+      const signature = arrayToBase64(signedMessage.signature);
       
       console.info("Message signed successfully", { 
         signaturePreview: signature.substring(0, 20) + '...'
