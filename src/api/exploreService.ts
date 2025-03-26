@@ -1,21 +1,9 @@
 
 import apiClient from './apiClient';
-
-// Define types for response data
-interface TrendingResponse {
-  topics: any[];
-  coins: any[];
-  events: any[];
-}
-
-interface CommunitiesResponse {
-  topics: any[];
-  projects: any[];
-  groups: any[];
-}
+import { TrendingData, CommunitiesData, SuggestedUser } from '@/lib/types';
 
 export const exploreService = {
-  getTrending: async (): Promise<TrendingResponse> => {
+  getTrending: async (): Promise<TrendingData> => {
     try {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/explore/trending');
       // Ensure we always return an object with empty arrays as defaults
@@ -43,7 +31,7 @@ export const exploreService = {
     }
   },
   
-  getCommunities: async (): Promise<CommunitiesResponse> => {
+  getCommunities: async (): Promise<CommunitiesData> => {
     try {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/explore/communities');
       // Ensure we always return an object with empty arrays as defaults
@@ -59,12 +47,39 @@ export const exploreService = {
     }
   },
   
-  getSuggestedUsers: async (): Promise<any[]> => {
+  getSuggestedUsers: async (): Promise<SuggestedUser[]> => {
     try {
+      // Check if the user is authenticated before making the request
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        console.log("User not authenticated, skipping suggested users fetch");
+        return [];
+      }
+      
       const response = await apiClient.get('https://f3oci3ty.xyz/api/explore/users');
-      return Array.isArray(response.data) ? response.data : [];
+      
+      // Handle successful response
+      if (response && response.data) {
+        // Ensure we return an array, even if the API returns an object
+        if (Array.isArray(response.data)) {
+          return response.data;
+        } else if (response.data.users && Array.isArray(response.data.users)) {
+          return response.data.users;
+        }
+      }
+      
+      // If we got here, the response wasn't in the expected format
+      return [];
     } catch (error) {
+      // Check if it's an authentication error
+      if (error?.response?.status === 401) {
+        console.warn("Authentication token expired or invalid");
+        // Optionally clear the invalid token
+        // localStorage.removeItem('jwt_token');
+      }
+      
       console.error('Error fetching suggested users:', error);
+      // Always return a valid array even on error to prevent component errors
       return [];
     }
   },
