@@ -100,9 +100,12 @@ const Explore = () => {
               <div className="mb-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-medium">#{tag}</h2>
-                  <Button variant="outline" size="sm" as={Link} to="/explore">
-                    Back to Explore
-                  </Button>
+                  {/* Fixed: Changed Button with as={Link} to a Button wrapped in Link */}
+                  <Link to="/explore">
+                    <Button variant="outline" size="sm">
+                      Back to Explore
+                    </Button>
+                  </Link>
                 </div>
                 
                 {isLoadingHashtagTweets ? (
@@ -172,7 +175,8 @@ const Explore = () => {
                         </div>
                       ))
                     ) : (
-                      trendingData.topics?.map((item: any, index: number) => (
+                      // Added type check for trendingData.topics to ensure it's an array before mapping
+                      Array.isArray(trendingData.topics) ? trendingData.topics.map((item: any, index: number) => (
                         <Link 
                           key={item.tag} 
                           to={`/hashtag/${item.tag}`}
@@ -189,7 +193,7 @@ const Explore = () => {
                             </span>
                           </div>
                         </Link>
-                      ))
+                      )) : (<p>No trending topics available</p>)
                     )}
                   </div>
                 </AnimatedCard>
@@ -219,7 +223,8 @@ const Explore = () => {
                           </div>
                         ))
                       ) : (
-                        trendingData.coins?.map((coin: any, index: number) => (
+                        // Added type check for trendingData.coins to ensure it's an array before mapping
+                        Array.isArray(trendingData.coins) ? trendingData.coins.map((coin: any, index: number) => (
                           <div 
                             key={coin.symbol} 
                             className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors animate-fade-in"
@@ -242,7 +247,7 @@ const Explore = () => {
                               </p>
                             </div>
                           </div>
-                        ))
+                        )) : (<p>No trending coins available</p>)
                       )}
                     </div>
                   </AnimatedCard>
@@ -268,7 +273,8 @@ const Explore = () => {
                           </div>
                         ))
                       ) : (
-                        trendingData.events?.map((event: any, index: number) => (
+                        // Added type check for trendingData.events to ensure it's an array before mapping
+                        Array.isArray(trendingData.events) ? trendingData.events.map((event: any, index: number) => (
                           <div 
                             key={event.name} 
                             className="flex items-center space-x-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors animate-fade-in"
@@ -285,7 +291,7 @@ const Explore = () => {
                               </div>
                             </div>
                           </div>
-                        ))
+                        )) : (<p>No hot events available</p>)
                       )}
                     </div>
                   </AnimatedCard>
@@ -311,7 +317,8 @@ const Explore = () => {
                   </AnimatedCard>
                 ))
               ) : (
-                communities.topics?.map((topic: any, index: number) => (
+                // Added type check for communities.topics to ensure it's an array before mapping
+                Array.isArray(communities.topics) ? communities.topics.map((topic: any, index: number) => (
                   <AnimatedCard 
                     key={topic.title} 
                     className="overflow-hidden hover-scale"
@@ -333,12 +340,13 @@ const Explore = () => {
                     </div>
                     <div className="p-3 flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">{topic.articles} articles</span>
+                      {/* Fixed: Changed Button with view link */}
                       <Button variant="ghost" size="sm" className="text-crypto-blue">
                         View
                       </Button>
                     </div>
                   </AnimatedCard>
-                ))
+                )) : (<p>No community topics available</p>)
               )}
             </div>
             
@@ -372,7 +380,8 @@ const Explore = () => {
                     </AnimatedCard>
                   ))
                 ) : (
-                  communities.projects?.map((project: any, index: number) => (
+                  // Added type check for communities.projects to ensure it's an array before mapping
+                  Array.isArray(communities.projects) ? communities.projects.map((project: any, index: number) => (
                     <AnimatedCard 
                       key={project.name} 
                       className="p-4"
@@ -392,17 +401,19 @@ const Explore = () => {
                           <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
                           
                           <div className="mt-3 flex space-x-4">
-                            {Object.entries(project.stats).map(([key, value]) => (
-                              <div key={key} className="bg-secondary/50 px-3 py-1 rounded-lg">
-                                <span className="text-xs text-muted-foreground uppercase">{key}</span>
-                                <p className="font-medium">{value}</p>
-                              </div>
-                            ))}
+                            {/* Added type check for project.stats to ensure it exists before using Object.entries */}
+                            {project.stats && typeof project.stats === 'object' ? 
+                              Object.entries(project.stats).map(([key, value]) => (
+                                <div key={key} className="bg-secondary/50 px-3 py-1 rounded-lg">
+                                  <span className="text-xs text-muted-foreground uppercase">{key}</span>
+                                  <p className="font-medium">{String(value)}</p>
+                                </div>
+                              )) : null}
                           </div>
                         </div>
                       </div>
                     </AnimatedCard>
-                  ))
+                  )) : (<p>No featured projects available</p>)
                 )}
               </div>
             </div>
@@ -436,7 +447,8 @@ const Explore = () => {
                       </div>
                     ))
                   ) : (
-                    suggestedUsers.map((user: any, index: number) => (
+                    // Added type check for suggestedUsers to ensure it's an array before mapping
+                    Array.isArray(suggestedUsers) ? suggestedUsers.map((user: any, index: number) => (
                       <div 
                         key={user.id} 
                         className="p-4 hover:bg-secondary/50 transition-colors animate-fade-in"
@@ -465,7 +477,7 @@ const Explore = () => {
                           <Button size="sm" className="rounded-full">Follow</Button>
                         </div>
                       </div>
-                    ))
+                    )) : (<p>No suggested users available</p>)
                   )}
                 </div>
               </AnimatedCard>
@@ -488,7 +500,8 @@ const Explore = () => {
                       </div>
                     ))
                   ) : (
-                    communities.groups?.map((community: any, index: number) => (
+                    // Added type check for communities.groups to ensure it's an array before mapping
+                    Array.isArray(communities.groups) ? communities.groups.map((community: any, index: number) => (
                       <div 
                         key={community.name} 
                         className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors animate-fade-in"
@@ -504,7 +517,7 @@ const Explore = () => {
                           <p className="text-xs text-muted-foreground">{community.members} members</p>
                         </div>
                       </div>
-                    ))
+                    )) : (<p>No communities available</p>)
                   )}
                 </div>
               </AnimatedCard>
