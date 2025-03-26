@@ -31,7 +31,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   
   // Helper function to convert Uint8Array to base64 string
   const arrayToBase64 = (buffer: Uint8Array): string => {
-    // Create a more robust base64 conversion that works across browsers
+    // Improved base64 conversion method that's more compatible across browsers
     let binary = '';
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
@@ -172,14 +172,16 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       // Log the signature bytes for debugging
       console.debug("Signature bytes received", { 
         signatureBytes: signedMessage.signature,
-        signatureLength: signedMessage.signature.length
+        signatureLength: signedMessage.signature.length,
+        signatureType: typeof signedMessage.signature
       });
       
       // Convert the signature buffer to a base64 string for sending to the server
       const signature = arrayToBase64(signedMessage.signature);
       
       console.info("Message signed successfully", { 
-        signaturePreview: signature.substring(0, 20) + '...' 
+        signaturePreview: signature.substring(0, 20) + '...',
+        signatureLength: signature.length
       });
       
       // Verify signature with the server and get JWT token
