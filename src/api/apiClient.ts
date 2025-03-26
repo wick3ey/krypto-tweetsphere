@@ -27,14 +27,20 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle auth errors
-    if (error.response && error.response.status === 401) {
-      console.log('Unauthorized request detected, clearing auth data');
-      localStorage.removeItem('jwt_token');
-      localStorage.removeItem('wallet_address');
+    if (error.response) {
+      if (error.response.status === 401) {
+        console.log('Unauthorized request detected, clearing auth data');
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('wallet_address');
+      }
       
-      // Don't redirect from API calls, let the components handle this
-      // to prevent unexpected page refreshes
+      // Add detailed error info to the error object
+      if (error.response.data) {
+        error.message = error.response.data.message || error.message;
+        error.details = error.response.data;
+      }
     }
+    
     return Promise.reject(error);
   }
 );

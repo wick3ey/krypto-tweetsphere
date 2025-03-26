@@ -1,11 +1,11 @@
 
 import { Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { authService } from '@/api/authService';
 import { useNavigate } from 'react-router-dom';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Add TypeScript declaration for window.solana
 declare global {
@@ -21,9 +21,21 @@ interface WalletConnectProps {
 
 const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const [isConnecting, setIsConnecting] = useState(false);
-  const [isConnected, setIsConnected] = useState(!!localStorage.getItem('jwt_token'));
-  const [walletAddress, setWalletAddress] = useState<string>(localStorage.getItem('wallet_address') || '');
+  const [isConnected, setIsConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string>('');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
+  // Check token and wallet address on mount
+  useEffect(() => {
+    const storedAddress = localStorage.getItem('wallet_address');
+    const storedToken = localStorage.getItem('jwt_token');
+    
+    if (storedAddress && storedToken) {
+      setWalletAddress(storedAddress);
+      setIsConnected(true);
+    }
+  }, []);
   
   const handleConnect = async () => {
     if (!window.solana) {
@@ -36,18 +48,18 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     setIsConnecting(true);
     
     try {
-      // Request wallet connection
+      // First, request wallet connection
       const resp = await window.solana.connect();
       const address = resp.publicKey.toString();
       console.log("Connected to wallet:", address);
       
       try {
         // Get nonce from the server - passing the wallet address
-        const { nonce } = await authService.getNonce(address);
+        const { nonce, message } = await authService.getNonce(address);
         console.log("Received nonce:", nonce);
+        console.log("Authentication message:", message);
         
-        // Create a signature using the nonce
-        const message = `Sign this message to login: ${nonce}`;
+        // Create a signature using the message from the server
         const encodedMessage = new TextEncoder().encode(message);
         
         // Sign the message
@@ -55,22 +67,21 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         console.log("Message signed successfully");
         
         // Verify signature with the server and get JWT token
-        const { token, user, isNewUser } = await authService.verifySignature(address, signedMessage.signature, nonce);
+        const authResult = await authService.verifySignature(address, signedMessage.signature, nonce);
         console.log("Signature verified successfully");
-        
-        // Save token to localStorage
-        localStorage.setItem('jwt_token', token);
-        localStorage.setItem('wallet_address', address);
         
         setWalletAddress(address);
         setIsConnected(true);
+        
+        // Invalidate any cached user data
+        queryClient.invalidateQueries({ queryKey: ['currentUser'] });
         
         if (onConnect) {
           onConnect(address);
         }
         
         // Check if this is a new user who needs to complete profile setup
-        if (isNewUser || !user.username) {
+        if (authResult.isNewUser || !authResult.user.username) {
           toast.success("Wallet connected! Let's set up your profile", {
             description: "Complete your profile to get started",
           });
@@ -82,18 +93,16 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
             description: `Connected to ${formatWalletAddress(address)}`,
           });
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Authentication error:", error);
-        // Even if there's an authentication error, we already connected to the wallet
-        // Don't show a connection failure message here
         toast.error("Authentication failed", {
-          description: "Failed to authenticate with the server. Please try again.",
+          description: error.message || "Failed to authenticate with the server. Please try again.",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Wallet connection error:", error);
       toast.error("Connection failed", {
-        description: "Failed to connect wallet. Please try again.",
+        description: error.message || "Failed to connect wallet. Please try again.",
       });
     } finally {
       setIsConnecting(false);

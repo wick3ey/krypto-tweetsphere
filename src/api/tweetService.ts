@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "@/hooks/use-toast";
 
@@ -5,7 +6,8 @@ export const tweetService = {
   getFeed: async () => {
     try {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/feed');
-      return Array.isArray(response.data) ? response.data : [];
+      return Array.isArray(response.data) ? response.data : 
+             (response.data.data ? response.data.data : []);
     } catch (error) {
       console.error('Error fetching feed:', error);
       return [];
@@ -15,7 +17,8 @@ export const tweetService = {
   getExploreFeed: async () => {
     try {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/explore');
-      return Array.isArray(response.data) ? response.data : [];
+      return Array.isArray(response.data) ? response.data : 
+             (response.data.data ? response.data.data : []);
     } catch (error) {
       console.error('Error fetching explore feed:', error);
       return [];
@@ -25,7 +28,8 @@ export const tweetService = {
   searchTweets: async (query: string) => {
     try {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/search', { params: { query } });
-      return Array.isArray(response.data) ? response.data : [];
+      return Array.isArray(response.data) ? response.data : 
+             (response.data.data ? response.data.data : []);
     } catch (error) {
       console.error('Error searching tweets:', error);
       return [];
@@ -45,8 +49,8 @@ export const tweetService = {
     
     try {
       const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', { content, attachments });
-      return response.data;
-    } catch (error) {
+      return response.data.data || response.data;
+    } catch (error: any) {
       console.error('Error creating tweet:', error);
       
       if (error.response) {

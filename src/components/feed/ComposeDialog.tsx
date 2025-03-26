@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AtSign, Image, FileText, Smile, X, Pencil } from 'lucide-react';
-import { currentUser } from '@/lib/mockData';
 import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useQuery } from '@tanstack/react-query';
+import { authService } from '@/api/authService';
 
 interface ComposeDialogProps {
   onSubmit: (content: string) => Promise<void>;
@@ -19,6 +20,14 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isMobile = useIsMobile();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Get current user data for the avatar
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => authService.getCurrentUser(),
+    enabled: !!localStorage.getItem('jwt_token'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
   // Auto focus textarea when dialog opens
   useEffect(() => {
@@ -55,22 +64,43 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
     }
   };
 
+  // Check if user is authenticated
+  const isAuthenticated = !!localStorage.getItem('jwt_token');
+  
+  const handleTriggerClick = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please connect your wallet to post tweets",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsOpen(true);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {isMobile ? (
           <Button 
             className="fixed right-4 bottom-24 md:hidden rounded-full h-14 w-14 shadow-lg z-20 bg-crypto-blue hover:bg-crypto-blue/90"
-            onClick={() => setIsOpen(true)}
+            onClick={handleTriggerClick}
           >
             <Pencil className="h-6 w-6" />
           </Button>
         ) : (
           <div className="w-full">
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-text" onClick={() => setIsOpen(true)}>
+            <div 
+              className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-text" 
+              onClick={handleTriggerClick}
+            >
               <Avatar className="h-10 w-10 border border-border/50">
-                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} />
-                <AvatarFallback>{currentUser.displayName.charAt(0)}</AvatarFallback>
+                <AvatarImage 
+                  src={currentUser?.profilePicture || "https://api.dicebear.com/7.x/identicon/svg?seed=user"} 
+                  alt={currentUser?.displayName || "User"} 
+                />
+                <AvatarFallback>{(currentUser?.displayName || "U").charAt(0)}</AvatarFallback>
               </Avatar>
               <div className="text-muted-foreground text-base flex-1 font-medium">
                 Vad händer i kryptovärlden?
@@ -97,8 +127,11 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
           <div className="p-4">
             <div className="flex gap-3">
               <Avatar className="h-10 w-10 border border-border/50">
-                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} />
-                <AvatarFallback>{currentUser.displayName.charAt(0)}</AvatarFallback>
+                <AvatarImage 
+                  src={currentUser?.profilePicture || "https://api.dicebear.com/7.x/identicon/svg?seed=user"} 
+                  alt={currentUser?.displayName || "User"} 
+                />
+                <AvatarFallback>{(currentUser?.displayName || "U").charAt(0)}</AvatarFallback>
               </Avatar>
               
               <div className="flex-1">
