@@ -11,55 +11,6 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
-// Function to log requests and responses (will be called by interceptors)
-// Moved outside of the actual logService to avoid circular dependencies
-const logApiActivity = (type, data) => {
-  if (type === 'request') {
-    const { method, url, headers, data: requestData } = data;
-    console.debug('API Request', { method, url, headers, data: requestData });
-  } 
-  else if (type === 'response') {
-    const { status, config, data: responseData } = data;
-    console.debug('API Response', { 
-      url: config.url, 
-      method: config.method?.toUpperCase(), 
-      status, 
-      data: responseData 
-    });
-  }
-  else if (type === 'error') {
-    const { message, config, response, request } = data;
-    
-    // For response errors (server responded with error)
-    if (response) {
-      console.error('API Response Error', {
-        url: config.url,
-        method: config.method?.toUpperCase(),
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        message
-      });
-    }
-    // For request errors (no response received)
-    else if (request) {
-      console.error('API Request Error', {
-        url: config?.url,
-        method: config?.method?.toUpperCase(),
-        message: 'No response received',
-        error: message
-      });
-    }
-    // For setup errors
-    else {
-      console.error('API Config Error', {
-        message,
-        config
-      });
-    }
-  }
-};
-
 // Add a request interceptor to include JWT token in requests when available
 apiClient.interceptors.request.use(
   (config) => {
@@ -69,13 +20,18 @@ apiClient.interceptors.request.use(
     }
     
     // Log the request
-    logApiActivity('request', config);
+    console.debug('API Request', { 
+      method: config.method, 
+      url: config.url, 
+      headers: config.headers, 
+      data: config.data 
+    });
     
     return config;
   },
   (error) => {
     // Log the error
-    logApiActivity('error', error);
+    console.error('API Request Error', error);
     
     return Promise.reject(error);
   }
@@ -85,13 +41,39 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => {
     // Log successful response
-    logApiActivity('response', response);
+    console.debug('API Response', { 
+      url: response.config.url, 
+      method: response.config.method?.toUpperCase(), 
+      status: response.status, 
+      data: response.data 
+    });
     
     return response;
   },
   (error) => {
     // Log the error
-    logApiActivity('error', error);
+    if (error.response) {
+      console.error('API Response Error', {
+        url: error.config.url,
+        method: error.config.method?.toUpperCase(),
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        message: error.message
+      });
+    } else if (error.request) {
+      console.error('API Request Error', {
+        url: error.config?.url,
+        method: error.config?.method?.toUpperCase(),
+        message: 'No response received',
+        error: error.message
+      });
+    } else {
+      console.error('API Config Error', {
+        message: error.message,
+        config: error.config
+      });
+    }
     
     // Handle auth errors
     if (error.response) {
