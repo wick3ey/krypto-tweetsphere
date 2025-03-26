@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import AnimatedCard from '@/components/common/AnimatedCard';
 import TokenTicker from '@/components/crypto/TokenTicker';
@@ -27,7 +27,7 @@ const Index = () => {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   
-  // Fetch tweets based on active feed
+  // Fetch tweets based on active feed with proper error handling
   const { data: tweets = [], isLoading: isLoadingTweets } = useQuery({
     queryKey: ['tweets', activeFeed],
     queryFn: async () => {
@@ -41,13 +41,17 @@ const Index = () => {
       }
     },
     staleTime: 60000, // 1 minute
+    retry: 1, // Only retry once to prevent excessive calls
+    refetchOnWindowFocus: false, // Disable auto refetch on window focus
   });
   
-  // Fetch suggested users
+  // Fetch suggested users with proper error handling
   const { data: suggestedUsers = [], isLoading: isLoadingSuggestedUsers } = useQuery({
     queryKey: ['suggestedUsers'],
     queryFn: () => exploreService.getSuggestedUsers(),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1, // Only retry once to prevent excessive calls
+    refetchOnWindowFocus: false, // Disable auto refetch on window focus
   });
   
   // Fetch current user
@@ -56,6 +60,7 @@ const Index = () => {
     queryFn: () => authService.getCurrentUser(),
     enabled: !!localStorage.getItem('jwt_token'),
     staleTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false, // Disable auto refetch on window focus
   });
   
   // Tweet creation mutation
@@ -185,15 +190,28 @@ const Index = () => {
                   </div>
                 ))
               ) : (
-                tweets.map((tweet: Tweet) => (
-                  tweet && tweet.user ? (
-                    <EnhancedTweetCard
-                      key={tweet.id}
-                      tweet={tweet}
-                      animated={true}
-                    />
-                  ) : null
-                ))
+                Array.isArray(tweets) && tweets.length > 0 ? (
+                  tweets.map((tweet: Tweet) => (
+                    tweet && tweet.user ? (
+                      <EnhancedTweetCard
+                        key={tweet.id}
+                        tweet={tweet}
+                        animated={true}
+                      />
+                    ) : null
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-10">
+                    <p className="text-muted-foreground text-center">No tweets to display</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => queryClient.invalidateQueries({ queryKey: ['tweets', activeFeed] })}
+                    >
+                      Refresh
+                    </Button>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -228,51 +246,59 @@ const Index = () => {
                     </div>
                   ))
                 ) : (
-                  suggestedUsers.slice(0, 3).map((user: User) => (
-                    <div key={user.id} className={cn(
-                      "flex items-center justify-between p-2 rounded-lg transition-colors",
-                      "hover:bg-secondary/50 group"
-                    )}>
-                      <Link to={`/profile/${user.username}`} className="flex items-center space-x-2">
-                        <div className="relative">
-                          <img
-                            src={user.avatarUrl}
-                            alt={user.displayName}
-                            className={cn(
-                              "h-10 w-10 rounded-full object-cover border border-border/50",
-                              "transition-transform duration-300 group-hover:scale-110"
-                            )}
-                          />
-                          {user.verified && (
-                            <Badge className="absolute -bottom-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-crypto-blue text-white">
-                              <Shield className="h-2.5 w-2.5" />
-                            </Badge>
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center font-medium text-sm">
-                            {user.displayName}
+                  Array.isArray(suggestedUsers) && suggestedUsers.length > 0 ? (
+                    suggestedUsers.slice(0, 3).map((user: User) => (
+                      <div key={user.id} className={cn(
+                        "flex items-center justify-between p-2 rounded-lg transition-colors",
+                        "hover:bg-secondary/50 group"
+                      )}>
+                        <Link to={`/profile/${user.username}`} className="flex items-center space-x-2">
+                          <div className="relative">
+                            <img
+                              src={user.avatarUrl}
+                              alt={user.displayName}
+                              className={cn(
+                                "h-10 w-10 rounded-full object-cover border border-border/50",
+                                "transition-transform duration-300 group-hover:scale-110"
+                              )}
+                            />
                             {user.verified && (
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1 text-crypto-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                              </svg>
+                              <Badge className="absolute -bottom-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-crypto-blue text-white">
+                                <Shield className="h-2.5 w-2.5" />
+                              </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground">@{user.username}</p>
-                        </div>
-                      </Link>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="rounded-full text-xs group-hover:bg-primary group-hover:text-white"
-                        onClick={() => handleFollowUser(user.id)}
-                      >
-                        Följ
-                      </Button>
-                    </div>
-                  ))
+                          <div>
+                            <div className="flex items-center font-medium text-sm">
+                              {user.displayName}
+                              {user.verified && (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1 text-crypto-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                                </svg>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">@{user.username}</p>
+                          </div>
+                        </Link>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="rounded-full text-xs group-hover:bg-primary group-hover:text-white"
+                          onClick={() => handleFollowUser(user.id)}
+                        >
+                          Följ
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-center text-muted-foreground">No suggested users available</p>
+                  )
                 )}
-                <Button variant="ghost" className="w-full text-xs text-crypto-blue">
+                <Button 
+                  variant="ghost" 
+                  className="w-full text-xs text-crypto-blue"
+                  onClick={() => queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] })}
+                >
                   Visa mer
                 </Button>
               </div>
