@@ -106,7 +106,6 @@ const ProfileSetup = () => {
         
         // Use avatarUrl instead of profileImage to match the User type
         avatarUrl: avatarPreview || 'https://f3oci3ty.xyz/placeholder-avatar.png',
-        coverImage: headerPreview || undefined
       };
       
       // Send to API - using the server endpoint for profile setup
