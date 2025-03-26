@@ -32,9 +32,9 @@ export const authService = {
     }
   },
   
-  verifySignature: async (walletAddress: string, signature: any) => {
+  verifySignature: async (walletAddress: string, signature: string) => {
     try {
-      console.info("Verifying signature", { walletAddress, signature: signature?.substring(0, 20) + '...' });
+      console.info("Verifying signature", { walletAddress, signaturePreview: signature.substring(0, 20) + '...' });
       
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/verify', { 
         walletAddress, 

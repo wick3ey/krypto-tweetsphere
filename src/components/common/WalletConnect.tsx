@@ -156,13 +156,17 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       // Sign the message
       console.debug("Requesting user to sign message", { message });
       const signedMessage = await provider.signMessage(encodedMessage, "utf8");
+      
+      // Convert the signature buffer to a base64 string for sending to the server
+      const signature = Buffer.from(signedMessage.signature).toString('base64');
+      
       console.info("Message signed successfully", { 
-        signature: signedMessage.signature.substring(0, 20) + '...'
+        signaturePreview: signature.substring(0, 20) + '...'
       });
       
       // Verify signature with the server and get JWT token
       console.debug("Verifying signature with server");
-      const authResult = await authService.verifySignature(address, signedMessage.signature);
+      const authResult = await authService.verifySignature(address, signature);
       console.info("Signature verified successfully", 
         { userId: authResult.user.id, isNewUser: authResult.isNewUser });
       
