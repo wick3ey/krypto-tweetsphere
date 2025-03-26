@@ -55,7 +55,13 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       
       try {
         // Get nonce and authentication message from the server
-        const { nonce, message } = await authService.getNonce(address);
+        const result = await authService.getNonce(address);
+        
+        if (!result || !result.nonce || !result.message) {
+          throw new Error("Failed to get valid authentication data from server");
+        }
+        
+        const { nonce, message } = result;
         console.log("Received nonce:", nonce);
         console.log("Authentication message:", message);
         

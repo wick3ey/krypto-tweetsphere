@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { toast } from "sonner";
 
@@ -7,8 +6,27 @@ export const authService = {
     console.log("Requesting nonce for:", walletAddress);
     try {
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/nonce', { walletAddress });
-      // Return both nonce and message from server
-      return response.data.data;
+      console.log("Nonce response:", response.data); // Add this log to see the actual response structure
+      
+      // Check if the response has the expected structure
+      if (!response.data || (!response.data.data && !response.data.nonce)) {
+        throw new Error("Invalid response format from server");
+      }
+      
+      // Handle different response formats
+      // If response.data.data exists, use that structure
+      if (response.data.data) {
+        return {
+          nonce: response.data.data.nonce,
+          message: response.data.data.message
+        };
+      }
+      
+      // Otherwise try to get nonce and message directly from response.data
+      return {
+        nonce: response.data.nonce,
+        message: response.data.message || `Sign in to CryptoSocial with your Solana wallet. Nonce: ${response.data.nonce}`
+      };
     } catch (error) {
       console.error("Error getting nonce:", error);
       toast.error("Failed to get authentication nonce", {
