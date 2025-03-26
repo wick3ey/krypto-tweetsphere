@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   username: string;
@@ -59,4 +58,63 @@ export interface UserProfile extends User {
   pnlData: PnLData[];
   tokens: TokenBalance[];
   totalBalance: number;
+}
+
+// Add our new types for explore data
+export interface TrendingTopic {
+  tag: string;
+  description: string;
+  tweets: number;
+}
+
+export interface TrendingCoin {
+  name: string;
+  symbol: string;
+  logo: string;
+  price: string;
+  change: string;
+}
+
+export interface TrendingEvent {
+  name: string;
+  image: string;
+  type: string;
+  date: string;
+}
+
+export interface CommunityTopic {
+  title: string;
+  image: string;
+  category: string;
+  articles: number;
+}
+
+export interface CommunityProject {
+  name: string;
+  logo: string;
+  description: string;
+  category: string;
+  stats?: Record<string, string | number>;
+}
+
+export interface CommunityGroup {
+  name: string;
+  image: string;
+  members: number;
+}
+
+export interface TrendingData {
+  topics: TrendingTopic[];
+  coins: TrendingCoin[];
+  events: TrendingEvent[];
+}
+
+export interface CommunitiesData {
+  topics: CommunityTopic[];
+  projects: CommunityProject[];
+  groups: CommunityGroup[];
+}
+
+export interface SuggestedUser extends User {
+  bio: string;
 }
