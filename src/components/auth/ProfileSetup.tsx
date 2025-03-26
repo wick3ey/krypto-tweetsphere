@@ -106,10 +106,11 @@ const ProfileSetup = () => {
         
         // In a real implementation, these would be URLs from your server
         avatarUrl: avatarPreview || 'https://f3oci3ty.xyz/placeholder-avatar.png',
-        // Other fields would be set by the backend
+        profileImage: avatarPreview || 'https://f3oci3ty.xyz/placeholder-avatar.png',
+        coverImage: headerPreview || undefined
       };
       
-      // Send to API
+      // Send to API - using the server endpoint for profile setup
       await userService.setupProfile(profileData);
       
       // Show success message
@@ -117,7 +118,7 @@ const ProfileSetup = () => {
         description: 'Welcome to F3oci3ty!',
       });
       
-      // Redirect to home or dashboard
+      // Redirect to dashboard
       navigate('/dashboard');
     } catch (error) {
       console.error('Error setting up profile:', error);
@@ -129,175 +130,6 @@ const ProfileSetup = () => {
     }
   };
 
-  const steps = [
-    // Step 1: Username and Display Name
-    <div key="step1" className="space-y-6 px-4 py-6 sm:px-6">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-semibold">Set Up Your Profile</h1>
-        <p className="text-muted-foreground mt-2">Choose how you'll appear on F3oci3ty</p>
-      </div>
-      
-      <FormField
-        control={form.control}
-        name="username"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Username</FormLabel>
-            <FormControl>
-              <div className="flex items-center">
-                <span className="text-muted-foreground mr-1">@</span>
-                <Input
-                  placeholder="username"
-                  {...field}
-                  className="flex-1"
-                />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      
-      <FormField
-        control={form.control}
-        name="displayName"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Display Name</FormLabel>
-            <FormControl>
-              <Input
-                placeholder="Your name"
-                {...field}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      
-      <div className="flex justify-end mt-6">
-        <Button onClick={handleNextStep}>
-          Next
-        </Button>
-      </div>
-    </div>,
-    
-    // Step 2: Profile Picture and Header
-    <div key="step2" className="space-y-6 px-4 py-6 sm:px-6">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-semibold">Add Your Photos</h1>
-        <p className="text-muted-foreground mt-2">Upload a profile picture and header image</p>
-      </div>
-      
-      <div className="space-y-8">
-        {/* Header Upload */}
-        <div className="relative">
-          <FormLabel className="block mb-2">Header Image</FormLabel>
-          <div 
-            className={`h-36 rounded-lg overflow-hidden relative flex items-center justify-center bg-muted ${headerPreview ? 'bg-cover bg-center' : ''}`}
-            style={headerPreview ? { backgroundImage: `url(${headerPreview})` } : {}}
-          >
-            {!headerPreview && (
-              <div className="text-center">
-                <Image className="mx-auto h-8 w-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mt-1">Add a header image</p>
-              </div>
-            )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleHeaderChange}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-          </div>
-        </div>
-        
-        {/* Avatar Upload */}
-        <div>
-          <FormLabel className="block mb-2">Profile Picture</FormLabel>
-          <div className="flex items-start space-x-4">
-            <div className="relative">
-              <Avatar className="h-20 w-20 border-2 border-background">
-                {avatarPreview ? (
-                  <AvatarImage src={avatarPreview} alt="Profile" />
-                ) : (
-                  <AvatarFallback>
-                    <User className="h-10 w-10" />
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1.5 shadow-sm">
-                <Camera className="h-3.5 w-3.5" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
-                />
-              </div>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Choose a profile picture</p>
-              <p className="text-xs text-muted-foreground mt-1">Upload a clear photo to help people recognize you</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="flex justify-between mt-6">
-        <Button variant="outline" onClick={handlePrevStep}>
-          Back
-        </Button>
-        <Button onClick={handleNextStep}>
-          Next
-        </Button>
-      </div>
-    </div>,
-    
-    // Step 3: Bio
-    <div key="step3" className="space-y-6 px-4 py-6 sm:px-6">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-semibold">Tell Us About Yourself</h1>
-        <p className="text-muted-foreground mt-2">Write a short bio to introduce yourself</p>
-      </div>
-      
-      <FormField
-        control={form.control}
-        name="bio"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Bio</FormLabel>
-            <FormControl>
-              <Textarea
-                placeholder="Tell us about yourself..."
-                className="resize-none min-h-[120px]"
-                {...field}
-              />
-            </FormControl>
-            <div className="flex justify-between mt-1">
-              <FormMessage />
-              <p className="text-xs text-muted-foreground">
-                {field.value?.length || 0}/160
-              </p>
-            </div>
-          </FormItem>
-        )}
-      />
-      
-      <div className="flex justify-between mt-6">
-        <Button variant="outline" onClick={handlePrevStep}>
-          Back
-        </Button>
-        <Button 
-          onClick={form.handleSubmit(onSubmit)} 
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Setting up...' : 'Complete Setup'}
-        </Button>
-      </div>
-    </div>
-  ];
-
   return (
     <div className="max-w-md mx-auto bg-background rounded-lg shadow-sm border">
       {/* Progress Indicator */}
@@ -306,7 +138,7 @@ const ProfileSetup = () => {
           <div className="w-full bg-muted rounded-full h-1.5">
             <div 
               className="bg-primary h-1.5 rounded-full transition-all duration-300" 
-              style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
+              style={{ width: `${((currentStep + 1) / 3) * 100}%` }}
             ></div>
           </div>
         </div>
@@ -319,7 +151,175 @@ const ProfileSetup = () => {
       
       <Form {...form}>
         <form>
-          {steps[currentStep]}
+          {currentStep === 0 && (
+            <div className="space-y-6 px-4 py-6 sm:px-6">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl font-semibold">Set Up Your Profile</h1>
+                <p className="text-muted-foreground mt-2">Choose how you'll appear on F3oci3ty</p>
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <div className="flex items-center">
+                        <span className="text-muted-foreground mr-1">@</span>
+                        <Input
+                          placeholder="username"
+                          {...field}
+                          className="flex-1"
+                        />
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="displayName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Display Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Your name"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex justify-end mt-6">
+                <Button onClick={handleNextStep}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {currentStep === 1 && (
+            <div className="space-y-6 px-4 py-6 sm:px-6">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl font-semibold">Add Your Photos</h1>
+                <p className="text-muted-foreground mt-2">Upload a profile picture and header image</p>
+              </div>
+              
+              <div className="space-y-8">
+                {/* Header Upload */}
+                <div className="relative">
+                  <FormLabel className="block mb-2">Header Image</FormLabel>
+                  <div 
+                    className={`h-36 rounded-lg overflow-hidden relative flex items-center justify-center bg-muted ${headerPreview ? 'bg-cover bg-center' : ''}`}
+                    style={headerPreview ? { backgroundImage: `url(${headerPreview})` } : {}}
+                  >
+                    {!headerPreview && (
+                      <div className="text-center">
+                        <Image className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mt-1">Add a header image</p>
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleHeaderChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                  </div>
+                </div>
+                
+                {/* Avatar Upload */}
+                <div>
+                  <FormLabel className="block mb-2">Profile Picture</FormLabel>
+                  <div className="flex items-start space-x-4">
+                    <div className="relative">
+                      <Avatar className="h-20 w-20 border-2 border-background">
+                        {avatarPreview ? (
+                          <AvatarImage src={avatarPreview} alt="Profile" />
+                        ) : (
+                          <AvatarFallback>
+                            <User className="h-10 w-10" />
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1.5 shadow-sm">
+                        <Camera className="h-3.5 w-3.5" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarChange}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Choose a profile picture</p>
+                      <p className="text-xs text-muted-foreground mt-1">Upload a clear photo to help people recognize you</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between mt-6">
+                <Button variant="outline" onClick={handlePrevStep}>
+                  Back
+                </Button>
+                <Button onClick={handleNextStep}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {currentStep === 2 && (
+            <div className="space-y-6 px-4 py-6 sm:px-6">
+              <div className="text-center mb-8">
+                <h1 className="text-2xl font-semibold">Tell Us About Yourself</h1>
+                <p className="text-muted-foreground mt-2">Write a short bio to introduce yourself</p>
+              </div>
+              
+              <FormField
+                control={form.control}
+                name="bio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bio</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Tell us about yourself..."
+                        className="resize-none min-h-[120px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <div className="flex justify-between mt-1">
+                      <FormMessage />
+                      <p className="text-xs text-muted-foreground">
+                        {field.value?.length || 0}/160
+                      </p>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              
+              <div className="flex justify-between mt-6">
+                <Button variant="outline" onClick={handlePrevStep}>
+                  Back
+                </Button>
+                <Button 
+                  onClick={form.handleSubmit(onSubmit)} 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Setting up...' : 'Complete Setup'}
+                </Button>
+              </div>
+            </div>
+          )}
         </form>
       </Form>
     </div>

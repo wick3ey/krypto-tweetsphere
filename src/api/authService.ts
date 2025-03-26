@@ -1,6 +1,6 @@
 
 import apiClient from './apiClient';
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export const authService = {
   getNonce: async (walletAddress: string) => {
@@ -11,13 +11,16 @@ export const authService = {
       return response.data.data;
     } catch (error) {
       console.error("Error getting nonce:", error);
+      toast.error("Failed to get authentication nonce", {
+        description: "Please try again or contact support if the problem persists."
+      });
       throw error;
     }
   },
   
-  verifySignature: async (walletAddress: string, signature: any, nonce: string) => {
+  verifySignature: async (walletAddress: string, signature: any) => {
     try {
-      console.log("Verifying signature with params:", { walletAddress, signature, nonce });
+      console.log("Verifying signature with params:", { walletAddress, signature });
       
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/verify', { 
         walletAddress, 
@@ -40,8 +43,11 @@ export const authService = {
       } else {
         throw new Error(response.data.message || 'Authentication failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error verifying signature:', error);
+      toast.error("Authentication failed", {
+        description: error.message || "Failed to authenticate with the server. Please try again."
+      });
       throw error;
     }
   },
@@ -61,22 +67,13 @@ export const authService = {
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/logout');
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
+      toast.success("Logged out successfully");
       return response.data;
     } catch (error) {
       console.error('Error during logout:', error);
       // Still clear local storage even if the API call fails
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
-      throw error;
-    }
-  },
-  
-  completeProfile: async (profileData: { username: string, bio?: string, profilePicture?: string }) => {
-    try {
-      const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/complete-profile', profileData);
-      return response.data.data.user;
-    } catch (error) {
-      console.error('Error completing profile:', error);
       throw error;
     }
   }

@@ -54,7 +54,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       console.log("Connected to wallet:", address);
       
       try {
-        // Get nonce from the server - passing the wallet address
+        // Get nonce and authentication message from the server
         const { nonce, message } = await authService.getNonce(address);
         console.log("Received nonce:", nonce);
         console.log("Authentication message:", message);
@@ -67,7 +67,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         console.log("Message signed successfully");
         
         // Verify signature with the server and get JWT token
-        const authResult = await authService.verifySignature(address, signedMessage.signature, nonce);
+        const authResult = await authService.verifySignature(address, signedMessage.signature);
         console.log("Signature verified successfully");
         
         setWalletAddress(address);
