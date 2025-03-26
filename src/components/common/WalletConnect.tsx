@@ -40,8 +40,8 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
       const address = accounts[0];
       
-      // Get nonce from the server
-      const { nonce } = await authService.getNonce();
+      // Get nonce from the server - now passing the wallet address
+      const { nonce } = await authService.getNonce(address);
       
       // Create a signature using the nonce
       const provider = new ethers.BrowserProvider(window.ethereum);

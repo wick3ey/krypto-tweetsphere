@@ -2,8 +2,8 @@
 import apiClient from './apiClient';
 
 export const authService = {
-  getNonce: async () => {
-    const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/nonce');
+  getNonce: async (walletAddress: string) => {
+    const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/nonce', { walletAddress });
     return response.data;
   },
   
