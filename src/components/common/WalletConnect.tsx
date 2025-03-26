@@ -27,14 +27,14 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // När komponenten renderas för första gången
+  // When component mounts
   useEffect(() => {
     logService.debug("WalletConnect component mounted", {}, "WalletConnect");
     
-    // Skicka diagnostikrapport vid uppstart
+    // Send diagnostic report on startup
     logService.sendDiagnosticReport();
     
-    // Kontrollera om användaren redan är inloggad
+    // Check if user is already logged in
     const checkStoredCredentials = () => {
       const storedAddress = localStorage.getItem('wallet_address');
       const storedToken = localStorage.getItem('jwt_token');
@@ -49,7 +49,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     
     checkStoredCredentials();
     
-    // Cleanup när komponenten avmonteras
+    // Cleanup when component unmounts
     return () => {
       logService.debug("WalletConnect component unmounted", {}, "WalletConnect");
     };
@@ -79,16 +79,16 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       try {
         // Get nonce and authentication message from the server
         logService.debug("Requesting authentication nonce", { address }, "WalletConnect");
-        const result = await authService.getNonce(address);
+        const authData = await authService.getNonce(address);
         
-        if (!result || !result.nonce || !result.message) {
+        if (!authData || !authData.nonce || !authData.message) {
           const errorMsg = "Failed to get valid authentication data from server";
-          logService.error(errorMsg, { result }, "WalletConnect");
+          logService.error(errorMsg, { authData }, "WalletConnect");
           throw new Error(errorMsg);
         }
         
-        const { nonce, message } = result;
-        logService.debug("Received authentication data", { nonce, message }, "WalletConnect");
+        const { message } = authData;
+        logService.debug("Received authentication message", { message }, "WalletConnect");
         
         // Create a signature using the message from the server
         const encodedMessage = new TextEncoder().encode(message);
@@ -115,7 +115,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         }
         
         // Check if this is a new user who needs to complete profile setup
-        if (authResult.isNewUser || !authResult.user.username) {
+        if (authResult.isNewUser) {
           logService.info("New user detected, redirecting to profile setup", 
             { userId: authResult.user.id }, "WalletConnect");
             

@@ -1,6 +1,7 @@
 
 import axios from 'axios';
 import { toast } from "sonner";
+import { logService } from './logService';
 
 // Create an axios instance with default config
 const apiClient = axios.create({
@@ -13,9 +14,6 @@ const apiClient = axios.create({
 
 // Function to log requests and responses (will be called by interceptors)
 const logApiActivity = (type, data) => {
-  // Only import the logService here to avoid circular dependency
-  const { logService } = require('./logService');
-  
   if (type === 'request') {
     const { method, url, headers, data: requestData } = data;
     logService.debug('API Request', { method, url, headers, data: requestData }, 'apiClient');
@@ -70,14 +68,14 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Log the request (avoid circular imports)
-    setTimeout(() => logApiActivity('request', config), 0);
+    // Log the request
+    logApiActivity('request', config);
     
     return config;
   },
   (error) => {
-    // Log the error (avoid circular imports)
-    setTimeout(() => logApiActivity('error', error), 0);
+    // Log the error
+    logApiActivity('error', error);
     
     return Promise.reject(error);
   }
@@ -86,14 +84,14 @@ apiClient.interceptors.request.use(
 // Add a response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => {
-    // Log successful response (avoid circular imports)
-    setTimeout(() => logApiActivity('response', response), 0);
+    // Log successful response
+    logApiActivity('response', response);
     
     return response;
   },
   (error) => {
-    // Log the error (avoid circular imports)
-    setTimeout(() => logApiActivity('error', error), 0);
+    // Log the error
+    logApiActivity('error', error);
     
     // Handle auth errors
     if (error.response) {
