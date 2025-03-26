@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import AnimatedCard from '@/components/common/AnimatedCard';
@@ -6,69 +7,101 @@ import TrendingTopics from '@/components/crypto/TrendingTopics';
 import CryptoNews from '@/components/crypto/CryptoNews';
 import MarketStats from '@/components/crypto/MarketStats';
 import NFTGallery from '@/components/crypto/NFTGallery';
-import { mockTweets, suggestedUsers, currentUser } from '@/lib/mockData';
 import { Sparkles, Zap, Lightbulb, Filter, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { toast } from "@/hooks/use-toast";
-import { Tweet } from '@/lib/types';
+import { Tweet, User } from '@/lib/types';
 import ComposeDialog from '@/components/feed/ComposeDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { tweetService } from '@/api/tweetService';
+import { authService } from '@/api/authService';
+import { exploreService } from '@/api/exploreService';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {
-  const [tweets, setTweets] = useState(mockTweets);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeFeed, setActiveFeed] = useState('trending'); // trending, latest, following
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   
-  useEffect(() => {
-    // Simulate loading time
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, []);
+  // Fetch tweets based on active feed
+  const { data: tweets = [], isLoading: isLoadingTweets } = useQuery({
+    queryKey: ['tweets', activeFeed],
+    queryFn: async () => {
+      if (activeFeed === 'trending') {
+        return tweetService.getExploreFeed();
+      } else if (activeFeed === 'following') {
+        return tweetService.getFeed();
+      } else {
+        // Latest feed
+        return tweetService.getExploreFeed(); // You may need to add sort=latest param
+      }
+    },
+    staleTime: 60000, // 1 minute
+  });
+  
+  // Fetch suggested users
+  const { data: suggestedUsers = [], isLoading: isLoadingSuggestedUsers } = useQuery({
+    queryKey: ['suggestedUsers'],
+    queryFn: () => exploreService.getSuggestedUsers(),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+  
+  // Fetch current user
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => authService.getCurrentUser(),
+    enabled: !!localStorage.getItem('jwt_token'),
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+  
+  // Tweet creation mutation
+  const createTweetMutation = useMutation({
+    mutationFn: (content: string) => tweetService.createTweet(content),
+    onSuccess: () => {
+      // Invalidate tweets query to refetch
+      queryClient.invalidateQueries({ queryKey: ['tweets'] });
+      
+      toast({
+        title: "Tweet publicerad!",
+        description: "Din tweet har publicerats.",
+      });
+    },
+    onError: (error) => {
+      console.error("Error creating tweet:", error);
+      toast({
+        title: "Error",
+        description: "Could not create tweet. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
   
   const handleTweet = (tweetContent: string) => {
     if (!tweetContent.trim()) return;
     
-    // Create a new tweet with all required User properties
-    const newTweet: Tweet = {
-      id: `tweet-${Date.now()}`,
-      content: tweetContent,
-      timestamp: new Date().toISOString(),
-      likes: 0,
-      retweets: 0,
-      comments: 0,
-      hashtags: tweetContent
-        .split(' ')
-        .filter(word => word.startsWith('#'))
-        .map(tag => tag.substring(1)),
-      user: {
-        id: currentUser.id,
-        displayName: currentUser.displayName,
-        username: currentUser.username,
-        verified: currentUser.verified,
-        avatarUrl: currentUser.avatarUrl,
-        followers: currentUser.followers,
-        following: currentUser.following,
-        walletAddress: currentUser.walletAddress,
-        bio: currentUser.bio,
-        joinedDate: currentUser.joinedDate
-      }
-    };
-    
-    // Add the new tweet to the top of the list
-    setTweets([newTweet, ...tweets]);
-    
-    // Visa bekräftelsetoast
-    toast({
-      title: "Tweet publicerad!",
-      description: "Din tweet har publicerats.",
-    });
+    // Submit the tweet using the mutation
+    createTweetMutation.mutate(tweetContent);
+  };
+  
+  // Follow user mutation
+  const followUserMutation = useMutation({
+    mutationFn: (userId: string) => {
+      return userService.followUser(userId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
+      toast({
+        title: "Success",
+        description: "You are now following this user.",
+      });
+    },
+  });
+  
+  const handleFollowUser = (userId: string) => {
+    followUserMutation.mutate(userId);
   };
   
   return (
@@ -123,7 +156,7 @@ const Index = () => {
             </div>
             
             <div className="space-y-4">
-              {isLoading ? (
+              {isLoadingTweets ? (
                 Array(5).fill(0).map((_, index) => (
                   <div 
                     key={index} 
@@ -149,7 +182,7 @@ const Index = () => {
                   </div>
                 ))
               ) : (
-                tweets.map((tweet) => (
+                tweets.map((tweet: Tweet) => (
                   tweet && tweet.user ? (
                     <EnhancedTweetCard
                       key={tweet.id}
@@ -178,44 +211,64 @@ const Index = () => {
               </div>
               
               <div className="space-y-3">
-                {suggestedUsers.slice(0, 3).map((user) => (
-                  <div key={user.id} className={cn(
-                    "flex items-center justify-between p-2 rounded-lg transition-colors",
-                    "hover:bg-secondary/50 group"
-                  )}>
-                    <Link to={`/profile/${user.username}`} className="flex items-center space-x-2">
-                      <div className="relative">
-                        <img
-                          src={user.avatarUrl}
-                          alt={user.displayName}
-                          className={cn(
-                            "h-10 w-10 rounded-full object-cover border border-border/50",
-                            "transition-transform duration-300 group-hover:scale-110"
-                          )}
-                        />
-                        {user.verified && (
-                          <Badge className="absolute -bottom-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-crypto-blue text-white">
-                            <Shield className="h-2.5 w-2.5" />
-                          </Badge>
-                        )}
+                {isLoadingSuggestedUsers ? (
+                  Array(3).fill(0).map((_, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 animate-pulse">
+                      <div className="flex items-center space-x-2">
+                        <div className="h-10 w-10 rounded-full bg-muted/50"></div>
+                        <div className="space-y-2">
+                          <div className="h-4 bg-muted/50 rounded w-24"></div>
+                          <div className="h-3 bg-muted/50 rounded w-16"></div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="flex items-center font-medium text-sm">
-                          {user.displayName}
+                      <div className="h-8 bg-muted/50 rounded w-16"></div>
+                    </div>
+                  ))
+                ) : (
+                  suggestedUsers.slice(0, 3).map((user: User) => (
+                    <div key={user.id} className={cn(
+                      "flex items-center justify-between p-2 rounded-lg transition-colors",
+                      "hover:bg-secondary/50 group"
+                    )}>
+                      <Link to={`/profile/${user.username}`} className="flex items-center space-x-2">
+                        <div className="relative">
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.displayName}
+                            className={cn(
+                              "h-10 w-10 rounded-full object-cover border border-border/50",
+                              "transition-transform duration-300 group-hover:scale-110"
+                            )}
+                          />
                           {user.verified && (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1 text-crypto-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                            </svg>
+                            <Badge className="absolute -bottom-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-crypto-blue text-white">
+                              <Shield className="h-2.5 w-2.5" />
+                            </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">@{user.username}</p>
-                      </div>
-                    </Link>
-                    <Button variant="outline" size="sm" className="rounded-full text-xs group-hover:bg-primary group-hover:text-white">
-                      Följ
-                    </Button>
-                  </div>
-                ))}
+                        <div>
+                          <div className="flex items-center font-medium text-sm">
+                            {user.displayName}
+                            {user.verified && (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1 text-crypto-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                              </svg>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">@{user.username}</p>
+                        </div>
+                      </Link>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="rounded-full text-xs group-hover:bg-primary group-hover:text-white"
+                        onClick={() => handleFollowUser(user.id)}
+                      >
+                        Följ
+                      </Button>
+                    </div>
+                  ))
+                )}
                 <Button variant="ghost" className="w-full text-xs text-crypto-blue">
                   Visa mer
                 </Button>

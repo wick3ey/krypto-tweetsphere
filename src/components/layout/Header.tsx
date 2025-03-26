@@ -6,12 +6,31 @@ import WalletConnect from '@/components/common/WalletConnect';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { notificationService } from '@/api/notificationService';
+import { authService } from '@/api/authService';
+import { useQuery } from '@tanstack/react-query';
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(3);
   const [isDark, setIsDark] = useState(true); // Since we implemented a dark theme by default
+  const isAuthenticated = !!localStorage.getItem('jwt_token');
+  
+  // Fetch notification count
+  const { data: notificationCount = 0 } = useQuery({
+    queryKey: ['notificationCount'],
+    queryFn: () => notificationService.getUnreadCount().then(res => res.count),
+    enabled: isAuthenticated,
+    refetchInterval: 60000, // Refetch every minute
+  });
+  
+  // Fetch user profile
+  const { data: currentUser } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: () => authService.getCurrentUser(),
+    enabled: isAuthenticated,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
   
   useEffect(() => {
     const handleScroll = () => {
@@ -99,7 +118,7 @@ const Header = () => {
             >
               <div className="relative h-8 w-8 overflow-hidden rounded-full">
                 <img
-                  src="https://api.dicebear.com/7.x/identicon/svg?seed=satoshi"
+                  src={currentUser?.avatarUrl || "https://api.dicebear.com/7.x/identicon/svg?seed=user"}
                   alt="Profile"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                 />
