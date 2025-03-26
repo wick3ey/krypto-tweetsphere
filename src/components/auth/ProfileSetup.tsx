@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -104,9 +105,8 @@ const ProfileSetup = () => {
         displayName: data.displayName,
         bio: data.bio || '',
         
-        // In a real implementation, these would be URLs from your server
+        // Use avatarUrl instead of profileImage to match the User type
         avatarUrl: avatarPreview || 'https://f3oci3ty.xyz/placeholder-avatar.png',
-        profileImage: avatarPreview || 'https://f3oci3ty.xyz/placeholder-avatar.png',
         coverImage: headerPreview || undefined
       };
       
