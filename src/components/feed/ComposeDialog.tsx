@@ -10,12 +10,13 @@ import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ComposeDialogProps {
-  onSubmit: (content: string) => void;
+  onSubmit: (content: string) => Promise<void>;
 }
 
 const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [content, setContent] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isMobile = useIsMobile();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -28,17 +29,30 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
     }
   }, [isOpen]);
 
-  const handleSubmit = () => {
-    if (!content.trim()) return;
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     
-    onSubmit(content);
-    setContent('');
-    setIsOpen(false);
+    if (!content.trim() || isSubmitting) return;
     
-    toast({
-      title: "Inlägget publicerat!",
-      description: "Ditt inlägg har publicerats framgångsrikt.",
-    });
+    setIsSubmitting(true);
+    
+    try {
+      await onSubmit(content);
+      setContent('');
+      setIsOpen(false);
+      
+      toast({
+        title: "Inlägget publicerat!",
+        description: "Ditt inlägg har publicerats framgångsrikt.",
+      });
+    } catch (error) {
+      console.error("Error submitting tweet:", error);
+      // The error toast is now handled in tweetService
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -79,55 +93,57 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
           </DialogDescription>
         </DialogHeader>
         
-        <div className="p-4">
-          <div className="flex gap-3">
-            <Avatar className="h-10 w-10 border border-border/50">
-              <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} />
-              <AvatarFallback>{currentUser.displayName.charAt(0)}</AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1">
-              <Textarea 
-                ref={textareaRef}
-                placeholder="Vad händer i kryptovärlden?"
-                className="min-h-[120px] border-none focus-visible:ring-0 resize-none text-base p-0 bg-transparent"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-              />
+        <form onSubmit={handleSubmit}>
+          <div className="p-4">
+            <div className="flex gap-3">
+              <Avatar className="h-10 w-10 border border-border/50">
+                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.displayName} />
+                <AvatarFallback>{currentUser.displayName.charAt(0)}</AvatarFallback>
+              </Avatar>
               
-              {content.length > 0 && (
-                <div className="text-right text-sm text-muted-foreground mt-1">
-                  {content.length}/280
-                </div>
-              )}
+              <div className="flex-1">
+                <Textarea 
+                  ref={textareaRef}
+                  placeholder="Vad händer i kryptovärlden?"
+                  className="min-h-[120px] border-none focus-visible:ring-0 resize-none text-base p-0 bg-transparent"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                />
+                
+                {content.length > 0 && (
+                  <div className="text-right text-sm text-muted-foreground mt-1">
+                    {content.length}/280
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div className="flex items-center justify-between p-4 border-t border-border/30">
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-              <Image className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-              <FileText className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-              <AtSign className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-              <Smile className="h-5 w-5" />
+          
+          <div className="flex items-center justify-between p-4 border-t border-border/30">
+            <div className="flex gap-1">
+              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
+                <Image className="h-5 w-5" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
+                <FileText className="h-5 w-5" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
+                <AtSign className="h-5 w-5" />
+              </Button>
+              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
+                <Smile className="h-5 w-5" />
+              </Button>
+            </div>
+            
+            <Button 
+              type="submit"
+              className="rounded-full bg-crypto-blue hover:bg-crypto-blue/90 text-white"
+              disabled={!content.trim() || isSubmitting}
+            >
+              {isSubmitting ? "Publicerar..." : "Publicera"}
             </Button>
           </div>
-          
-          <Button 
-            className="rounded-full bg-crypto-blue hover:bg-crypto-blue/90 text-white"
-            disabled={!content.trim()}
-            onClick={handleSubmit}
-          >
-            Publicera
-          </Button>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -17,18 +17,38 @@ export const authService = {
       signature, 
       message
     });
+    
+    // Store the token in localStorage immediately upon successful verification
+    if (response.data && response.data.token) {
+      localStorage.setItem('jwt_token', response.data.token);
+      localStorage.setItem('wallet_address', address);
+    }
+    
     return response.data;
   },
   
   getCurrentUser: async () => {
-    const response = await apiClient.get('https://f3oci3ty.xyz/api/auth/me');
-    return response.data;
+    try {
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/auth/me');
+      return response.data;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
   },
   
   logout: async () => {
-    const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/logout');
-    localStorage.removeItem('jwt_token');
-    localStorage.removeItem('wallet_address');
-    return response.data;
+    try {
+      const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/logout');
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('wallet_address');
+      return response.data;
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still clear local storage even if the API call fails
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('wallet_address');
+      throw error;
+    }
   },
 };

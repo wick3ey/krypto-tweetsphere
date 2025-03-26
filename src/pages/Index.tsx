@@ -27,8 +27,11 @@ const Index = () => {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   
+  // Check if user is logged in
+  const isLoggedIn = !!localStorage.getItem('jwt_token');
+  
   // Fetch tweets based on active feed with proper error handling
-  const { data: tweets = [], isLoading: isLoadingTweets } = useQuery({
+  const { data: tweets = [], isLoading: isLoadingTweets, refetch: refetchTweets } = useQuery({
     queryKey: ['tweets', activeFeed],
     queryFn: async () => {
       if (activeFeed === 'trending') {
@@ -52,16 +55,24 @@ const Index = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1, // Only retry once to prevent excessive calls
     refetchOnWindowFocus: false, // Disable auto refetch on window focus
+    enabled: !isLoadingTweets, // Load after tweets to prioritize main content
   });
   
   // Fetch current user
-  const { data: currentUser } = useQuery({
+  const { data: currentUser, isLoading: isLoadingUser, refetch: refetchUser } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => authService.getCurrentUser(),
-    enabled: !!localStorage.getItem('jwt_token'),
+    enabled: isLoggedIn,
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false, // Disable auto refetch on window focus
   });
+  
+  // Refetch user data when token changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      refetchUser();
+    }
+  }, [isLoggedIn, refetchUser]);
   
   // Tweet creation mutation
   const createTweetMutation = useMutation({
@@ -69,27 +80,27 @@ const Index = () => {
     onSuccess: () => {
       // Invalidate tweets query to refetch
       queryClient.invalidateQueries({ queryKey: ['tweets'] });
-      
-      toast({
-        title: "Tweet publicerad!",
-        description: "Din tweet har publicerats.",
-      });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error creating tweet:", error);
-      toast({
-        title: "Error",
-        description: "Could not create tweet. Please try again.",
-        variant: "destructive",
-      });
+      // Error toast is now handled in tweetService
     },
   });
   
-  const handleTweet = (tweetContent: string) => {
-    if (!tweetContent.trim()) return;
+  const handleTweet = async (tweetContent: string): Promise<void> => {
+    if (!tweetContent.trim()) return Promise.reject(new Error("Tweet content is empty"));
     
-    // Submit the tweet using the mutation
-    createTweetMutation.mutate(tweetContent);
+    if (!isLoggedIn) {
+      toast({
+        title: "Authentication required",
+        description: "Please connect your wallet to post tweets",
+        variant: "destructive",
+      });
+      return Promise.reject(new Error("Not authenticated"));
+    }
+    
+    // Return the promise from the mutation
+    return createTweetMutation.mutateAsync(tweetContent);
   };
   
   // Follow user mutation
@@ -104,9 +115,26 @@ const Index = () => {
         description: "You are now following this user.",
       });
     },
+    onError: (error) => {
+      console.error("Error following user:", error);
+      toast({
+        title: "Error",
+        description: "Could not follow user. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
   
   const handleFollowUser = (userId: string) => {
+    if (!isLoggedIn) {
+      toast({
+        title: "Authentication required",
+        description: "Please connect your wallet to follow users",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     followUserMutation.mutate(userId);
   };
   

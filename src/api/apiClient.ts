@@ -6,6 +6,8 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  // Set a reasonable timeout
+  timeout: 10000,
 });
 
 // Add a request interceptor to include JWT token in requests when available
@@ -26,9 +28,12 @@ apiClient.interceptors.response.use(
   (error) => {
     // Handle auth errors
     if (error.response && error.response.status === 401) {
+      console.log('Unauthorized request detected, clearing auth data');
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
-      window.location.href = '/';
+      
+      // Don't redirect from API calls, let the components handle this
+      // to prevent unexpected page refreshes
     }
     return Promise.reject(error);
   }

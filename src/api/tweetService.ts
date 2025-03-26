@@ -1,5 +1,5 @@
-
 import apiClient from './apiClient';
+import { toast } from "@/hooks/use-toast";
 
 export const tweetService = {
   getFeed: async () => {
@@ -33,11 +33,44 @@ export const tweetService = {
   },
   
   createTweet: async (content: string, attachments?: string[]) => {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) {
+      toast({
+        title: "Authentication required",
+        description: "Please connect your wallet to post tweets",
+        variant: "destructive",
+      });
+      throw new Error('Authentication required');
+    }
+    
     try {
       const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', { content, attachments });
       return response.data;
     } catch (error) {
       console.error('Error creating tweet:', error);
+      
+      if (error.response) {
+        if (error.response.status === 401) {
+          toast({
+            title: "Session expired",
+            description: "Your session has expired. Please reconnect your wallet.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error",
+            description: error.response.data?.message || "Failed to create tweet. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Network error",
+          description: "Could not connect to the server. Please check your connection.",
+          variant: "destructive",
+        });
+      }
+      
       throw error;
     }
   },
