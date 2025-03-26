@@ -39,40 +39,55 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       // Request wallet connection
       const resp = await window.solana.connect();
       const address = resp.publicKey.toString();
+      console.log("Connected to wallet:", address);
       
-      // Get nonce from the server - passing the wallet address
-      const { nonce } = await authService.getNonce(address);
-      
-      // Create a signature using the nonce
-      const message = `Sign this message to login: ${nonce}`;
-      const encodedMessage = new TextEncoder().encode(message);
-      const signedMessage = await window.solana.signMessage(encodedMessage, "utf8");
-      
-      // Verify signature with the server and get JWT token
-      const { token, user, isNewUser } = await authService.verifySignature(address, signedMessage.signature, nonce);
-      
-      // Save token to localStorage
-      localStorage.setItem('jwt_token', token);
-      localStorage.setItem('wallet_address', address);
-      
-      setWalletAddress(address);
-      setIsConnected(true);
-      
-      if (onConnect) {
-        onConnect(address);
-      }
-      
-      // Check if this is a new user who needs to complete profile setup
-      if (isNewUser || !user.username) {
-        toast.success("Wallet connected! Let's set up your profile", {
-          description: "Complete your profile to get started",
-        });
+      try {
+        // Get nonce from the server - passing the wallet address
+        const { nonce } = await authService.getNonce(address);
+        console.log("Received nonce:", nonce);
         
-        // Redirect to profile setup
-        navigate('/setup-profile');
-      } else {
-        toast.success("Wallet connected successfully", {
-          description: `Connected to ${formatWalletAddress(address)}`,
+        // Create a signature using the nonce
+        const message = `Sign this message to login: ${nonce}`;
+        const encodedMessage = new TextEncoder().encode(message);
+        
+        // Sign the message
+        const signedMessage = await window.solana.signMessage(encodedMessage, "utf8");
+        console.log("Message signed successfully");
+        
+        // Verify signature with the server and get JWT token
+        const { token, user, isNewUser } = await authService.verifySignature(address, signedMessage.signature, nonce);
+        console.log("Signature verified successfully");
+        
+        // Save token to localStorage
+        localStorage.setItem('jwt_token', token);
+        localStorage.setItem('wallet_address', address);
+        
+        setWalletAddress(address);
+        setIsConnected(true);
+        
+        if (onConnect) {
+          onConnect(address);
+        }
+        
+        // Check if this is a new user who needs to complete profile setup
+        if (isNewUser || !user.username) {
+          toast.success("Wallet connected! Let's set up your profile", {
+            description: "Complete your profile to get started",
+          });
+          
+          // Redirect to profile setup
+          navigate('/setup-profile');
+        } else {
+          toast.success("Wallet connected successfully", {
+            description: `Connected to ${formatWalletAddress(address)}`,
+          });
+        }
+      } catch (error) {
+        console.error("Authentication error:", error);
+        // Even if there's an authentication error, we already connected to the wallet
+        // Don't show a connection failure message here
+        toast.error("Authentication failed", {
+          description: "Failed to authenticate with the server. Please try again.",
         });
       }
     } catch (error) {
