@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { authService } from '@/api/authService';
 import { ethers } from 'ethers';
+import { useNavigate } from 'react-router-dom';
 
 // Add TypeScript declaration for window.ethereum
 declare global {
@@ -22,6 +23,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(!!localStorage.getItem('jwt_token'));
   const [walletAddress, setWalletAddress] = useState<string>(localStorage.getItem('wallet_address') || '');
+  const navigate = useNavigate();
   
   const handleConnect = async () => {
     if (!window.ethereum) {
@@ -47,7 +49,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       const signature = await signer.signMessage(`Sign this message to login: ${nonce}`);
       
       // Verify signature with the server and get JWT token
-      const { token, user } = await authService.verifySignature(address, signature, nonce);
+      const { token, user, isNewUser } = await authService.verifySignature(address, signature, nonce);
       
       // Save token to localStorage
       localStorage.setItem('jwt_token', token);
@@ -60,9 +62,19 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         onConnect(address);
       }
       
-      toast.success("Wallet connected successfully", {
-        description: `Connected to ${formatWalletAddress(address)}`,
-      });
+      // Check if this is a new user who needs to complete profile setup
+      if (isNewUser || !user.username) {
+        toast.success("Wallet connected! Let's set up your profile", {
+          description: "Complete your profile to get started",
+        });
+        
+        // Redirect to profile setup
+        navigate('/setup-profile');
+      } else {
+        toast.success("Wallet connected successfully", {
+          description: `Connected to ${formatWalletAddress(address)}`,
+        });
+      }
     } catch (error) {
       console.error("Wallet connection error:", error);
       toast.error("Connection failed", {

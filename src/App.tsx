@@ -1,5 +1,5 @@
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,10 +34,30 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Explore = lazy(() => import('./pages/Explore'));
 const Messages = lazy(() => import('./pages/Messages'));
+const ProfileSetup = lazy(() => import('./pages/ProfileSetup'));
 
-// Protected route wrapper
+// Protected route wrapper with profile setup check
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = !!localStorage.getItem('jwt_token');
+  
+  // Check if user needs to complete profile setup
+  useEffect(() => {
+    const checkProfileSetup = async () => {
+      if (isAuthenticated) {
+        try {
+          const user = await authService.getCurrentUser();
+          // If user doesn't have a username or display name, redirect to setup
+          if (!user.username || !user.displayName) {
+            window.location.href = '/setup-profile';
+          }
+        } catch (error) {
+          console.error('Error checking user profile:', error);
+        }
+      }
+    };
+    
+    checkProfileSetup();
+  }, [isAuthenticated]);
   
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -66,6 +86,9 @@ const App = () => {
           <ErrorBoundary>
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
+                {/* Profile setup route outside of main layout */}
+                <Route path="/setup-profile" element={<ProfileSetup />} />
+                
                 {/* Main layout with all routes using standard layout */}
                 <Route path="/" element={<AppLayout />}>
                   <Route index element={<Index />} />
