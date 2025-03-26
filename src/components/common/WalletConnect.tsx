@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { authService } from '@/api/authService';
-import { ethers } from 'ethers';
 import { useNavigate } from 'react-router-dom';
+import { Connection, PublicKey } from '@solana/web3.js';
 
-// Add TypeScript declaration for window.ethereum
+// Add TypeScript declaration for window.solana
 declare global {
   interface Window {
-    ethereum?: any;
+    solana?: any;
   }
 }
 
@@ -26,9 +26,9 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const navigate = useNavigate();
   
   const handleConnect = async () => {
-    if (!window.ethereum) {
-      toast.error("MetaMask not found", {
-        description: "Please install MetaMask extension to connect your wallet",
+    if (!window.solana) {
+      toast.error("Solana wallet not found", {
+        description: "Please install a Solana wallet extension like Phantom to connect",
       });
       return;
     }
@@ -36,20 +36,20 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     setIsConnecting(true);
     
     try {
-      // Request account access
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const address = accounts[0];
+      // Request wallet connection
+      const resp = await window.solana.connect();
+      const address = resp.publicKey.toString();
       
-      // Get nonce from the server - now passing the wallet address
+      // Get nonce from the server - passing the wallet address
       const { nonce } = await authService.getNonce(address);
       
       // Create a signature using the nonce
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-      const signature = await signer.signMessage(`Sign this message to login: ${nonce}`);
+      const message = `Sign this message to login: ${nonce}`;
+      const encodedMessage = new TextEncoder().encode(message);
+      const signedMessage = await window.solana.signMessage(encodedMessage, "utf8");
       
       // Verify signature with the server and get JWT token
-      const { token, user, isNewUser } = await authService.verifySignature(address, signature, nonce);
+      const { token, user, isNewUser } = await authService.verifySignature(address, signedMessage.signature, nonce);
       
       // Save token to localStorage
       localStorage.setItem('jwt_token', token);

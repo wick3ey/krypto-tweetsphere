@@ -8,7 +8,11 @@ export const authService = {
   },
   
   verifySignature: async (address: string, signature: string, nonce: string) => {
-    const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/verify', { address, signature, nonce });
+    const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/verify', { 
+      walletAddress: address, 
+      signature, 
+      message: `Sign this message to login: ${nonce}` 
+    });
     return response.data;
   },
   
