@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { authService } from '@/api/authService';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { logService } from '@/api/logService';
 
 // Add TypeScript declaration for window.solana
 declare global {
@@ -26,55 +27,82 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // Check token and wallet address on mount
+  // När komponenten renderas för första gången
   useEffect(() => {
-    const storedAddress = localStorage.getItem('wallet_address');
-    const storedToken = localStorage.getItem('jwt_token');
+    logService.debug("WalletConnect component mounted", {}, "WalletConnect");
     
-    if (storedAddress && storedToken) {
-      setWalletAddress(storedAddress);
-      setIsConnected(true);
-    }
+    // Skicka diagnostikrapport vid uppstart
+    logService.sendDiagnosticReport();
+    
+    // Kontrollera om användaren redan är inloggad
+    const checkStoredCredentials = () => {
+      const storedAddress = localStorage.getItem('wallet_address');
+      const storedToken = localStorage.getItem('jwt_token');
+      
+      if (storedAddress && storedToken) {
+        setWalletAddress(storedAddress);
+        setIsConnected(true);
+        logService.info("User already connected with stored credentials", 
+          { walletAddress: storedAddress }, "WalletConnect");
+      }
+    };
+    
+    checkStoredCredentials();
+    
+    // Cleanup när komponenten avmonteras
+    return () => {
+      logService.debug("WalletConnect component unmounted", {}, "WalletConnect");
+    };
   }, []);
   
   const handleConnect = async () => {
     if (!window.solana) {
-      toast.error("Solana wallet not found", {
+      const errorMsg = "Solana wallet not found";
+      logService.warn(errorMsg, { userAgent: navigator.userAgent }, "WalletConnect");
+      
+      toast.error(errorMsg, {
         description: "Please install a Solana wallet extension like Phantom to connect",
       });
       return;
     }
     
     setIsConnecting(true);
+    logService.info("Initiating wallet connection", {}, "WalletConnect");
     
     try {
       // First, request wallet connection
+      logService.debug("Requesting connection to wallet", {}, "WalletConnect");
       const resp = await window.solana.connect();
       const address = resp.publicKey.toString();
-      console.log("Connected to wallet:", address);
+      logService.info("Connected to wallet", { address }, "WalletConnect");
       
       try {
         // Get nonce and authentication message from the server
+        logService.debug("Requesting authentication nonce", { address }, "WalletConnect");
         const result = await authService.getNonce(address);
         
         if (!result || !result.nonce || !result.message) {
-          throw new Error("Failed to get valid authentication data from server");
+          const errorMsg = "Failed to get valid authentication data from server";
+          logService.error(errorMsg, { result }, "WalletConnect");
+          throw new Error(errorMsg);
         }
         
         const { nonce, message } = result;
-        console.log("Received nonce:", nonce);
-        console.log("Authentication message:", message);
+        logService.debug("Received authentication data", { nonce, message }, "WalletConnect");
         
         // Create a signature using the message from the server
         const encodedMessage = new TextEncoder().encode(message);
         
         // Sign the message
+        logService.debug("Requesting user to sign message", { message }, "WalletConnect");
         const signedMessage = await window.solana.signMessage(encodedMessage, "utf8");
-        console.log("Message signed successfully");
+        logService.info("Message signed successfully", { signature: !!signedMessage }, "WalletConnect");
         
         // Verify signature with the server and get JWT token
+        logService.debug("Verifying signature with server", {}, "WalletConnect");
         const authResult = await authService.verifySignature(address, signedMessage.signature);
-        console.log("Signature verified successfully");
+        logService.info("Signature verified successfully", 
+          { userId: authResult.user.id, isNewUser: authResult.isNewUser }, "WalletConnect");
         
         setWalletAddress(address);
         setIsConnected(true);
@@ -88,6 +116,9 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         
         // Check if this is a new user who needs to complete profile setup
         if (authResult.isNewUser || !authResult.user.username) {
+          logService.info("New user detected, redirecting to profile setup", 
+            { userId: authResult.user.id }, "WalletConnect");
+            
           toast.success("Wallet connected! Let's set up your profile", {
             description: "Complete your profile to get started",
           });
@@ -95,18 +126,21 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
           // Redirect to profile setup
           navigate('/setup-profile');
         } else {
+          logService.info("Existing user logged in successfully", 
+            { userId: authResult.user.id, username: authResult.user.username }, "WalletConnect");
+            
           toast.success("Wallet connected successfully", {
             description: `Connected to ${formatWalletAddress(address)}`,
           });
         }
       } catch (error: any) {
-        console.error("Authentication error:", error);
+        logService.error("Authentication error", { error, address }, "WalletConnect");
         toast.error("Authentication failed", {
           description: error.message || "Failed to authenticate with the server. Please try again.",
         });
       }
     } catch (error: any) {
-      console.error("Wallet connection error:", error);
+      logService.error("Wallet connection error", { error }, "WalletConnect");
       toast.error("Connection failed", {
         description: error.message || "Failed to connect wallet. Please try again.",
       });
