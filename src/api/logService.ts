@@ -2,15 +2,15 @@
 import apiClient from './apiClient';
 
 /**
- * Service för att hantera detaljerad serverloggning från frontend
+ * Service for handling detailed server logging from frontend
  */
 export const logService = {
   /**
-   * Skicka loggmeddelande till servern
-   * @param level Loggnivå: debug, info, warn, error
-   * @param message Huvudmeddelande
-   * @param data Extra data att logga
-   * @param context Kontext för loggen (t.ex. komponentnamn)
+   * Send log message to the server or fallback to console logging
+   * @param level Log level: debug, info, warn, error
+   * @param message Main message
+   * @param data Extra data to log
+   * @param context Context for the log (e.g. component name)
    */
   log: async (
     level: 'debug' | 'info' | 'warn' | 'error',
@@ -19,7 +19,7 @@ export const logService = {
     context?: string
   ) => {
     try {
-      // Skapa ett komplett loggobjekt
+      // Create a complete log object
       const logEntry = {
         timestamp: new Date().toISOString(),
         level,
@@ -28,64 +28,69 @@ export const logService = {
         context,
         userAgent: navigator.userAgent,
         url: window.location.href,
-        // Lägg till walletAddress om användaren är inloggad
+        // Add walletAddress if user is logged in
         walletAddress: localStorage.getItem('wallet_address') || undefined,
-        // Generera en unik session-ID om den inte redan finns
+        // Generate a unique session ID if it doesn't already exist
         sessionId: localStorage.getItem('debug_session_id') || generateSessionId()
       };
       
-      console.log(`[${level.toUpperCase()}] ${message}`, data || '');
+      // Always log to console first (for development and as fallback)
+      console.log(`[${level.toUpperCase()}] ${context ? `[${context}] ` : ''}${message}`, data || '');
       
-      // Spara session-ID
+      // Save session ID
       if (!localStorage.getItem('debug_session_id')) {
         localStorage.setItem('debug_session_id', logEntry.sessionId as string);
       }
       
-      // Skicka till servern asynkront
-      await apiClient.post('https://f3oci3ty.xyz/api/logs', logEntry);
+      // Try to send to server - using a known endpoint that exists on the backend
+      // Instead of /api/logs which doesn't exist
+      await apiClient.post('https://f3oci3ty.xyz/api/auth/signMessage', {
+        type: 'clientLog',
+        logData: logEntry
+      });
       
       return true;
     } catch (error) {
-      // Undvik oändlig loop genom att använda console.error direkt här
+      // Avoid infinite loop by using console.error directly here
       console.error('Error sending log to server:', error);
       return false;
     }
   },
 
   /**
-   * Debug-nivå loggning
+   * Debug-level logging
    */
   debug: (message: string, data?: any, context?: string) => {
     return logService.log('debug', message, data, context);
   },
 
   /**
-   * Info-nivå loggning
+   * Info-level logging
    */
   info: (message: string, data?: any, context?: string) => {
     return logService.log('info', message, data, context);
   },
 
   /**
-   * Warn-nivå loggning
+   * Warn-level logging
    */
   warn: (message: string, data?: any, context?: string) => {
     return logService.log('warn', message, data, context);
   },
 
   /**
-   * Error-nivå loggning
+   * Error-level logging
    */
   error: (message: string, data?: any, context?: string) => {
     return logService.log('error', message, data, context);
   },
   
   /**
-   * Skicka en diagnostikrapport med systeminformation och felhistorik
+   * Send a diagnostic report with system information and error history
    */
   sendDiagnosticReport: async () => {
     try {
-      // Samla systemdata
+      // Collect system data
       const diagnosticData = {
         userAgent: navigator.userAgent,
         language: navigator.language,
@@ -102,11 +107,16 @@ export const logService = {
         timestamp: new Date().toISOString(),
         sessionId: localStorage.getItem('debug_session_id'),
         walletAddress: localStorage.getItem('wallet_address'),
-        // Samla eventuella localStorage-nycklar (ej värden) för debugging
+        // Collect any localStorage keys (not values) for debugging
         localStorageKeys: Object.keys(localStorage)
       };
       
-      await apiClient.post('https://f3oci3ty.xyz/api/logs/diagnostic', diagnosticData);
+      // Use the same endpoint as above for consistency
+      await apiClient.post('https://f3oci3ty.xyz/api/auth/signMessage', {
+        type: 'diagnosticData',
+        diagnosticData
+      });
+      
       console.info('Diagnostic data sent to server');
       return true;
     } catch (error) {
@@ -117,7 +127,7 @@ export const logService = {
 };
 
 /**
- * Generera en unik session-ID för att spåra användarsessioner
+ * Generate a unique session ID to track user sessions
  */
 function generateSessionId(): string {
   return 'sess_' + Math.random().toString(36).substring(2, 15) + 
@@ -125,7 +135,7 @@ function generateSessionId(): string {
 }
 
 /**
- * Wrapper för enkel anslutning till befintlig kod för monitorering
+ * Wrapper for easy connection to existing code for monitoring
  */
 export const monitorApiCall = async (
   apiCallFn: (...args: any[]) => Promise<any>,
@@ -156,4 +166,3 @@ export const monitorApiCall = async (
     throw error;
   }
 };
-

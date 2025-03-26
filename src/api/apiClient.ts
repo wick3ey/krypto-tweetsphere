@@ -1,7 +1,6 @@
 
 import axios from 'axios';
 import { toast } from "sonner";
-import { logService } from './logService';
 
 // Create an axios instance with default config
 const apiClient = axios.create({
@@ -13,49 +12,50 @@ const apiClient = axios.create({
 });
 
 // Function to log requests and responses (will be called by interceptors)
+// Moved outside of the actual logService to avoid circular dependencies
 const logApiActivity = (type, data) => {
   if (type === 'request') {
     const { method, url, headers, data: requestData } = data;
-    logService.debug('API Request', { method, url, headers, data: requestData }, 'apiClient');
+    console.debug('API Request', { method, url, headers, data: requestData });
   } 
   else if (type === 'response') {
     const { status, config, data: responseData } = data;
-    logService.debug('API Response', { 
+    console.debug('API Response', { 
       url: config.url, 
       method: config.method?.toUpperCase(), 
       status, 
       data: responseData 
-    }, 'apiClient');
+    });
   }
   else if (type === 'error') {
     const { message, config, response, request } = data;
     
     // For response errors (server responded with error)
     if (response) {
-      logService.error('API Response Error', {
+      console.error('API Response Error', {
         url: config.url,
         method: config.method?.toUpperCase(),
         status: response.status,
         statusText: response.statusText,
         data: response.data,
         message
-      }, 'apiClient');
+      });
     }
     // For request errors (no response received)
     else if (request) {
-      logService.error('API Request Error', {
+      console.error('API Request Error', {
         url: config?.url,
         method: config?.method?.toUpperCase(),
         message: 'No response received',
         error: message
-      }, 'apiClient');
+      });
     }
     // For setup errors
     else {
-      logService.error('API Config Error', {
+      console.error('API Config Error', {
         message,
         config
-      }, 'apiClient');
+      });
     }
   }
 };

@@ -35,7 +35,7 @@ export const authService = {
   
   verifySignature: async (walletAddress: string, signature: any) => {
     try {
-      logService.info("Verifying signature", { walletAddress, signature }, "authService");
+      logService.info("Verifying signature", { walletAddress, signature: signature?.substring(0, 20) + '...' }, "authService");
       
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/verify', { 
         walletAddress, 
