@@ -11,7 +11,7 @@ export const notificationService = {
         return { notifications: [], total: 0 };
       }
       
-      const response = await apiClient.get('/api/notifications', { 
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/notifications', { 
         params: unreadOnly ? { unreadOnly: true } : undefined
       });
       
@@ -32,7 +32,7 @@ export const notificationService = {
         return { count: 0 };
       }
       
-      const response = await apiClient.get('/api/notifications/unread/count');
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/notifications/unread/count');
       return response.data;
     } catch (error) {
       console.error('Error fetching unread count:', error);
@@ -42,7 +42,7 @@ export const notificationService = {
   
   markAsRead: async (id: string) => {
     try {
-      const response = await apiClient.put(`/api/notifications/${id}/read`);
+      const response = await apiClient.put(`https://f3oci3ty.xyz/api/notifications/${id}/read`);
       return response.data;
     } catch (error) {
       console.error(`Error marking notification ${id} as read:`, error);
@@ -52,7 +52,7 @@ export const notificationService = {
   
   markAllAsRead: async () => {
     try {
-      const response = await apiClient.put('/api/notifications/all/read');
+      const response = await apiClient.put('https://f3oci3ty.xyz/api/notifications/all/read');
       return response.data;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -62,7 +62,7 @@ export const notificationService = {
   
   deleteNotification: async (id: string) => {
     try {
-      const response = await apiClient.delete(`/api/notifications/${id}`);
+      const response = await apiClient.delete(`https://f3oci3ty.xyz/api/notifications/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error deleting notification ${id}:`, error);
@@ -72,7 +72,7 @@ export const notificationService = {
   
   deleteAllNotifications: async () => {
     try {
-      const response = await apiClient.delete('/api/notifications');
+      const response = await apiClient.delete('https://f3oci3ty.xyz/api/notifications');
       return response.data;
     } catch (error) {
       console.error('Error deleting all notifications:', error);

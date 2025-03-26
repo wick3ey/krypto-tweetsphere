@@ -4,7 +4,7 @@ import apiClient from './apiClient';
 export const tweetService = {
   getFeed: async () => {
     try {
-      const response = await apiClient.get('/api/tweets/feed');
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/feed');
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error('Error fetching feed:', error);
@@ -14,7 +14,7 @@ export const tweetService = {
   
   getExploreFeed: async () => {
     try {
-      const response = await apiClient.get('/api/tweets/explore');
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/explore');
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error('Error fetching explore feed:', error);
@@ -24,7 +24,7 @@ export const tweetService = {
   
   searchTweets: async (query: string) => {
     try {
-      const response = await apiClient.get('/api/tweets/search', { params: { query } });
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/search', { params: { query } });
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error('Error searching tweets:', error);
@@ -34,7 +34,7 @@ export const tweetService = {
   
   createTweet: async (content: string, attachments?: string[]) => {
     try {
-      const response = await apiClient.post('/api/tweets', { content, attachments });
+      const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', { content, attachments });
       return response.data;
     } catch (error) {
       console.error('Error creating tweet:', error);
@@ -44,7 +44,7 @@ export const tweetService = {
   
   getTweet: async (id: string) => {
     try {
-      const response = await apiClient.get(`/api/tweets/${id}`);
+      const response = await apiClient.get(`https://f3oci3ty.xyz/api/tweets/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching tweet ${id}:`, error);
@@ -54,7 +54,7 @@ export const tweetService = {
   
   deleteTweet: async (id: string) => {
     try {
-      const response = await apiClient.delete(`/api/tweets/${id}`);
+      const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error deleting tweet ${id}:`, error);
@@ -64,7 +64,7 @@ export const tweetService = {
   
   likeTweet: async (id: string) => {
     try {
-      const response = await apiClient.post(`/api/tweets/${id}/like`);
+      const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
       return response.data;
     } catch (error) {
       console.error(`Error liking tweet ${id}:`, error);
@@ -74,7 +74,7 @@ export const tweetService = {
   
   unlikeTweet: async (id: string) => {
     try {
-      const response = await apiClient.delete(`/api/tweets/${id}/like`);
+      const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
       return response.data;
     } catch (error) {
       console.error(`Error unliking tweet ${id}:`, error);
@@ -84,7 +84,7 @@ export const tweetService = {
   
   retweet: async (id: string, comment?: string) => {
     try {
-      const response = await apiClient.post(`/api/tweets/${id}/retweet`, 
+      const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`, 
         comment ? { comment } : undefined
       );
       return response.data;
@@ -96,7 +96,7 @@ export const tweetService = {
   
   unretweet: async (id: string) => {
     try {
-      const response = await apiClient.delete(`/api/tweets/${id}/retweet`);
+      const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`);
       return response.data;
     } catch (error) {
       console.error(`Error un-retweeting tweet ${id}:`, error);
@@ -106,7 +106,7 @@ export const tweetService = {
   
   replyToTweet: async (id: string, content: string, attachments?: string[]) => {
     try {
-      const response = await apiClient.post(`/api/tweets/${id}/reply`, { content, attachments });
+      const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/reply`, { content, attachments });
       return response.data;
     } catch (error) {
       console.error(`Error replying to tweet ${id}:`, error);
@@ -116,7 +116,7 @@ export const tweetService = {
   
   getTweetReplies: async (id: string) => {
     try {
-      const response = await apiClient.get(`/api/tweets/${id}/replies`);
+      const response = await apiClient.get(`https://f3oci3ty.xyz/api/tweets/${id}/replies`);
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       console.error(`Error fetching replies for tweet ${id}:`, error);

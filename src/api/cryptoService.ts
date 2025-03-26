@@ -4,7 +4,7 @@ import apiClient from './apiClient';
 export const cryptoService = {
   getSupportedTokens: async () => {
     try {
-      const response = await apiClient.get('/api/crypto/supported-tokens');
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/crypto/supported-tokens');
       return response.data;
     } catch (error) {
       console.error('Error fetching supported tokens:', error);
@@ -14,7 +14,7 @@ export const cryptoService = {
   
   getTokenPrice: async (symbol: string) => {
     try {
-      const response = await apiClient.get(`/api/crypto/price/${symbol}`);
+      const response = await apiClient.get(`https://f3oci3ty.xyz/api/crypto/price/${symbol}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching price for ${symbol}:`, error);
@@ -31,7 +31,7 @@ export const cryptoService = {
         return { balance: 0 };
       }
       
-      const response = await apiClient.get('/api/crypto/balance');
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/crypto/balance');
       return response.data;
     } catch (error) {
       if (error?.response?.status === 401) {
@@ -51,7 +51,7 @@ export const cryptoService = {
         return [];
       }
       
-      const response = await apiClient.get('/api/crypto/tokens');
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/crypto/tokens');
       return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
       if (error?.response?.status === 401) {
@@ -71,7 +71,7 @@ export const cryptoService = {
         return [];
       }
       
-      const response = await apiClient.get('/api/crypto/transactions', {
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/crypto/transactions', {
         params: type ? { type } : undefined
       });
       return Array.isArray(response.data) ? response.data : [];
@@ -93,7 +93,7 @@ export const cryptoService = {
         return [];
       }
       
-      const response = await apiClient.get('/api/crypto/pnl', { 
+      const response = await apiClient.get('https://f3oci3ty.xyz/api/crypto/pnl', { 
         params: { period } 
       });
       return Array.isArray(response.data) ? response.data : [];
@@ -108,7 +108,7 @@ export const cryptoService = {
   
   transferCrypto: async (to: string, amount: number, token: string, memo?: string) => {
     try {
-      const response = await apiClient.post('/api/crypto/transfer', { 
+      const response = await apiClient.post('https://f3oci3ty.xyz/api/crypto/transfer', { 
         toAddress: to, 
         amount, 
         token,
@@ -123,7 +123,7 @@ export const cryptoService = {
   
   buyCrypto: async (token: string, amount: number, paymentMethod?: string) => {
     try {
-      const response = await apiClient.post('/api/crypto/buy', { 
+      const response = await apiClient.post('https://f3oci3ty.xyz/api/crypto/buy', { 
         token, 
         amount,
         paymentMethod 
@@ -137,7 +137,7 @@ export const cryptoService = {
   
   sellCrypto: async (token: string, amount: number, payoutMethod?: string) => {
     try {
-      const response = await apiClient.post('/api/crypto/sell', { 
+      const response = await apiClient.post('https://f3oci3ty.xyz/api/crypto/sell', { 
         token, 
         amount,
         payoutMethod 
@@ -151,7 +151,7 @@ export const cryptoService = {
   
   swapTokens: async (fromToken: string, toToken: string, amount: number) => {
     try {
-      const response = await apiClient.post('/api/crypto/swap', { 
+      const response = await apiClient.post('https://f3oci3ty.xyz/api/crypto/swap', { 
         fromToken, 
         toToken, 
         amount 
