@@ -1,4 +1,5 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+
+import React, { Suspense, lazy } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,7 +48,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App = () => {
   // Pre-fetch current user data if token exists
-  useEffect(() => {
+  React.useEffect(() => {
     const token = localStorage.getItem('jwt_token');
     if (token) {
       queryClient.prefetchQuery({
@@ -66,8 +67,8 @@ const App = () => {
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 {/* Main layout with all routes using standard layout */}
-                <Route element={<AppLayout />}>
-                  <Route path="/" element={<Index />} />
+                <Route path="/" element={<AppLayout />}>
+                  <Route index element={<Index />} />
                   <Route path="/profile" element={
                     <ProtectedRoute>
                       <Profile />

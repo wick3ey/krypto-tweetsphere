@@ -7,16 +7,24 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { cryptoService } from '@/api/cryptoService';
 import { Transaction } from '@/lib/types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { toast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const [pnlPeriod, setPnlPeriod] = useState('7d');
+  const [isRendered, setIsRendered] = useState(false);
+  
+  // Ensure component is fully rendered
+  useEffect(() => {
+    setIsRendered(true);
+  }, []);
   
   // Fetch user's token balances
   const { data: tokens = [], isLoading: isLoadingTokens, refetch: refetchTokens } = useQuery({
     queryKey: ['tokens'],
     queryFn: () => cryptoService.getTokenBalances(),
     staleTime: 60000, // 1 minute
+    retry: 3,
   });
   
   // Fetch user's PnL data
@@ -24,6 +32,7 @@ const Dashboard = () => {
     queryKey: ['pnl', pnlPeriod],
     queryFn: () => cryptoService.getPnL(pnlPeriod),
     staleTime: 60000, // 1 minute
+    retry: 3,
   });
   
   // Fetch user's transaction history
@@ -31,6 +40,7 @@ const Dashboard = () => {
     queryKey: ['transactions'],
     queryFn: () => cryptoService.getTransactions(),
     staleTime: 60000, // 1 minute
+    retry: 3,
   });
   
   // Fetch supported tokens prices for market overview
@@ -38,6 +48,7 @@ const Dashboard = () => {
     queryKey: ['supportedTokens'],
     queryFn: () => cryptoService.getSupportedTokens(),
     staleTime: 5 * 60000, // 5 minutes
+    retry: 3,
   });
   
   // Calculate total balance and portfolio changes
@@ -62,10 +73,25 @@ const Dashboard = () => {
     : null;
   
   const handleRefresh = () => {
+    toast({
+      title: "Uppdaterar...",
+      description: "Hämtar senaste data för din dashboard",
+    });
+    
     refetchTokens();
     refetchPnL();
     refetchTransactions();
   };
+  
+  if (!isRendered) {
+    return (
+      <main className="container pt-20 px-4 min-h-screen">
+        <div className="flex items-center justify-center h-[70vh]">
+          <div className="animate-spin h-8 w-8 border-4 border-t-crypto-blue border-crypto-blue/20 rounded-full"></div>
+        </div>
+      </main>
+    );
+  }
   
   return (
     <main className="container pt-20 px-4">
