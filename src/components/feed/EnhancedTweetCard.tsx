@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Repeat2, Share, MoreHorizontal, Calendar, Shield, Zap } from 'lucide-react';
 import { Tweet } from '@/lib/types';
@@ -31,10 +30,35 @@ const EnhancedTweetCard = ({
   const [isVisible, setIsVisible] = useState(!animated);
   const [isHovered, setIsHovered] = useState(false);
   
-  // Enhanced null checks to ensure tweet and tweet.user exist
-  if (!tweet || !tweet.user) {
-    console.error("Tweet or tweet.user is undefined:", tweet);
+  if (!tweet) {
+    console.error("Tweet is undefined");
     return null;
+  }
+  
+  const actualTweet = tweet.tweet ? tweet.tweet : tweet;
+  
+  if (!actualTweet.id && actualTweet._id) {
+    actualTweet.id = actualTweet._id;
+  }
+  
+  if (!actualTweet.user && actualTweet.userId) {
+    if (typeof actualTweet.userId === 'object') {
+      actualTweet.user = {
+        id: actualTweet.userId._id || actualTweet.userId.id,
+        username: actualTweet.userId.username,
+        displayName: actualTweet.userId.displayName || actualTweet.userId.username,
+        avatarUrl: actualTweet.userId.profileImage || actualTweet.userId.avatarUrl
+      };
+    }
+  }
+  
+  if (!actualTweet.user) {
+    console.error("Tweet user is undefined:", actualTweet);
+    return null;
+  }
+  
+  if (!actualTweet.timestamp && actualTweet.createdAt) {
+    actualTweet.timestamp = actualTweet.createdAt;
   }
 
   useEffect(() => {
@@ -47,27 +71,23 @@ const EnhancedTweetCard = ({
     }
   }, [animated]);
 
-  // Safe date formatting with improved error handling
   const getFormattedDate = () => {
     try {
-      // First ensure we have a valid timestamp string
-      if (!tweet.timestamp || typeof tweet.timestamp !== 'string') {
-        console.warn("Invalid or missing timestamp in tweet:", tweet);
+      if (!actualTweet.timestamp || typeof actualTweet.timestamp !== 'string') {
+        console.warn("Invalid or missing timestamp in tweet:", actualTweet);
         return "recently";
       }
       
-      // Try to create a date from the timestamp
-      const date = new Date(tweet.timestamp);
+      const date = new Date(actualTweet.timestamp);
       
-      // Check if date is valid before formatting
       if (isNaN(date.getTime())) {
-        console.warn("Invalid timestamp in tweet:", tweet.timestamp);
+        console.warn("Invalid timestamp in tweet:", actualTweet.timestamp);
         return "recently";
       }
       
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
-      console.error("Error formatting date:", error, tweet.timestamp);
+      console.error("Error formatting date:", error, actualTweet.timestamp);
       return "recently";
     }
   };
@@ -99,19 +119,17 @@ const EnhancedTweetCard = ({
     setIsExpanded(!isExpanded);
   };
 
-  // Safe timestamp for display with improved error handling
   const safeTimestamp = () => {
     try {
-      // First ensure we have a valid timestamp string
-      if (!tweet.timestamp || typeof tweet.timestamp !== 'string') {
-        console.warn("Invalid or missing timestamp for display:", tweet);
+      if (!actualTweet.timestamp || typeof actualTweet.timestamp !== 'string') {
+        console.warn("Invalid or missing timestamp for display:", actualTweet);
         return new Date().toLocaleString(); // Fallback to current time
       }
       
-      const date = new Date(tweet.timestamp);
+      const date = new Date(actualTweet.timestamp);
       
       if (isNaN(date.getTime())) {
-        console.warn("Invalid timestamp for display:", tweet.timestamp);
+        console.warn("Invalid timestamp for display:", actualTweet.timestamp);
         return new Date().toLocaleString(); // Fallback to current time
       }
       
@@ -122,8 +140,7 @@ const EnhancedTweetCard = ({
     }
   };
 
-  // Ensure we have a valid user object
-  const user = tweet.user || {
+  const user = actualTweet.user || {
     username: 'unknown',
     displayName: 'Unknown User',
     avatarUrl: '/placeholder.svg',
@@ -169,7 +186,7 @@ const EnhancedTweetCard = ({
               <span className="mx-1 text-muted-foreground">·</span>
               <span className="text-xs text-muted-foreground">{formattedDate}</span>
             </div>
-            <p className="text-sm line-clamp-1">{tweet.content || ''}</p>
+            <p className="text-sm line-clamp-1">{actualTweet.content || ''}</p>
           </div>
           
           <Button 
@@ -236,7 +253,7 @@ const EnhancedTweetCard = ({
             
             <div className="flex items-center">
               <span className="text-xs text-muted-foreground hidden md:inline-block">
-                <time dateTime={tweet.timestamp || ''} title={safeTimestamp()}>
+                <time dateTime={actualTweet.timestamp || ''} title={safeTimestamp()}>
                   {formattedDate}
                 </time>
               </span>
@@ -250,10 +267,10 @@ const EnhancedTweetCard = ({
             "mt-1 text-balance transition-all duration-300",
             isExpanded ? "line-clamp-none" : "line-clamp-3"
           )}>
-            {tweet.content || ''}
+            {actualTweet.content || ''}
           </p>
           
-          {(tweet.content?.length || 0) > 150 && !isExpanded && (
+          {(actualTweet.content?.length || 0) > 150 && !isExpanded && (
             <button 
               className="text-xs text-crypto-blue hover:underline mt-1"
               onClick={toggleExpand}
@@ -271,9 +288,9 @@ const EnhancedTweetCard = ({
             </button>
           )}
           
-          {tweet.hashtags && tweet.hashtags.length > 0 && (
+          {actualTweet.hashtags && actualTweet.hashtags.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
-              {tweet.hashtags.map((tag) => (
+              {actualTweet.hashtags.map((tag) => (
                 <Link 
                   key={tag} 
                   to={`/hashtag/${tag}`} 
@@ -299,7 +316,7 @@ const EnhancedTweetCard = ({
               <div className="p-1.5 rounded-full group-hover:bg-crypto-blue/10 transition-colors">
                 <MessageSquare className="h-4 w-4 transition-colors" />
               </div>
-              <span>{formatNumber(tweet.comments || 0)}</span>
+              <span>{formatNumber(actualTweet.comments || 0)}</span>
             </button>
             
             <button 
@@ -351,7 +368,7 @@ const EnhancedTweetCard = ({
           
           <div className="mt-2 md:hidden text-xs text-muted-foreground">
             <Calendar className="h-3 w-3 inline-block align-text-bottom mr-1" />
-            <time dateTime={tweet.timestamp || ''}>
+            <time dateTime={actualTweet.timestamp || ''}>
               {safeTimestamp()}
             </time>
           </div>

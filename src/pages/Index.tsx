@@ -79,7 +79,7 @@ const Index = () => {
   }, [refetch]);
   
   // Make sure we have tweets, either from API or local storage
-  const tweets = apiTweets.length > 0 ? apiTweets : getLocalTweets();
+  const tweets = apiTweets && apiTweets.length > 0 ? apiTweets : getLocalTweets();
   console.log('Combined tweets to display:', tweets);
   
   // Tweet creation mutation
@@ -208,15 +208,27 @@ const Index = () => {
               </div>
             ) : (
               tweets.length > 0 ? (
-                tweets.map((tweet: Tweet) => (
-                  tweet && tweet.user ? (
+                tweets.map((tweet: Tweet) => {
+                  if (!tweet) return null;
+                  
+                  // Skip tweets that don't have the required structure
+                  if (tweet.success && tweet.tweet) {
+                    tweet = tweet.tweet;
+                  }
+                  
+                  if (!tweet.user) {
+                    console.warn('Tweet without user object:', tweet);
+                    return null;
+                  }
+                  
+                  return (
                     <EnhancedTweetCard
-                      key={tweet.id}
+                      key={tweet.id || tweet._id}
                       tweet={tweet}
                       animated={false}
                     />
-                  ) : null
-                ))
+                  );
+                })
               ) : (
                 <div className="bg-background border border-border rounded-lg p-6 text-center">
                   <p className="text-muted-foreground mb-4">Inga tweets att visa</p>

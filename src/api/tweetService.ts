@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
@@ -9,7 +10,7 @@ export const tweetService = {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/feed');
       console.log("Feed response:", response.data);
       
-      // Handle both array and object response formats
+      // Handle different response formats
       let apiTweets = [];
       if (Array.isArray(response.data)) {
         apiTweets = response.data;
@@ -17,6 +18,9 @@ export const tweetService = {
         apiTweets = response.data.tweets;
       } else if (response.data.data && Array.isArray(response.data.data)) {
         apiTweets = response.data.data;
+      } else {
+        // Handle array of objects with tweet property
+        apiTweets = processApiResponse(response.data);
       }
       
       // Merge with local tweets
@@ -48,7 +52,7 @@ export const tweetService = {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/explore');
       console.log("Explore feed response:", response.data);
       
-      // Handle both array and object response formats
+      // Handle different response formats
       let apiTweets = [];
       if (Array.isArray(response.data)) {
         apiTweets = response.data;
@@ -56,6 +60,9 @@ export const tweetService = {
         apiTweets = response.data.tweets;
       } else if (response.data.data && Array.isArray(response.data.data)) {
         apiTweets = response.data.data;
+      } else {
+        // Handle array of objects with tweet property
+        apiTweets = processApiResponse(response.data);
       }
       
       // Merge with local tweets
@@ -128,6 +135,8 @@ export const tweetService = {
           newTweet = response.data.data;
         } else if (response.data.tweet) {
           newTweet = response.data.tweet;
+        } else if (response.data.success && response.data.tweet) {
+          newTweet = response.data.tweet;
         } else {
           newTweet = response.data;
         }
@@ -137,10 +146,20 @@ export const tweetService = {
           newTweet.user = userData;
         }
         
+        // Ensure tweet has an id
+        if (!newTweet.id && newTweet._id) {
+          newTweet.id = newTweet._id;
+        }
+        
         // Ensure timestamp is valid
         if (!newTweet.timestamp || typeof newTweet.timestamp !== 'string' || isNaN(new Date(newTweet.timestamp).getTime())) {
           console.warn('Tweet has invalid timestamp, setting to current time');
           newTweet.timestamp = new Date().toISOString();
+        }
+        
+        // If createdAt exists but no timestamp, use createdAt as timestamp
+        if (!newTweet.timestamp && newTweet.createdAt) {
+          newTweet.timestamp = newTweet.createdAt;
         }
         
         // Also save locally for offline use
@@ -280,6 +299,88 @@ export const tweetService = {
     }
   },
 };
+
+// Helper function to process API response that might have a nested tweet structure
+function processApiResponse(data: any): Tweet[] {
+  if (!data) return [];
+  
+  // If data is an array, process each item
+  if (Array.isArray(data)) {
+    return data.map(item => {
+      if (item.tweet) return processTweetObject(item.tweet);
+      if (item.success && item.tweet) return processTweetObject(item.tweet);
+      return processTweetObject(item);
+    }).filter(Boolean);
+  }
+  
+  // If it's a single object with success and tweet properties
+  if (data.success && data.tweet) {
+    return [processTweetObject(data.tweet)];
+  }
+  
+  return [];
+}
+
+// Helper function to process a tweet object and ensure it has all required fields
+function processTweetObject(tweet: any): Tweet | null {
+  if (!tweet) return null;
+  
+  // Use _id as id if id is missing
+  if (!tweet.id && tweet._id) {
+    tweet.id = tweet._id;
+  }
+  
+  // Ensure we have user data
+  if (!tweet.user && tweet.userId) {
+    if (typeof tweet.userId === 'object') {
+      tweet.user = {
+        id: tweet.userId._id || tweet.userId.id,
+        username: tweet.userId.username,
+        displayName: tweet.userId.displayName || tweet.userId.username,
+        avatarUrl: tweet.userId.profileImage || tweet.userId.avatarUrl
+      };
+    } else {
+      // Try to get current user as fallback
+      try {
+        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+        tweet.user = currentUser;
+      } catch (e) {
+        console.error('Error parsing current user from localStorage:', e);
+      }
+    }
+  }
+  
+  // Convert timestamps if needed
+  if (!tweet.timestamp && tweet.createdAt) {
+    tweet.timestamp = tweet.createdAt;
+  }
+  
+  // Ensure timestamp is valid
+  if (!tweet.timestamp || typeof tweet.timestamp !== 'string' || isNaN(new Date(tweet.timestamp).getTime())) {
+    console.warn('Tweet has invalid timestamp, setting to current time');
+    tweet.timestamp = new Date().toISOString();
+  }
+  
+  // Set default counts if missing
+  if (tweet.likes === undefined) {
+    tweet.likes = tweet.likeCount || 0;
+  }
+  
+  if (tweet.retweets === undefined) {
+    tweet.retweets = tweet.retweetCount || 0;
+  }
+  
+  if (tweet.comments === undefined) {
+    tweet.comments = tweet.commentCount || 0;
+  }
+  
+  // Extract hashtags if not present
+  if (!tweet.hashtags && tweet.content) {
+    tweet.hashtags = tweet.content.match(/#(\w+)/g)?.map(tag => tag.substring(1)) || [];
+  }
+  
+  return tweet;
+}
 
 // Helper function to save a tweet to local storage
 function saveLocalTweet(tweet: Tweet) {
