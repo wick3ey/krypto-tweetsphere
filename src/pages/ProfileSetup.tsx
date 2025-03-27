@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import ProfileSetup from '@/components/auth/ProfileSetup';
@@ -15,21 +14,17 @@ const ProfileSetupPage = () => {
   const [verifyingProfile, setVerifyingProfile] = useState(true);
   const [errorState, setErrorState] = useState<string | null>(null);
   
-  // Check if user is authenticated
   const isAuthenticated = !!localStorage.getItem('jwt_token');
   
-  // Förberedande kontroll vid komponentens laddning
   useEffect(() => {
     const verifyUser = async () => {
       setVerifyingProfile(true);
       setErrorState(null);
       
       try {
-        // Hämta aktuell session
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {
-          // Ingen session - gå till startsidan
           navigate('/', { replace: true });
           return;
         }
@@ -37,12 +32,13 @@ const ProfileSetupPage = () => {
         const userId = session.user.id;
         
         try {
-          // Kontrollera om profilen verkligen behöver setup genom att anropa sync-auth-user funktionen
           const result = await syncAuthUser(userId, true);
           
           if (!result) {
             console.error('Failed to sync user: No result returned');
-            setErrorState('Kunde inte synkronisera användarprofilen');
+            setErrorState('Kunde inte synkronisera användarprofilen. Vi fortsätter med profilinställningen ändå.');
+            setForceCheck(true);
+            setVerifyingProfile(false);
             return;
           }
           
@@ -51,31 +47,27 @@ const ProfileSetupPage = () => {
             localStorage.setItem('profile_setup_complete', 'true');
             localStorage.removeItem('needs_profile_setup');
             
-            // Uppdatera cachedUser
             if (result.user) {
               localStorage.setItem('current_user', JSON.stringify(result.user));
             }
             
-            // Ladda om användardata för att säkerställa att UI är uppdaterat
             await refetchCurrentUser();
             
-            // Gå till startsidan
             setRedirecting(true);
             setTimeout(() => {
               window.location.href = '/';
             }, 100);
             return;
           } else {
-            // Användaren behöver faktiskt göra setup
             localStorage.setItem('needs_profile_setup', 'true');
             localStorage.removeItem('profile_setup_complete');
             
-            // Visa setup-komponenten
             setForceCheck(true);
           }
         } catch (syncError) {
           console.error('Error syncing user:', syncError);
-          // Fallback to cached data or profile validation logic
+          setErrorState('Kunde inte synkronisera användarprofilen. Vi fortsätter med profilinställningen ändå.');
+          
           if (currentUser && isValidProfile && isValidProfile(currentUser)) {
             localStorage.setItem('profile_setup_complete', 'true');
             localStorage.removeItem('needs_profile_setup');
@@ -83,14 +75,13 @@ const ProfileSetupPage = () => {
             window.location.href = '/';
             return;
           } else {
-            // Visa setup ändå, eftersom vi inte kunde verifiera profilstatusen
             setForceCheck(true);
-            setErrorState('Kunde inte verifiera profil, uppdatera dina uppgifter för att fortsätta');
           }
         }
       } catch (error) {
         console.error('Error verifying profile:', error);
-        setErrorState('Ett fel uppstod vid kontroll av din profil');
+        setErrorState('Ett fel uppstod vid kontroll av din profil. Vi fortsätter med profilinställningen ändå.');
+        setForceCheck(true);
       } finally {
         setVerifyingProfile(false);
       }
@@ -103,9 +94,7 @@ const ProfileSetupPage = () => {
     }
   }, [navigate, refetchCurrentUser, syncAuthUser, currentUser, isValidProfile]);
   
-  // Håll koll på redan existerande användarprofiler
   useEffect(() => {
-    // Force a re-check after component mount
     const timer = setTimeout(() => {
       if (!forceCheck) {
         setForceCheck(true);
@@ -115,9 +104,7 @@ const ProfileSetupPage = () => {
     return () => clearTimeout(timer);
   }, [forceCheck]);
   
-  // Kontrollera om användaren behöver profilinställning
   useEffect(() => {
-    // If user has completed setup, redirect to home page
     if (currentUser && !isLoadingCurrentUser) {
       console.log('ProfileSetupPage - Current user:', {
         id: currentUser.id,
@@ -130,18 +117,12 @@ const ProfileSetupPage = () => {
       if (!setupNeeded) {
         console.log('Setup NOT needed, redirecting to home...');
         
-        // Mark setup as complete in localStorage to prevent loops
         localStorage.setItem('profile_setup_complete', 'true');
         localStorage.removeItem('needs_profile_setup');
         
-        // Set redirecting flag to prevent flickering
         setRedirecting(true);
-        
-        // Hard redirect to home to ensure complete page refresh
         window.location.href = '/';
       } else if (currentUser && isValidProfile && isValidProfile(currentUser)) {
-        // Double-check: if the profile is valid but needsProfileSetup still returns true
-        // This is a safety check in case our state got out of sync
         console.log('Profile is valid despite needsProfileSetup flag, redirecting...');
         localStorage.setItem('profile_setup_complete', 'true');
         localStorage.removeItem('needs_profile_setup');
@@ -152,11 +133,9 @@ const ProfileSetupPage = () => {
   }, [currentUser, isLoadingCurrentUser, needsProfileSetup, navigate, forceCheck, isValidProfile]);
   
   if (!isAuthenticated) {
-    // Redirect to home page if not authenticated
     return <Navigate to="/" replace />;
   }
   
-  // Visa inläsningsmeddelande medan vi kontrollerar
   if (verifyingProfile || isLoadingCurrentUser || redirecting) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -174,13 +153,11 @@ const ProfileSetupPage = () => {
     );
   }
   
-  // If the profile setup is complete, redirect to home
   if (currentUser && !needsProfileSetup()) {
     console.log('Profile setup is complete, redirecting...');
     return <Navigate to="/" replace />;
   }
   
-  // One last check to avoid showing setup to users with complete profiles
   if (currentUser && isValidProfile && isValidProfile(currentUser)) {
     console.log('Final check: Profile is valid, redirecting...');
     localStorage.setItem('profile_setup_complete', 'true');
@@ -188,7 +165,6 @@ const ProfileSetupPage = () => {
     return <Navigate to="/" replace />;
   }
   
-  // Only show profile setup component if user needs setup
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-screen-md bg-card rounded-xl shadow-lg border border-border/50 overflow-hidden">

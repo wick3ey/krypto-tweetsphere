@@ -16,6 +16,21 @@ export function useAuthSync() {
         toast.error('Kunde inte synkronisera användarprofilen', {
           description: 'Kontrollera din internetanslutning och försök igen.'
         });
+        
+        // Try to recover with locally cached data
+        const cachedUserJson = localStorage.getItem('current_user');
+        if (cachedUserJson) {
+          try {
+            const cachedUser = JSON.parse(cachedUserJson);
+            return {
+              user: authService.dbUserToUser(cachedUser),
+              needsProfileSetup: localStorage.getItem('needs_profile_setup') === 'true'
+            };
+          } catch (cacheError) {
+            console.error('Error parsing cached user data:', cacheError);
+          }
+        }
+        
         throw new Error('No response received from sync-auth-user function');
       }
       
@@ -25,6 +40,21 @@ export function useAuthSync() {
         toast.error('Synkronisering misslyckades', {
           description: response.data.error || 'Ett fel uppstod vid synkronisering av användarprofilen'
         });
+        
+        // Try to recover with locally cached data
+        const cachedUserJson = localStorage.getItem('current_user');
+        if (cachedUserJson) {
+          try {
+            const cachedUser = JSON.parse(cachedUserJson);
+            return {
+              user: authService.dbUserToUser(cachedUser),
+              needsProfileSetup: localStorage.getItem('needs_profile_setup') === 'true'
+            };
+          } catch (cacheError) {
+            console.error('Error parsing cached user data:', cacheError);
+          }
+        }
+        
         throw new Error(response.data.error || 'Failed to sync user');
       }
       

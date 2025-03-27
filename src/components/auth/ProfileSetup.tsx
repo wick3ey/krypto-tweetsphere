@@ -86,7 +86,9 @@ const ProfileSetup = () => {
               localStorage.setItem('profile_setup_complete', 'true');
               localStorage.removeItem('needs_profile_setup');
               
-              localStorage.setItem('current_user', JSON.stringify(result.user));
+              if (result.user) {
+                localStorage.setItem('current_user', JSON.stringify(result.user));
+              }
               
               await refetchCurrentUser();
               
@@ -117,6 +119,7 @@ const ProfileSetup = () => {
               description: 'Fortsätt med profilinställningarna manuellt'
             });
             
+            // Fallback to current user data we have in state
             if (currentUser) {
               if (currentUser.username && !currentUser.username.startsWith('user_')) {
                 form.setValue('username', currentUser.username);
@@ -141,6 +144,7 @@ const ProfileSetup = () => {
       } catch (error) {
         console.error('Error checking profile status:', error);
         setDataLoaded(true);
+        setErrorState('Ett fel uppstod vid kontroll av din profil');
       }
     };
     

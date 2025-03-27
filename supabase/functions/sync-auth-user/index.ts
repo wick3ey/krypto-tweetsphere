@@ -2,7 +2,7 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 
-// CORS headers for all anrop
+// CORS headers for all requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Hantera CORS preflight requests
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    // Hämta Supabase-miljövariabler
+    // Get Supabase environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -27,15 +27,15 @@ serve(async (req) => {
       throw new Error('Missing Supabase environment variables');
     }
 
-    // Skapa en Supabase-klient med service role key
+    // Create a Supabase client with service role key
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Hämta användarinfo från request
-    const { email, userId, forceSync } = await req.json();
+    // Get user info from request
+    const { userId, forceSync } = await req.json();
 
-    if (!email && !userId) {
+    if (!userId) {
       return new Response(
-        JSON.stringify({ error: 'Either email or userId is required', success: false }),
+        JSON.stringify({ error: 'UserId is required', success: false }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -43,20 +43,20 @@ serve(async (req) => {
       );
     }
 
-    // Om userId är angivet, använd det, annars leta efter användaren via email
+    // Get user from auth.users using userId
     let authUser;
-    if (userId) {
+    try {
       const { data, error } = await adminClient.auth.admin.getUserById(userId);
       if (error) throw error;
       authUser = data.user;
-    } else {
-      // Leta efter användaren via email
-      const { data, error } = await adminClient.auth.admin.listUsers();
-      if (error) throw error;
-
-      authUser = data.users.find(user => 
-        user.email === email || 
-        user.user_metadata?.email === email
+    } catch (error) {
+      console.error('Error getting auth user:', error);
+      return new Response(
+        JSON.stringify({ error: `Auth user fetch failed: ${error.message}`, success: false }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
       );
     }
 
@@ -72,7 +72,10 @@ serve(async (req) => {
 
     console.log('Found auth user:', { id: authUser.id, email: authUser.email });
 
-    // Kontrollera om användaren redan finns i users-tabellen
+    // Get the user's email from auth user
+    const userEmail = authUser.email || authUser.user_metadata?.email || '';
+
+    // Check if user already exists in users table
     const { data: existingUser, error: getUserError } = await adminClient
       .from('users')
       .select('*')
@@ -86,33 +89,30 @@ serve(async (req) => {
     let userRecord;
     let needsProfileSetup = false;
 
-    // Om användaren finns, uppdatera information vid behov
+    // If user exists, update information if needed
     if (existingUser) {
       console.log('User exists in database:', { id: existingUser.id, username: existingUser.username });
       
-      // Kontrollera om profilen behöver kompletteras
+      // Check if profile needs to be completed
       needsProfileSetup = !existingUser.username || 
                          existingUser.username.startsWith('user_') || 
                          !existingUser.display_name || 
                          existingUser.display_name === 'New User';
       
-      // Skapa en uppdateringsobjekt för att hantera ändringar
+      // Create an update object to handle changes
       const updateData: Record<string, any> = {};
-
-      // Hämta email från auth user utan att försöka uppdatera email-fältet i users-tabellen
-      const userEmail = authUser.email || authUser.user_metadata?.email || '';
       
-      // Uppdatera displayName om användaren har en autogenererad profil och det finns nya uppgifter
+      // Update displayName if user has an auto-generated profile and there's new data
       if ((needsProfileSetup || forceSync) && (authUser.user_metadata?.name || authUser.user_metadata?.full_name)) {
         updateData.display_name = authUser.user_metadata?.name || authUser.user_metadata?.full_name || existingUser.display_name;
       }
       
-      // Uppdatera avatar om användaren har en autogenererad profil och det finns nya uppgifter
+      // Update avatar if user has an auto-generated profile and there's new data
       if ((needsProfileSetup || forceSync) && (authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture)) {
         updateData.avatar_url = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || existingUser.avatar_url;
       }
       
-      // Bara genomför uppdateringen om det finns något att uppdatera
+      // Only update if there's something to update
       if (Object.keys(updateData).length > 0) {
         const { data: updatedUser, error: updateError } = await adminClient
           .from('users')
@@ -124,7 +124,7 @@ serve(async (req) => {
         if (updateError) throw updateError;
         userRecord = updatedUser;
         
-        // Kontrollera om uppdateringen gjorde att profilen nu är komplett
+        // Check if update made the profile complete
         needsProfileSetup = !userRecord.username || 
                           userRecord.username.startsWith('user_') || 
                           !userRecord.display_name || 
@@ -133,38 +133,47 @@ serve(async (req) => {
         userRecord = existingUser;
       }
 
-      // Lägg till email till userRecord för klienten utan att påverka databasen
+      // Add email to userRecord for the client without affecting the database
       userRecord.auth_email = userEmail;
     } else {
-      // Skapa en ny användare
+      // Create a new user
       console.log('Creating new user for auth ID:', authUser.id);
       needsProfileSetup = true;
 
-      const userEmail = authUser.email || authUser.user_metadata?.email || '';
+      try {
+        const { data: newUser, error: createError } = await adminClient
+          .from('users')
+          .insert([
+            {
+              id: authUser.id,
+              username: `user_${authUser.id.substring(0, 8)}`,
+              display_name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'New User',
+              avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',
+              bio: '',
+              joined_date: new Date().toISOString(),
+              following: [],
+              followers: [],
+              verified: false
+            }
+          ])
+          .select()
+          .single();
 
-      const { data: newUser, error: createError } = await adminClient
-        .from('users')
-        .insert([
+        if (createError) throw createError;
+        userRecord = newUser;
+        
+        // Add email to userRecord for the client
+        userRecord.auth_email = userEmail;
+      } catch (createError) {
+        console.error('Error creating new user:', createError);
+        return new Response(
+          JSON.stringify({ error: `Failed to create user: ${createError.message}`, success: false }),
           {
-            id: authUser.id,
-            username: `user_${authUser.id.substring(0, 8)}`,
-            display_name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'New User',
-            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',
-            bio: '',
-            joined_date: new Date().toISOString(),
-            following: [],
-            followers: [],
-            verified: false
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
-        ])
-        .select()
-        .single();
-
-      if (createError) throw createError;
-      userRecord = newUser;
-      
-      // Lägg till email till userRecord för klienten utan att påverka databasen
-      userRecord.auth_email = userEmail;
+        );
+      }
     }
 
     return new Response(
