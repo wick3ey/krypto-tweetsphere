@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet } from '@/lib/types';
 import { dbTweetToTweet, dbUserToUser } from '@/lib/db-types';
@@ -124,8 +123,8 @@ export const tweetService = {
     }
   },
 
-  // Get a specific tweet by ID
-  getTweet: async (tweetId: string): Promise<Tweet> => {
+  // Rename getTweet to getTweetById to maintain consistency with hooks
+  getTweetById: async (tweetId: string): Promise<Tweet> => {
     try {
       const { data, error } = await supabase
         .from('tweets')
@@ -144,6 +143,35 @@ export const tweetService = {
       return dbTweetToTweet(data, dbUserToUser(data.user));
     } catch (error) {
       console.error(`Error fetching tweet with ID ${tweetId}:`, error);
+      throw error;
+    }
+  },
+
+  // Alias getTweet for backward compatibility
+  getTweet: async (tweetId: string): Promise<Tweet> => {
+    return tweetService.getTweetById(tweetId);
+  },
+
+  // Add getUserTweets method
+  getUserTweets: async (userId: string, options = {}) => {
+    try {
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('*, user:user_id(*)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching user tweets:', error);
+        throw error;
+      }
+
+      return data?.map(item => {
+        if (!item.user) return null;
+        return dbTweetToTweet(item, dbUserToUser(item.user));
+      }).filter(Boolean) || [];
+    } catch (error) {
+      console.error('Error in getUserTweets:', error);
       throw error;
     }
   },

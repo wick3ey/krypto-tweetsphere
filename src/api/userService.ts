@@ -11,20 +11,21 @@ export const userService = {
         .from('users')
         .select('*');
 
-      if (options.includeFollowers) {
-        query = query.select('*, followers(count)');
-      }
-
-      if (options.includeFollowing) {
-        query = query.select('*, following(count)');
-      }
-
-      // Apply filter after all select configurations
+      // Apply filter first, BEFORE extending the select
       let filteredQuery;
       if (identifier.startsWith('user_')) {
         filteredQuery = query.eq('username', identifier);
       } else {
         filteredQuery = query.eq('id', identifier);
+      }
+
+      // Then extend the select if needed
+      if (options.includeFollowers) {
+        filteredQuery = filteredQuery.select('*, followers(count)');
+      }
+
+      if (options.includeFollowing) {
+        filteredQuery = filteredQuery.select('*, following(count)');
       }
 
       const { data, error } = await filteredQuery.maybeSingle();
@@ -239,7 +240,6 @@ export const userService = {
     }
   },
   
-  // Add searchUsers method that was missing - it can reuse the getSuggestedUsers logic for now
   searchUsers: async (query: string): Promise<User[]> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
