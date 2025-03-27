@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { cryptoService } from '@/api/cryptoService';
 import { Transaction } from '@/lib/types';
 import { useState, useEffect } from 'react';
-import { toast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 
 const Dashboard = () => {
   const [pnlPeriod, setPnlPeriod] = useState('7d');
@@ -52,30 +52,29 @@ const Dashboard = () => {
   });
   
   // Calculate total balance and portfolio changes
-  const totalBalance = tokens.reduce((sum, token) => sum + token.valueUSD, 0);
+  const totalBalance = tokens && tokens.length > 0 ? tokens.reduce((sum, token) => sum + (token.valueUSD || 0), 0) : 0;
   
-  // Use last pnlData item to get portfolio change
-  const portfolioChange = pnlData.length > 0 
-    ? pnlData[pnlData.length - 1].change 
+  // Use last pnlData item to get portfolio change - with null checks
+  const portfolioChange = pnlData && pnlData.length > 0 
+    ? pnlData[pnlData.length - 1]?.change || 0 
     : 0;
     
-  const portfolioChangePercent = pnlData.length > 0 
-    ? pnlData[pnlData.length - 1].changePercent 
+  const portfolioChangePercent = pnlData && pnlData.length > 0 
+    ? pnlData[pnlData.length - 1]?.changePercent || 0 
     : 0;
     
   const isPositive = portfolioChange >= 0;
   
-  // Find top performer token
-  const topPerformer = tokens.length > 0 
+  // Find top performer token - with null checks
+  const topPerformer = tokens && tokens.length > 0 
     ? tokens.reduce((prev, current) => 
-        (prev.change24h > current.change24h) ? prev : current
+        ((prev?.change24h || 0) > (current?.change24h || 0)) ? prev : current
       ) 
     : null;
   
   const handleRefresh = () => {
-    toast({
-      title: "Uppdaterar...",
-      description: "Hämtar senaste data för din dashboard",
+    toast.success("Updating...", {
+      description: "Fetching latest data for your dashboard",
     });
     
     refetchTokens();
@@ -220,7 +219,7 @@ const Dashboard = () => {
                 </div>
               ))
             ) : (
-              supportedTokens.slice(0, 4).map((token) => (
+              supportedTokens && supportedTokens.length > 0 ? supportedTokens.slice(0, 4).map((token) => (
                 <div key={token.symbol} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors">
                   <div className="flex items-center space-x-2">
                     <img src={token.logo} alt={token.symbol} className="h-6 w-6" />
@@ -236,7 +235,9 @@ const Dashboard = () => {
                     </span>
                   </div>
                 </div>
-              ))
+              )) : (
+                <div className="text-muted-foreground p-2">No token data available</div>
+              )
             )}
             <Button variant="ghost" className="text-crypto-blue">View all markets</Button>
           </div>
@@ -264,7 +265,7 @@ const Dashboard = () => {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : transactions && transactions.length > 0 ? (
             <table className="w-full">
               <thead>
                 <tr className="text-left text-muted-foreground text-sm">
@@ -289,7 +290,7 @@ const Dashboard = () => {
                     </td>
                     <td className="py-3">
                       <div className="flex items-center space-x-2">
-                        <img src={tx.tokenLogo} alt={tx.token} className="h-5 w-5" />
+                        {tx.tokenLogo && <img src={tx.tokenLogo} alt={tx.token} className="h-5 w-5" />}
                         <span>{tx.tokenSymbol}</span>
                       </div>
                     </td>
@@ -301,6 +302,10 @@ const Dashboard = () => {
                 ))}
               </tbody>
             </table>
+          ) : (
+            <div className="p-4 text-center text-muted-foreground">
+              No transaction history available
+            </div>
           )}
         </AnimatedCard>
         
