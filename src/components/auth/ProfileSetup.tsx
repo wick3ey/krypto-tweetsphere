@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -272,14 +271,13 @@ const ProfileSetup = () => {
       
       // Explicitly mark profile setup as complete in localStorage
       localStorage.setItem('profile_setup_complete', 'true');
+      localStorage.removeItem('needs_profile_setup');
       
       // Refresh user data
       await refetchCurrentUser();
       
-      // Redirect to home page with a delay to ensure data is updated
-      setTimeout(() => {
-        navigate('/', { replace: true });
-      }, 500);
+      // Navigate to the home page - doing it BOTH ways to ensure it works
+      window.location.href = '/';
     } catch (error) {
       console.error('Error setting up profile:', error);
       toast.error('Profilinställning misslyckades', {

@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import ProfileSetup from '@/components/auth/ProfileSetup';
 import { Loader2 } from 'lucide-react';
@@ -8,42 +8,45 @@ import { useUser } from '@/hooks/useUser';
 const ProfileSetupPage = () => {
   const navigate = useNavigate();
   const { currentUser, isLoadingCurrentUser, needsProfileSetup } = useUser();
+  const [redirecting, setRedirecting] = useState(false);
   
-  // Kontrollera om användaren är autentiserad
+  // Check if user is authenticated
   const isAuthenticated = !!localStorage.getItem('jwt_token');
   
   useEffect(() => {
-    // Om användaren har slutfört inställningen, omdirigera till startsidan
-    if (currentUser && !isLoadingCurrentUser && !needsProfileSetup()) {
-      // Markera inställningen som slutförd i localStorage för att förhindra loopar
-      localStorage.setItem('profile_setup_complete', 'true');
-      localStorage.removeItem('needs_profile_setup');
-      
-      // Kort fördröjning för att förhindra flimmer
-      const timer = setTimeout(() => {
-        navigate('/', { replace: true });
-      }, 100);
-      
-      return () => clearTimeout(timer);
-    }
-
-    // Log debugging information to help diagnose issues
-    if (currentUser) {
+    // If user has completed setup, redirect to home page
+    if (currentUser && !isLoadingCurrentUser) {
       console.log('ProfileSetupPage - Current user:', {
         id: currentUser.id,
         username: currentUser.username,
         needsSetup: needsProfileSetup()
       });
+      
+      const setupNeeded = needsProfileSetup();
+      
+      if (!setupNeeded) {
+        console.log('Setup NOT needed, redirecting to home...');
+        
+        // Mark setup as complete in localStorage to prevent loops
+        localStorage.setItem('profile_setup_complete', 'true');
+        localStorage.removeItem('needs_profile_setup');
+        
+        // Set redirecting flag to prevent flickering
+        setRedirecting(true);
+        
+        // Navigate to home page directly
+        window.location.href = '/';
+      }
     }
   }, [currentUser, isLoadingCurrentUser, needsProfileSetup, navigate]);
   
   if (!isAuthenticated) {
-    // Omdirigera till startsidan om inte autentiserad
+    // Redirect to home page if not authenticated
     return <Navigate to="/" replace />;
   }
   
-  // Visa laddningstillstånd medan användarens profil kontrolleras
-  if (isLoadingCurrentUser) {
+  // Show loading state while checking user profile
+  if (isLoadingCurrentUser || redirecting) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
@@ -55,7 +58,13 @@ const ProfileSetupPage = () => {
     );
   }
   
-  // Visa endast profilinställningskomponenten om användaren behöver inställning
+  // If the profile setup is complete, redirect to home
+  if (currentUser && !needsProfileSetup()) {
+    console.log('Profile setup is complete, redirecting...');
+    return <Navigate to="/" replace />;
+  }
+  
+  // Only show profile setup component if user needs setup
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-screen-md bg-card rounded-xl shadow-lg border border-border/50 overflow-hidden">

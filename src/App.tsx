@@ -66,9 +66,10 @@ function App() {
                                   user.displayName === 'New User';
                 
                 if (needsSetup) {
+                  localStorage.setItem('needs_profile_setup', 'true');
                   localStorage.removeItem('profile_setup_complete');
                   
-                  // Om vi inte redan är på inställningssidan, dirigera dit
+                  // Only redirect if not already on setup page
                   if (!location.pathname.includes('/setup-profile')) {
                     setTimeout(() => {
                       navigate('/setup-profile', { replace: true });
@@ -76,6 +77,7 @@ function App() {
                   }
                 } else {
                   localStorage.setItem('profile_setup_complete', 'true');
+                  localStorage.removeItem('needs_profile_setup');
                 }
               }
               setIsLoading(false);
@@ -100,16 +102,14 @@ function App() {
               
               toast.success('Inloggad!');
               
-              // Om användaren nyss registrerade sig (från localStorage-flagga)
+              // If user just registered (from localStorage flag)
               if (localStorage.getItem('needs_profile_setup') === 'true') {
-                localStorage.removeItem('needs_profile_setup');
-                
-                // Kort timeout innan omdirigering för att säkerställa att data finns
+                // Short timeout before redirect to ensure data exists
                 setTimeout(() => {
                   navigate('/setup-profile', { replace: true });
                 }, 100);
               }
-              // Om vi är på callback-sidan, omdirigera till startsidan
+              // If we're on callback page, redirect to home page
               else if (location.pathname.includes('/auth/callback')) {
                 navigate('/', { replace: true });
               }
@@ -155,47 +155,61 @@ function App() {
     };
   }, [navigate, location.pathname]);
 
-  // Om användaren är autentiserad men inte på setup-profile-sidan, kolla om profilinställning behövs
+  // If user is authenticated but not on setup-profile page, check if profile setup is needed
   useEffect(() => {
-    // Hoppa över om autentisering inte är initialiserad eller på specifika sidor
+    // Skip if auth is not initialized or on specific pages
     if (!authInitialized || skipProfileCheck) {
       return;
     }
 
     const checkProfileSetup = async () => {
       try {
-        // Kolla om användaren är inloggad
+        // Check if user is logged in
         const isAuthenticated = !!localStorage.getItem('jwt_token');
         if (!isAuthenticated) {
           return;
         }
 
-        // Kolla om profilinställning har slutförts
+        // Check if profile setup is complete from localStorage first
         const profileSetupComplete = localStorage.getItem('profile_setup_complete') === 'true';
         if (profileSetupComplete) {
           return;
         }
+        
+        // If profile setup is explicitly needed, redirect
+        const needsProfileSetupFlag = localStorage.getItem('needs_profile_setup') === 'true';
+        if (needsProfileSetupFlag) {
+          // Add a small delay to prevent redirect loop
+          setTimeout(() => {
+            navigate('/setup-profile', { replace: true });
+          }, 100);
+          return;
+        }
 
-        // Hämta aktuell användardata
+        // Fetch current user data
         const userData = await authService.getCurrentUser();
         if (!userData) {
           return;
         }
 
-        // Kolla om profilinställning behövs
+        // Check if profile setup is needed
         const needsSetup = !userData.username || 
                          userData.username.startsWith('user_') || 
                          !userData.displayName || 
                          userData.displayName === 'New User';
 
         if (needsSetup) {
-          // Lägg till en liten fördröjning för att förhindra omdirigeringsloop
+          // Set the flag to avoid multiple checks
+          localStorage.setItem('needs_profile_setup', 'true');
+          
+          // Add a small delay to prevent redirect loop
           setTimeout(() => {
             navigate('/setup-profile', { replace: true });
           }, 100);
         } else {
-          // Markera profilinställning som slutförd
+          // Mark profile setup as complete
           localStorage.setItem('profile_setup_complete', 'true');
+          localStorage.removeItem('needs_profile_setup');
         }
       } catch (error) {
         console.error('Error checking profile setup:', error);

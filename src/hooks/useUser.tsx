@@ -49,9 +49,14 @@ export function useUser() {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       
       localStorage.setItem('profile_setup_complete', 'true');
+      localStorage.removeItem('needs_profile_setup');
       localStorage.setItem('current_user', JSON.stringify(data));
       
       toast.success("Profil skapad");
+      
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 300);
     },
     onError: (error: any) => {
       toast.error("Kunde inte skapa profilen", {
