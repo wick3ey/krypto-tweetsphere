@@ -1,8 +1,9 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
-import { dbTweetToTweet } from '@/lib/db-types';
+import { dbTweetToTweet, dbUserToUser } from '@/lib/db-types';
 
 export const tweetService = {
   getFeed: async () => {
@@ -183,6 +184,7 @@ export const tweetService = {
       
       // If not authenticated, create a local tweet as fallback
       if (!token) {
+        const userData = JSON.parse(localStorage.getItem('current_user') || '{}') as User;
         const mockTweet: Tweet = {
           id: 'local-' + Date.now(),
           content: content,

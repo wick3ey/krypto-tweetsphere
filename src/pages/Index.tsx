@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { useUser } from '@/hooks/useUser';
 import ProfileCard from '@/components/profile/ProfileCard';
 import { RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import useRealtime from '@/hooks/useRealtime';
 
 const Index = () => {
   // Changed default feed from 'trending' to 'latest'
@@ -36,28 +36,10 @@ const Index = () => {
   }, [currentUser]);
   
   // Setup realtime subscription for tweets
-  useEffect(() => {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tweets'
-        },
-        (payload) => {
-          console.log('Realtime update from tweets table:', payload);
-          // Invalidate queries to refresh data
-          queryClient.invalidateQueries({ queryKey: ['tweets'] });
-        }
-      )
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  useRealtime({
+    table: 'tweets',
+    queryKeys: [['tweets']]
+  });
   
   // Try to sync local tweets with server on initial load
   useEffect(() => {
@@ -154,8 +136,9 @@ const Index = () => {
     if (!tweetContent.trim()) return Promise.reject(new Error("Tweet content is empty"));
     
     console.log("Index: Submitting tweet:", tweetContent);
-    // Return the promise from the mutation
-    return createTweetMutation.mutateAsync(tweetContent);
+    // Return the promise from the mutation but don't return the result
+    await createTweetMutation.mutateAsync(tweetContent);
+    return;
   };
   
   // Manual refresh function
