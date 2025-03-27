@@ -1,7 +1,7 @@
 
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/api/authService';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -14,105 +14,109 @@ import MainLayout from '@/components/layout/MainLayout';
 // Pages
 import Home from '@/pages/Home';
 import Profile from '@/pages/Profile';
-import ProfileSetup from '@/components/auth/ProfileSetup';
+import ProfileSetupPage from '@/pages/ProfileSetup';
 import NotFound from '@/pages/NotFound';
 
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [authInitialized, setAuthInitialized] = useState(false);
   
-  // Check if user needs profile setup
-  useProfileSetup();
+  // Only initialize profile setup hook after auth is initialized
+  const profileSetup = authInitialized ? useProfileSetup() : { isLoading: true, needsSetup: false };
   
-  // Subscribe to realtime updates for notifications
+  // Subscribe to realtime updates for notifications if user is logged in
+  const userId = localStorage.getItem('user_id');
   useRealtime({
     table: 'notifications',
-    filter: `user_id=eq.${localStorage.getItem('user_id')}`,
-    queryKeys: [['notifications'], ['notificationCount']]
+    filter: userId ? `user_id=eq.${userId}` : undefined,
+    queryKeys: [['notifications'], ['notificationCount']],
+    enabled: !!userId
   });
   
   // Set up Supabase auth state listener
   useEffect(() => {
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-      
-      if (event === 'SIGNED_IN') {
-        // Store user data
-        if (session?.user) {
+    let authStateSubscription: { unsubscribe: () => void } | null = null;
+    
+    // Start auth initialization
+    const initializeAuth = async () => {
+      try {
+        // Check for existing session first
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          // Store essential auth data
           localStorage.setItem('jwt_token', session.access_token);
           localStorage.setItem('user_id', session.user.id);
           
-          toast.success('Inloggad!');
+          // No need to await this since it can happen in background
+          authService.getCurrentUser()
+            .then(user => {
+              // Store current user data
+              localStorage.setItem('current_user', JSON.stringify(user));
+            })
+            .catch(err => {
+              console.error('Error fetching user data during initialization:', err);
+            });
+        }
+        
+        // Now set up the auth state listener for future changes
+        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log('Auth state changed:', event, session?.user?.id);
           
-          // Kontrollera om användaren redan har en slutförd profiluppsättning
-          if (localStorage.getItem('profile_setup_complete') === 'true') {
-            // Om ja, navigera till startsidan om vi är på profiluppsättningssidan
-            if (location.pathname.includes('/setup-profile')) {
+          if (event === 'SIGNED_IN') {
+            // Store essential auth data
+            if (session) {
+              localStorage.setItem('jwt_token', session.access_token);
+              localStorage.setItem('user_id', session.user.id);
+              
+              toast.success('Inloggad!');
+              
+              // If we're on the callback page, redirect home
+              if (location.pathname.includes('/auth/callback')) {
+                navigate('/', { replace: true });
+              }
+            }
+          } else if (event === 'SIGNED_OUT') {
+            // Clear all auth data
+            authService.clearAuthData();
+            
+            if (location.pathname !== '/') {
               navigate('/', { replace: true });
             }
-          } else {
-            // Annars fortsätt med normal kontroll av profiluppsättning
-            authService.getCurrentUser()
-              .then(user => {
-                const needsSetup = !user.username || 
-                               user.username.startsWith('user_') || 
-                               !user.displayName || 
-                               user.displayName === 'New User';
-                
-                if (needsSetup) {
-                  toast.info('Profilinställning krävs', {
-                    description: 'Slutför din profil för att fortsätta.',
-                  });
-                  navigate('/setup-profile');
-                }
-              })
-              .catch(err => {
-                console.error('Error checking user profile:', err);
-                // Om användaren inte kan hämtas, skicka dem till profiluppsättning
-                navigate('/setup-profile');
-              });
+            
+            toast.info('Du har loggat ut');
           }
-        }
-      } else if (event === 'SIGNED_OUT') {
-        // Clear local storage and redirect to home page
-        authService.clearAuthData();
-        // Ta bort flaggan för profiluppsättning vid utloggning
-        localStorage.removeItem('profile_setup_complete');
+        });
         
-        if (location.pathname !== '/') {
-          navigate('/', { replace: true });
-        }
-        toast.info('Du har loggat ut');
-      }
-    });
-    
-    // Get current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        localStorage.setItem('jwt_token', session.access_token);
-        localStorage.setItem('user_id', session.user.id);
-        localStorage.setItem('current_user', JSON.stringify(session.user));
+        authStateSubscription = data.subscription;
+        setAuthInitialized(true);
         setSessionChecked(true);
-      } else {
+      } catch (error) {
+        console.error('Error initializing auth:', error);
         setSessionChecked(true);
+        setAuthInitialized(true);
       }
-    });
+    };
     
-    // Update last seen periodically
+    initializeAuth();
+    
+    // Update last seen periodically if user is logged in
     const updateLastSeenInterval = setInterval(() => {
       if (localStorage.getItem('jwt_token')) {
-        authService.updateLastSeen();
+        authService.updateLastSeen().catch(console.error);
       }
     }, 5 * 60 * 1000); // Every 5 minutes
     
     // Clean up
     return () => {
-      subscription.unsubscribe();
+      if (authStateSubscription) {
+        authStateSubscription.unsubscribe();
+      }
       clearInterval(updateLastSeenInterval);
     };
-  }, [navigate, location]);
+  }, [navigate, location.pathname]);
   
   return (
     <>
@@ -121,10 +125,16 @@ function App() {
           <Route index element={<Home />} />
           <Route path="profile" element={<Profile />} />
           <Route path="profile/:identifier" element={<Profile />} />
-          <Route path="setup-profile" element={<ProfileSetup />} />
-          <Route path="auth/callback" element={<div className="flex items-center justify-center min-h-screen">
-            <div className="animate-spin h-12 w-12 border-t-4 border-crypto-blue rounded-full"></div>
-          </div>} />
+          <Route path="setup-profile" element={<ProfileSetupPage />} />
+          <Route path="auth/callback" element={
+            <div className="flex items-center justify-center min-h-screen">
+              <div className="text-center">
+                <div className="animate-spin h-12 w-12 border-t-4 border-crypto-blue rounded-full mx-auto mb-4"></div>
+                <p className="text-lg font-medium">Loggar in...</p>
+                <p className="text-sm text-muted-foreground">Du omdirigeras automatiskt</p>
+              </div>
+            </div>
+          } />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

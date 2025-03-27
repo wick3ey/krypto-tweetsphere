@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,7 +21,6 @@ import { userService } from '@/api/userService';
 import { User as UserType } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/hooks/useUser';
-import { authService } from '@/api/authService';
 
 // Set up schema validation
 const profileSetupSchema = z.object({
@@ -47,7 +45,7 @@ type ProfileSetupFormValues = z.infer<typeof profileSetupSchema>;
 
 const ProfileSetup = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoadingCurrentUser, refetchCurrentUser } = useUser();
+  const { currentUser, isLoadingCurrentUser, refetchCurrentUser, createProfile } = useUser();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -57,6 +55,7 @@ const ProfileSetup = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isValidating, setIsValidating] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState(true);
+  const [setupCompleted, setSetupCompleted] = useState(false);
   
   const form = useForm<ProfileSetupFormValues>({
     resolver: zodResolver(profileSetupSchema),
@@ -119,8 +118,8 @@ const ProfileSetup = () => {
     }
   };
 
-  // Username availability check
-  const checkUsernameAvailability = async (username: string) => {
+  // Username availability check with debounce
+  const checkUsernameAvailability = useCallback(async (username: string) => {
     if (username.length < 3) return true; // Skip check if too short
     
     setIsValidating(true);
@@ -141,7 +140,7 @@ const ProfileSetup = () => {
     } finally {
       setIsValidating(false);
     }
-  };
+  }, [currentUser?.id]);
 
   const handleNextStep = () => {
     // Validate current step before moving to next
@@ -226,7 +225,7 @@ const ProfileSetup = () => {
       };
     } catch (error) {
       console.error('Error uploading images:', error);
-      toast.error('Failed to upload images');
+      toast.error('Kunde inte ladda upp bilder');
       throw error;
     } finally {
       setIsUploading(false);
@@ -234,9 +233,17 @@ const ProfileSetup = () => {
   };
 
   const onSubmit = async (data: ProfileSetupFormValues) => {
+    if (setupCompleted) {
+      console.log('Setup already completed, preventing duplicate submission');
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
+      // Set this flag immediately to prevent multiple submissions
+      setSetupCompleted(true);
+      
       // Upload profile images first
       const { avatarUrl, headerUrl } = await uploadImages();
       
@@ -249,21 +256,21 @@ const ProfileSetup = () => {
         headerUrl,
       };
       
-      // Send to API - using the server endpoint for profile setup
-      await userService.setupProfile(profileData);
+      // Send to API - using the createProfile mutation
+      createProfile(profileData);
       
       // Show success message
       toast.success('Profilinställning klar!', {
-        description: 'Välkommen till KryptoSphere!',
+        description: 'Välkommen till F3ociety!',
       });
+      
+      // Explicitly mark profile setup as complete in localStorage
+      localStorage.setItem('profile_setup_complete', 'true');
       
       // Refresh user data
       await refetchCurrentUser();
       
-      // Viktigt: markera profilen som uppdaterad i localStorage för att undvika loop
-      localStorage.setItem('profile_setup_complete', 'true');
-      
-      // Redirect to profile page - med en kort fördröjning för att säkerställa att data är uppdaterad
+      // Redirect to home page with a delay to ensure data is updated
       setTimeout(() => {
         navigate('/', { replace: true });
       }, 500);
@@ -272,26 +279,42 @@ const ProfileSetup = () => {
       toast.error('Profilinställning misslyckades', {
         description: 'Vänligen försök igen.',
       });
+      // Reset flag if setup fails
+      setSetupCompleted(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Check if the user is authenticated
-  useEffect(() => {
-    const checkAuth = async () => {
-      const isLoggedIn = authService.isLoggedIn();
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    form.setValue('username', value);
+    
+    // Add debounce for username check
+    if (value.length >= 3) {
+      const timeoutId = setTimeout(() => {
+        checkUsernameAvailability(value);
+      }, 500);
       
-      if (!isLoggedIn) {
-        toast.error('Du måste vara inloggad', {
-          description: 'Du måste ansluta din wallet för att fortsätta.',
-        });
+      return () => clearTimeout(timeoutId);
+    }
+  };
+
+  // Check if the user needs to be redirected if profile setup is already complete
+  useEffect(() => {
+    if (currentUser && !isLoadingCurrentUser) {
+      const needsSetup = !currentUser.username || 
+                          currentUser.username.startsWith('user_') || 
+                          !currentUser.displayName || 
+                          currentUser.displayName === 'New User';
+      
+      if (!needsSetup) {
+        // Profile already set up, redirect to home
+        localStorage.setItem('profile_setup_complete', 'true');
         navigate('/', { replace: true });
       }
-    };
-    
-    checkAuth();
-  }, [navigate]);
+    }
+  }, [currentUser, isLoadingCurrentUser, navigate]);
 
   if (isLoadingCurrentUser) {
     return (
@@ -326,7 +349,7 @@ const ProfileSetup = () => {
             <div className="space-y-6 px-4 py-6 sm:px-6">
               <div className="text-center mb-8">
                 <h1 className="text-2xl font-semibold">Konfigurera din profil</h1>
-                <p className="text-muted-foreground mt-2">Välj hur du vill visas på KryptoSphere</p>
+                <p className="text-muted-foreground mt-2">Välj hur du vill visas på F3ociety</p>
               </div>
               
               <FormField
@@ -342,10 +365,7 @@ const ProfileSetup = () => {
                           placeholder="användarnamn"
                           {...field}
                           className="flex-1"
-                          onChange={(e) => {
-                            field.onChange(e);
-                            checkUsernameAvailability(e.target.value);
-                          }}
+                          onChange={handleUsernameChange}
                         />
                       </div>
                     </FormControl>
@@ -505,7 +525,7 @@ const ProfileSetup = () => {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={isSubmitting || isUploading}
+                  disabled={isSubmitting || isUploading || setupCompleted}
                   className="flex items-center gap-1"
                 >
                   {isSubmitting || isUploading ? (

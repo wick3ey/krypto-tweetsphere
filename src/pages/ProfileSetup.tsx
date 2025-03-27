@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import ProfileSetup from '@/components/auth/ProfileSetup';
 import { Loader2 } from 'lucide-react';
@@ -7,10 +7,22 @@ import { useUser } from '@/hooks/useUser';
 
 const ProfileSetupPage = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoadingCurrentUser } = useUser();
+  const { currentUser, isLoadingCurrentUser, needsProfileSetup } = useUser();
   
-  // Check if the user is authenticated
+  // Check if user is authenticated
   const isAuthenticated = !!localStorage.getItem('jwt_token');
+  
+  useEffect(() => {
+    // If the user has completed setup, redirect to home
+    if (currentUser && !isLoadingCurrentUser && !needsProfileSetup()) {
+      // Short delay to prevent flickering
+      const timer = setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, isLoadingCurrentUser, needsProfileSetup, navigate]);
   
   if (!isAuthenticated) {
     // Redirect to home if not authenticated
@@ -30,11 +42,7 @@ const ProfileSetupPage = () => {
     );
   }
   
-  // If user has already completed profile setup, redirect to profile page
-  if (currentUser && currentUser.username && currentUser.displayName) {
-    return <Navigate to="/profile" replace />;
-  }
-  
+  // Only render the profile setup component if user needs setup
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-screen-md bg-card rounded-xl shadow-lg border border-border/50 overflow-hidden">

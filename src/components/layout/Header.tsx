@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { Bell, Menu, X, Moon, Sun, PlusCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { notificationService } from '@/api/notificationService';
@@ -22,16 +21,21 @@ import {
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [isDark, setIsDark] = useState(true); // Since we implemented a dark theme by default
   const navigate = useNavigate();
   const isAuthenticated = !!localStorage.getItem('jwt_token');
   
-  // Fetch notification count
+  // Fetch notification count if user is authenticated
   const { data: notificationCount = 0 } = useQuery({
     queryKey: ['notificationCount'],
     queryFn: () => notificationService.getUnreadCount().then(res => res.count),
     enabled: isAuthenticated,
     refetchInterval: 60000, // Refetch every minute
+    retry: 1,
+    meta: {
+      onError: (error: any) => {
+        console.error('Error fetching unread notification count:', error);
+      }
+    }
   });
   
   // Fetch user profile
@@ -40,6 +44,7 @@ const Header = () => {
     queryFn: () => authService.getCurrentUser(),
     enabled: isAuthenticated,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1
   });
   
   useEffect(() => {
@@ -54,10 +59,29 @@ const Header = () => {
   const handleSignOut = async () => {
     try {
       await authService.signOut();
-      navigate('/');
+      // Navigation now handled by auth state change listener
     } catch (error) {
       console.error('Error signing out:', error);
+      toast.error('Det gick inte att logga ut. Försök igen.');
     }
+  };
+  
+  const navigateToProfile = () => {
+    navigate('/profile');
+    // Close any open dropdown
+    document.body.click();
+  };
+  
+  const navigateToEditProfile = () => {
+    navigate('/setup-profile');
+    // Close any open dropdown
+    document.body.click();
+  };
+  
+  // Ensure avatar uses proper fallback for broken images
+  const handleAvatarError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const target = e.target as HTMLImageElement;
+    target.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUser?.username || 'user'}`;
   };
   
   return (
@@ -89,22 +113,24 @@ const Header = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="ml-2 rounded-full relative overflow-hidden p-0 h-8 w-8">
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8 border border-border">
                       <AvatarImage 
-                        src={currentUser?.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUser?.username || 'user'}`} 
+                        src={currentUser?.avatarUrl} 
                         alt={currentUser?.displayName || 'User'} 
+                        onError={handleAvatarError}
                       />
-                      <AvatarFallback>{currentUser?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                      <AvatarFallback>
+                        {currentUser?.displayName?.charAt(0) || 'U'}
+                      </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>Min profil</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <DropdownMenuItem onClick={navigateToProfile}>
                     Profil
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/setup-profile')}>
+                  <DropdownMenuItem onClick={navigateToEditProfile}>
                     Redigera profil
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

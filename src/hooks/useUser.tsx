@@ -11,7 +11,7 @@ export function useUser() {
     data: currentUser,
     isLoading: isLoadingCurrentUser,
     error: currentUserError,
-    refetch: refetchUserQuery  // Renamed from refetchCurrentUser to refetchUserQuery to avoid conflict
+    refetch: refetchUserQuery
   } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => authService.getCurrentUser(),
@@ -21,9 +21,6 @@ export function useUser() {
     meta: {
       onError: (error: any) => {
         console.error('Error fetching current user:', error);
-        if (localStorage.getItem('jwt_token') && localStorage.getItem('wallet_address')) {
-          console.log('Token finns men kunde inte hämta användaren - kan behöva profiluppsättning');
-        }
       }
     }
   });
@@ -49,6 +46,9 @@ export function useUser() {
       queryClient.invalidateQueries({ queryKey: ['userProfile', data.id] });
       queryClient.invalidateQueries({ queryKey: ['userProfile', data.username] });
       queryClient.invalidateQueries({ queryKey: ['userProfile', data.walletAddress] });
+      
+      localStorage.setItem('current_user', JSON.stringify(data));
+      
       toast.success("Profil uppdaterad");
     },
     onError: (error: any) => {
@@ -62,8 +62,12 @@ export function useUser() {
     mutationFn: (profileData: Partial<User>) => userService.setupProfile(profileData),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      toast.success("Profil skapad");
+      
+      localStorage.setItem('profile_setup_complete', 'true');
+      
       localStorage.setItem('current_user', JSON.stringify(data));
+      
+      toast.success("Profil skapad");
     },
     onError: (error: any) => {
       toast.error("Kunde inte skapa profilen", {
@@ -133,12 +137,22 @@ export function useUser() {
   };
 
   const needsProfileSetup = () => {
+    if (localStorage.getItem('profile_setup_complete') === 'true') {
+      return false;
+    }
+    
     if (!currentUser) return true;
     
-    return !currentUser.username || 
+    const needsSetup = !currentUser.username || 
            currentUser.username.startsWith('user_') || 
            !currentUser.displayName || 
            currentUser.displayName === 'New User';
+    
+    if (!needsSetup) {
+      localStorage.setItem('profile_setup_complete', 'true');
+    }
+    
+    return needsSetup;
   };
 
   const refetchCurrentUser = async () => {
@@ -147,6 +161,9 @@ export function useUser() {
         queryKey: ['currentUser'],
         queryFn: () => authService.getCurrentUser()
       });
+      
+      localStorage.setItem('current_user', JSON.stringify(result));
+      
       return result;
     } catch (error) {
       console.error('Error refetching current user:', error);
@@ -158,18 +175,26 @@ export function useUser() {
     queryClient.setQueryData(['currentUser'], (oldData: User | undefined) => {
       if (!oldData) return oldData;
       
-      return {
+      const updatedUser = {
         ...oldData,
         ...userData
       };
+      
+      localStorage.setItem('current_user', JSON.stringify(updatedUser));
+      
+      return updatedUser;
     });
+  };
+
+  const resetProfileSetupFlag = () => {
+    localStorage.removeItem('profile_setup_complete');
   };
 
   return {
     currentUser,
     isLoadingCurrentUser,
     currentUserError,
-    refetchCurrentUser,  // Keep this in the return object to maintain the API
+    refetchCurrentUser,
     getUserProfile,
     checkWalletUser,
     updateProfile: updateProfileMutation.mutate,
@@ -184,6 +209,7 @@ export function useUser() {
     getUserFollowing,
     getUserTweets,
     needsProfileSetup,
-    updateCachedUser
+    updateCachedUser,
+    resetProfileSetupFlag
   };
 }
