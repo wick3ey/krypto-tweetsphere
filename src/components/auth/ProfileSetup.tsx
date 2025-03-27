@@ -20,6 +20,7 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { userService } from '@/api/userService';
 import { User as UserType } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
 
 // Set up schema validation
 const profileSetupSchema = z.object({
@@ -49,6 +50,7 @@ const ProfileSetup = () => {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [headerPreview, setHeaderPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   
   const form = useForm<ProfileSetupFormValues>({
@@ -92,21 +94,85 @@ const ProfileSetup = () => {
     setCurrentStep(prevStep => prevStep - 1);
   };
 
+  const uploadImages = async () => {
+    setIsUploading(true);
+    try {
+      let avatarUrl = '';
+      let headerUrl = '';
+      
+      // Get current user ID
+      const walletAddress = localStorage.getItem('wallet_address');
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('wallet_address', walletAddress)
+        .single();
+        
+      if (userError) throw userError;
+      const userId = userData.id;
+      
+      // Upload avatar if selected
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const filePath = `${userId}/avatar_${Date.now()}.${fileExt}`;
+        
+        const { data: avatarData, error: avatarError } = await supabase.storage
+          .from('profiles')
+          .upload(filePath, avatarFile);
+          
+        if (avatarError) throw avatarError;
+        
+        // Get public URL
+        const { data: avatarUrlData } = supabase.storage
+          .from('profiles')
+          .getPublicUrl(filePath);
+          
+        avatarUrl = avatarUrlData.publicUrl;
+      }
+      
+      // Upload header if selected
+      if (headerFile) {
+        const fileExt = headerFile.name.split('.').pop();
+        const filePath = `${userId}/header_${Date.now()}.${fileExt}`;
+        
+        const { data: headerData, error: headerError } = await supabase.storage
+          .from('profiles')
+          .upload(filePath, headerFile);
+          
+        if (headerError) throw headerError;
+        
+        // Get public URL
+        const { data: headerUrlData } = supabase.storage
+          .from('profiles')
+          .getPublicUrl(filePath);
+          
+        headerUrl = headerUrlData.publicUrl;
+      }
+      
+      return { avatarUrl, headerUrl };
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      toast.error('Failed to upload images');
+      throw error;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const onSubmit = async (data: ProfileSetupFormValues) => {
     setIsSubmitting(true);
     
     try {
-      // In a real implementation, you would upload the image files to a server
-      // and get back URLs. For this example, we'll simulate that.
+      // Upload profile images first
+      const { avatarUrl, headerUrl } = await uploadImages();
       
       // Prepare the data for API
       const profileData: Partial<UserType> = {
         username: data.username,
         displayName: data.displayName,
         bio: data.bio || '',
-        
-        // Use avatarUrl instead of profileImage to match the User type
-        avatarUrl: avatarPreview || 'https://f3oci3ty.xyz/placeholder-avatar.png',
+        avatarUrl: avatarUrl || avatarPreview,
+        headerUrl: headerUrl || headerPreview,
       };
       
       // Send to API - using the server endpoint for profile setup
@@ -149,7 +215,7 @@ const ProfileSetup = () => {
       </div>
       
       <Form {...form}>
-        <form>
+        <form onSubmit={form.handleSubmit(onSubmit)}>
           {currentStep === 0 && (
             <div className="space-y-6 px-4 py-6 sm:px-6">
               <div className="text-center mb-8">
@@ -195,10 +261,8 @@ const ProfileSetup = () => {
                 )}
               />
               
-              <div className="flex justify-end mt-6">
-                <Button onClick={handleNextStep}>
-                  Next
-                </Button>
+              <div className="flex justify-end">
+                <Button type="button" onClick={handleNextStep}>Next</Button>
               </div>
             </div>
           )}
@@ -206,70 +270,82 @@ const ProfileSetup = () => {
           {currentStep === 1 && (
             <div className="space-y-6 px-4 py-6 sm:px-6">
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold">Add Your Photos</h1>
-                <p className="text-muted-foreground mt-2">Upload a profile picture and header image</p>
+                <h1 className="text-2xl font-semibold">Upload Profile Photos</h1>
+                <p className="text-muted-foreground mt-2">Add a profile picture and header image</p>
               </div>
               
-              <div className="space-y-8">
-                {/* Header Upload */}
-                <div className="relative">
-                  <FormLabel className="block mb-2">Header Image</FormLabel>
-                  <div 
-                    className={`h-36 rounded-lg overflow-hidden relative flex items-center justify-center bg-muted ${headerPreview ? 'bg-cover bg-center' : ''}`}
-                    style={headerPreview ? { backgroundImage: `url(${headerPreview})` } : {}}
-                  >
-                    {!headerPreview && (
-                      <div className="text-center">
-                        <Image className="mx-auto h-8 w-8 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground mt-1">Add a header image</p>
+              <div className="space-y-6">
+                {/* Avatar Upload */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Profile Picture</label>
+                  <div className="flex items-center gap-4">
+                    <div className="relative group">
+                      <Avatar className="h-16 w-16 border-2 border-border">
+                        <AvatarImage src={avatarPreview || undefined} />
+                        <AvatarFallback>
+                          <User className="h-8 w-8 text-muted-foreground" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Camera className="h-5 w-5 text-white" />
                       </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleHeaderChange}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                    />
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                        onChange={handleAvatarChange}
+                      />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{avatarFile ? avatarFile.name : 'No file chosen'}</p>
+                      {avatarFile && (
+                        <p className="text-xs text-muted-foreground">{Math.round(avatarFile.size / 1024)} KB</p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
-                {/* Avatar Upload */}
+                {/* Header Upload */}
                 <div>
-                  <FormLabel className="block mb-2">Profile Picture</FormLabel>
-                  <div className="flex items-start space-x-4">
-                    <div className="relative">
-                      <Avatar className="h-20 w-20 border-2 border-background">
-                        {avatarPreview ? (
-                          <AvatarImage src={avatarPreview} alt="Profile" />
-                        ) : (
-                          <AvatarFallback>
-                            <User className="h-10 w-10" />
-                          </AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1.5 shadow-sm">
-                        <Camera className="h-3.5 w-3.5" />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarChange}
-                          className="absolute inset-0 opacity-0 cursor-pointer"
+                  <label className="block text-sm font-medium mb-2">Header Image</label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-4 text-center relative group cursor-pointer">
+                    {headerPreview ? (
+                      <div className="relative">
+                        <img 
+                          src={headerPreview} 
+                          alt="Header preview" 
+                          className="w-full h-32 object-cover rounded-md" 
                         />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-md">
+                          <Camera className="h-6 w-6 text-white" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Choose a profile picture</p>
-                      <p className="text-xs text-muted-foreground mt-1">Upload a clear photo to help people recognize you</p>
-                    </div>
+                    ) : (
+                      <div className="py-6">
+                        <Image className="h-12 w-12 mx-auto text-muted-foreground" />
+                        <p className="mt-2 text-sm text-muted-foreground">Click to upload a header image</p>
+                      </div>
+                    )}
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={handleHeaderChange}
+                    />
                   </div>
+                  {headerFile && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {headerFile.name} ({Math.round(headerFile.size / 1024)} KB)
+                    </p>
+                  )}
                 </div>
               </div>
               
-              <div className="flex justify-between mt-6">
-                <Button variant="outline" onClick={handlePrevStep}>
+              <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={handlePrevStep}>
                   Back
                 </Button>
-                <Button onClick={handleNextStep}>
+                <Button type="button" onClick={handleNextStep}>
                   Next
                 </Button>
               </div>
@@ -279,8 +355,8 @@ const ProfileSetup = () => {
           {currentStep === 2 && (
             <div className="space-y-6 px-4 py-6 sm:px-6">
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold">Tell Us About Yourself</h1>
-                <p className="text-muted-foreground mt-2">Write a short bio to introduce yourself</p>
+                <h1 className="text-2xl font-semibold">Complete Your Bio</h1>
+                <p className="text-muted-foreground mt-2">Tell others about yourself</p>
               </div>
               
               <FormField
@@ -291,30 +367,35 @@ const ProfileSetup = () => {
                     <FormLabel>Bio</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Tell us about yourself..."
-                        className="resize-none min-h-[120px]"
+                        placeholder="Write a short bio about yourself..."
+                        className="h-32 resize-none"
                         {...field}
                       />
                     </FormControl>
-                    <div className="flex justify-between mt-1">
-                      <FormMessage />
-                      <p className="text-xs text-muted-foreground">
-                        {field.value?.length || 0}/160
-                      </p>
-                    </div>
+                    <p className="text-xs text-muted-foreground text-right">
+                      {field.value?.length || 0}/160
+                    </p>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
               
-              <div className="flex justify-between mt-6">
-                <Button variant="outline" onClick={handlePrevStep}>
+              <div className="flex justify-between">
+                <Button type="button" variant="outline" onClick={handlePrevStep}>
                   Back
                 </Button>
                 <Button 
-                  onClick={form.handleSubmit(onSubmit)} 
-                  disabled={isSubmitting}
+                  type="submit" 
+                  disabled={isSubmitting || isUploading}
+                  className="flex items-center gap-1"
                 >
-                  {isSubmitting ? 'Setting up...' : 'Complete Setup'}
+                  {isSubmitting || isUploading ? (
+                    <>Submitting...</>
+                  ) : (
+                    <>
+                      Complete <Check className="h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               </div>
             </div>

@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ComposeDialogProps {
   open: boolean;
@@ -25,19 +27,22 @@ interface ComposeDialogProps {
 const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProps) => {
   const [content, setContent] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploadedAttachments, setUploadedAttachments] = useState<string[]>([]);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewContent, setPreviewContent] = useState('');
+  const [uploading, setUploading] = useState(false);
   const { currentUser } = useUser();
   const queryClient = useQueryClient();
   
   const { mutate: createTweet, isPending: isCreatingTweet } = useMutation({
     mutationFn: () => {
-      return tweetService.createTweet(content, []);
+      return tweetService.createTweet(content, uploadedAttachments);
     },
     onSuccess: () => {
       toast.success('Tweet skapad!');
       setContent('');
       setAttachments([]);
+      setUploadedAttachments([]);
       setPreviewVisible(false);
       setPreviewContent('');
       onOpenChange(false);
@@ -55,19 +60,80 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
     setContent(e.target.value);
   };
   
-  const handleAddAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setAttachments([...attachments, ...files]);
+  const handleAddAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      setAttachments([...attachments, ...files]);
+      
+      // Upload files to Supabase storage
+      setUploading(true);
+      try {
+        const uploadedUrls: string[] = [];
+        
+        for (const file of files) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+          const filePath = `${currentUser?.id}/${fileName}`;
+          
+          const { data, error } = await supabase.storage
+            .from('tweets')
+            .upload(filePath, file);
+            
+          if (error) {
+            throw error;
+          }
+          
+          // Get public URL for the file
+          const { data: publicUrlData } = supabase.storage
+            .from('tweets')
+            .getPublicUrl(filePath);
+            
+          uploadedUrls.push(publicUrlData.publicUrl);
+        }
+        
+        setUploadedAttachments([...uploadedAttachments, ...uploadedUrls]);
+        setPreviewVisible(true);
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        toast.error('Kunde inte ladda upp bilden');
+      } finally {
+        setUploading(false);
+      }
+    }
   };
   
-  const handleRemoveAttachment = (index: number) => {
-    const newAttachments = [...attachments];
-    newAttachments.splice(index, 1);
-    setAttachments(newAttachments);
+  const handleRemoveAttachment = async (index: number) => {
+    try {
+      const newAttachments = [...attachments];
+      const newUploadedAttachments = [...uploadedAttachments];
+      
+      // Extract file path from URL to delete from storage
+      if (uploadedAttachments[index]) {
+        const url = uploadedAttachments[index];
+        const path = url.split('tweets/')[1];
+        
+        if (path) {
+          await supabase.storage.from('tweets').remove([path]);
+        }
+      }
+      
+      newAttachments.splice(index, 1);
+      newUploadedAttachments.splice(index, 1);
+      
+      setAttachments(newAttachments);
+      setUploadedAttachments(newUploadedAttachments);
+      
+      if (newAttachments.length === 0) {
+        setPreviewVisible(false);
+      }
+    } catch (error) {
+      console.error('Error removing attachment:', error);
+      toast.error('Kunde inte ta bort bilden');
+    }
   };
   
-  const handleSubmit = () => {
-    if (content.trim() === '' && attachments.length === 0) {
+  const handleSubmit = async () => {
+    if (content.trim() === '' && uploadedAttachments.length === 0) {
       toast.error('Du måste skriva något eller lägga till en bild!');
       return;
     }
@@ -116,13 +182,14 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
                       className="hidden"
                     />
                     <label htmlFor="image-upload">
-                      <Button variant="ghost" size="icon" asChild>
+                      <Button variant="ghost" size="icon" asChild disabled={uploading}>
                         <span><Paperclip className="h-5 w-5" /></span>
                       </Button>
                     </label>
+                    {uploading && <span className="text-xs text-muted-foreground ml-2">Laddar upp...</span>}
                   </div>
                   
-                  <Button onClick={handleSubmit} disabled={isCreatingTweet}>
+                  <Button onClick={handleSubmit} disabled={isCreatingTweet || uploading}>
                     {isCreatingTweet ? 'Skapar...' : 'Skapa'}
                   </Button>
                 </div>
@@ -132,8 +199,7 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
           </div>
           
           <div className="p-4 pt-0">
-            
-            {previewVisible && attachments.length > 0 && (
+            {uploadedAttachments.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {attachments.map((file, index) => (
                   <div key={index} className="relative">
@@ -147,6 +213,7 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
                       variant="destructive"
                       className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
                       onClick={() => handleRemoveAttachment(index)}
+                      disabled={uploading}
                     >
                       <X className="h-3 w-3" />
                     </Button>

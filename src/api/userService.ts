@@ -27,9 +27,44 @@ export const userService = {
       if (error) throw error;
       if (!data) throw new Error('User not found');
       
-      return dbUserToUser(data);
+      // Get follower and following counts
+      const followersCount = data.followers ? data.followers.length : 0;
+      const followingCount = data.following ? data.following.length : 0;
+      
+      const user = dbUserToUser(data);
+      user.followers = followersCount;
+      user.following = followingCount;
+      
+      return user;
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      throw error;
+    }
+  },
+  
+  async uploadProfileImage(file: File, type: 'avatar' | 'header'): Promise<string> {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      
+      // Generate a unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${type}_${currentUser.id}_${Date.now()}.${fileExt}`;
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('profiles')
+        .upload(fileName, file);
+        
+      if (error) throw error;
+      
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('profiles')
+        .getPublicUrl(fileName);
+        
+      return publicUrlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
       throw error;
     }
   },
@@ -38,6 +73,10 @@ export const userService = {
     try {
       const walletAddress = localStorage.getItem('wallet_address');
       if (!walletAddress) throw new Error('No wallet address found');
+      
+      // Check if user has uploaded avatar or header
+      let avatarUrl = profileData.avatarUrl;
+      let headerUrl = profileData.headerUrl;
       
       // Get the current user from Supabase
       const { data: userData, error: fetchError } = await supabase
@@ -54,8 +93,8 @@ export const userService = {
         username: profileData.username,
         display_name: profileData.displayName,
         bio: profileData.bio || userData.bio,
-        avatar_url: profileData.avatarUrl || userData.avatar_url,
-        header_url: profileData.headerUrl || userData.header_url,
+        avatar_url: avatarUrl || userData.avatar_url,
+        header_url: headerUrl || userData.header_url,
       };
       
       // Update user profile
@@ -81,13 +120,13 @@ export const userService = {
       const currentUser = await authService.getCurrentUser();
       
       // Prepare data for update
-      const updateData = {
-        username: profileData.username || currentUser.username,
-        display_name: profileData.displayName || currentUser.displayName,
-        bio: profileData.bio || currentUser.bio,
-        avatar_url: profileData.avatarUrl || currentUser.avatarUrl,
-        header_url: profileData.headerUrl || currentUser.headerUrl,
-      };
+      const updateData: any = {};
+      
+      if (profileData.username) updateData.username = profileData.username;
+      if (profileData.displayName) updateData.display_name = profileData.displayName;
+      if (profileData.bio !== undefined) updateData.bio = profileData.bio;
+      if (profileData.avatarUrl) updateData.avatar_url = profileData.avatarUrl;
+      if (profileData.headerUrl) updateData.header_url = profileData.headerUrl;
       
       // Update user profile
       const { data, error } = await supabase
@@ -123,6 +162,19 @@ export const userService = {
       });
       
       if (followError) throw followError;
+      
+      // Update local user data to reflect the change
+      const updatedUser = { ...currentUser };
+      if (!Array.isArray(updatedUser.following)) {
+        updatedUser.following = [];
+      }
+      if (typeof updatedUser.following === 'number') {
+        updatedUser.following++;
+      } else {
+        updatedUser.following.push(userId);
+      }
+      
+      localStorage.setItem('current_user', JSON.stringify(updatedUser));
     } catch (error) {
       console.error('Error following user:', error);
       throw error;
@@ -140,6 +192,16 @@ export const userService = {
       });
       
       if (unfollowError) throw unfollowError;
+      
+      // Update local user data to reflect the change
+      const updatedUser = { ...currentUser };
+      if (typeof updatedUser.following === 'number') {
+        updatedUser.following = Math.max(0, updatedUser.following - 1);
+      } else if (Array.isArray(updatedUser.following)) {
+        updatedUser.following = updatedUser.following.filter(id => id !== userId);
+      }
+      
+      localStorage.setItem('current_user', JSON.stringify(updatedUser));
     } catch (error) {
       console.error('Error unfollowing user:', error);
       throw error;

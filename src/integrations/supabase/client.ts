@@ -10,14 +10,20 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    storage: localStorage
+  }
+});
 
 // Define custom RPC types
 type RPCFunctions = {
-  follow_user: (args: { follower_id: string; followed_id: string }) => Promise<null>;
-  unfollow_user: (args: { follower_id: string; followed_id: string }) => Promise<null>;
-  get_nonce: (args: { wallet_addr: string }) => Promise<{ nonce: string; message: string }>;
-  create_nonce: (args: { wallet_addr: string; nonce_value: string; message_text: string }) => Promise<null>;
+  follow_user: (args: { follower_id: string; followed_id: string }) => void;
+  unfollow_user: (args: { follower_id: string; followed_id: string }) => void;
+  get_nonce: (args: { wallet_addr: string }) => { nonce: string; message: string };
+  create_nonce: (args: { wallet_addr: string; nonce_value: string; message_text: string }) => void;
 };
 
 // Augment the SupabaseClient type with our RPC functions
@@ -26,7 +32,7 @@ declare module '@supabase/supabase-js' {
     rpc<FunctionName extends keyof RPCFunctions>(
       fn: FunctionName,
       args?: Parameters<RPCFunctions[FunctionName]>[0]
-    ): Promise<{ data: ReturnType<RPCFunctions[FunctionName]> extends Promise<infer T> ? T : never; error: null } | { data: null; error: Error }>;
+    ): Promise<{ data: ReturnType<RPCFunctions[FunctionName]> extends Promise<infer T> ? T : ReturnType<RPCFunctions[FunctionName]>; error: null } | { data: null; error: Error }>;
   }
 }
 

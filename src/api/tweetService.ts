@@ -1,23 +1,48 @@
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
+import { dbTweetToTweet } from '@/lib/db-types';
 
 export const tweetService = {
   getFeed: async () => {
     try {
-      console.log("Fetching feed from API...");
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/feed');
-      console.log("Feed response:", response.data);
+      console.log("Fetching feed from Supabase...");
+      // Get current user's following list
+      const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
       
-      // Normalize the response data to handle different formats
-      const normalizedTweets = normalizeTweetResponse(response.data);
-      
-      // Store tweets locally for offline access
-      if (normalizedTweets && normalizedTweets.length > 0) {
-        saveLocalTweets(normalizedTweets);
+      if (!currentUser.id) {
+        return await tweetService.getExploreFeed();
       }
       
-      return normalizedTweets;
+      // Get tweets from followed users
+      let query = supabase
+        .from('tweets')
+        .select('*, users:user_id(*)')
+        .in('user_id', [currentUser.id, ...(currentUser.following || [])])
+        .order('created_at', { ascending: false })
+        .limit(50);
+        
+      const { data, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      console.log("Feed data from Supabase:", data);
+      
+      // Convert to application Tweet type
+      const tweets = data.map(item => {
+        const user = item.users ? dbUserToUser(item.users) : null;
+        return dbTweetToTweet(item, user!);
+      });
+      
+      // Store tweets locally for offline access
+      if (tweets && tweets.length > 0) {
+        saveLocalTweets(tweets);
+      }
+      
+      return tweets;
     } catch (error) {
       console.error('Error fetching feed:', error);
       
@@ -35,19 +60,32 @@ export const tweetService = {
   
   getExploreFeed: async () => {
     try {
-      console.log("Fetching explore feed from API...");
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/explore');
-      console.log("Explore feed response:", response.data);
+      console.log("Fetching explore feed from Supabase...");
       
-      // Normalize the response data to handle different formats
-      const normalizedTweets = normalizeTweetResponse(response.data);
-      
-      // Store tweets locally for offline access
-      if (normalizedTweets && normalizedTweets.length > 0) {
-        saveLocalTweets(normalizedTweets);
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('*, users:user_id(*)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+        
+      if (error) {
+        throw error;
       }
       
-      return normalizedTweets;
+      console.log("Explore feed data from Supabase:", data);
+      
+      // Convert to application Tweet type
+      const tweets = data.map(item => {
+        const user = item.users ? dbUserToUser(item.users) : null;
+        return dbTweetToTweet(item, user!);
+      });
+      
+      // Store tweets locally for offline access
+      if (tweets && tweets.length > 0) {
+        saveLocalTweets(tweets);
+      }
+      
+      return tweets;
     } catch (error) {
       console.error('Error fetching explore feed:', error);
       
@@ -65,22 +103,36 @@ export const tweetService = {
   
   searchTweets: async (query: string) => {
     try {
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/search', { params: { query } });
-      return Array.isArray(response.data) ? response.data : 
-             (response.data.data ? response.data.data : []);
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('*, users:user_id(*)')
+        .or(`content.ilike.%${query}%,users.username.ilike.%${query}%,users.display_name.ilike.%${query}%`)
+        .order('created_at', { ascending: false })
+        .limit(20);
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Convert to application Tweet type
+      return data.map(item => {
+        const user = item.users ? dbUserToUser(item.users) : null;
+        return dbTweetToTweet(item, user!);
+      });
     } catch (error) {
       console.error('Error searching tweets:', error);
       return [];
     }
   },
   
-  createTweet: async (content: string, attachments?: string[]) => {
+  createTweet: async (content: string, attachments: string[] = []) => {
     const token = localStorage.getItem('jwt_token');
     
     try {
       console.log('Creating tweet with content:', content);
+      console.log('Attachments:', attachments);
       
-      // Create a mock tweet with user data for local storage
+      // Get current user
       const userData = JSON.parse(localStorage.getItem('current_user') || '{}') as User;
       console.log('Current user data:', userData);
       
@@ -92,45 +144,45 @@ export const tweetService = {
         throw new Error('No user data available');
       }
       
-      // Always try to send to the real API first, even if no token (for public posting)
-      try {
-        console.log('Sending tweet to API endpoint');
-        const payload = { content, attachments };
-        console.log('Tweet payload:', payload);
+      // Extract hashtags from content
+      const hashtags = content.match(/#(\w+)/g)?.map(tag => tag.substring(1)) || [];
+      
+      // Extract mentions from content
+      const mentions = content.match(/@(\w+)/g)?.map(mention => mention.substring(1)) || [];
+      
+      // Create tweet in Supabase
+      const { data, error } = await supabase
+        .from('tweets')
+        .insert({
+          user_id: userData.id,
+          content,
+          attachments,
+          hashtags,
+          mentions,
+          created_at: new Date().toISOString(),
+        })
+        .select('*, users:user_id(*)')
+        .single();
         
-        const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', payload);
-        console.log('Tweet created successfully via API:', response.data);
-        
-        // Handle different response formats
-        let newTweet;
-        if (response.data.data) {
-          newTweet = response.data.data;
-        } else if (response.data.tweet) {
-          newTweet = response.data.tweet;
-        } else if (response.data.success && response.data.tweet) {
-          newTweet = response.data.tweet;
-        } else {
-          newTweet = response.data;
-        }
-        
-        // Make sure the tweet has all necessary fields
-        newTweet = normalizeTweet(newTweet);
-        
-        // Also save locally for offline use
-        saveLocalTweet(newTweet);
-        
-        return newTweet;
-      } catch (apiError) {
-        console.error('API call failed:', apiError);
-        
-        // If not authenticated, show error
-        if (!token) {
-          toast.error("Authentication required for persistent tweets", {
-            description: "Connect your wallet to save tweets to the server"
-          });
-        }
-        
-        // Create a local tweet as fallback
+      if (error) {
+        throw error;
+      }
+      
+      console.log('Tweet created successfully in Supabase:', data);
+      
+      // Convert to application Tweet type
+      const user = data.users ? dbUserToUser(data.users) : userData;
+      const newTweet = dbTweetToTweet(data, user);
+      
+      // Also save locally for offline use
+      saveLocalTweet(newTweet);
+      
+      return newTweet;
+    } catch (error: any) {
+      console.error('Error creating tweet:', error);
+      
+      // If not authenticated, create a local tweet as fallback
+      if (!token) {
         const mockTweet: Tweet = {
           id: 'local-' + Date.now(),
           content: content,
@@ -139,6 +191,7 @@ export const tweetService = {
           likes: 0,
           retweets: 0,
           comments: 0,
+          attachments: attachments,
           likedBy: [],
           retweetedBy: [],
           hashtags: content.match(/#(\w+)/g)?.map(tag => tag.substring(1)) || []
@@ -149,16 +202,12 @@ export const tweetService = {
         
         console.log('Created local tweet as fallback:', mockTweet);
         toast.info("Tweet saved locally", {
-          description: "API unavailable. Attempting to sync in the background."
+          description: "Not authenticated. Tweet stored locally only."
         });
-        
-        // Attempt to sync local tweet in the background
-        syncLocalTweet(mockTweet);
         
         return mockTweet;
       }
-    } catch (error: any) {
-      console.error('Error creating tweet:', error);
+      
       throw error;
     }
   },
@@ -184,8 +233,32 @@ export const tweetService = {
       let syncedCount = 0;
       for (const tweet of localOnlyTweets) {
         try {
-          await syncLocalTweet(tweet);
+          // Extract hashtags from content
+          const hashtags = tweet.content.match(/#(\w+)/g)?.map(tag => tag.substring(1)) || [];
+          
+          // Extract mentions from content
+          const mentions = tweet.content.match(/@(\w+)/g)?.map(mention => mention.substring(1)) || [];
+          
+          const { data, error } = await supabase
+            .from('tweets')
+            .insert({
+              user_id: tweet.user.id,
+              content: tweet.content,
+              attachments: tweet.attachments || [],
+              hashtags,
+              mentions,
+              created_at: tweet.timestamp,
+            })
+            .select('*, users:user_id(*)')
+            .single();
+            
+          if (error) throw error;
+          
           syncedCount++;
+          
+          // Remove local tweet
+          const updatedTweets = localTweets.filter((t: Tweet) => t.id !== tweet.id);
+          localStorage.setItem('local_tweets', JSON.stringify(updatedTweets));
         } catch (error) {
           console.error(`Failed to sync tweet ${tweet.id}:`, error);
         }
@@ -213,9 +286,18 @@ export const tweetService = {
         return localTweet;
       }
       
-      // If not found locally, try the API
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/tweets/${id}`);
-      return response.data;
+      // If not found locally, try Supabase
+      const { data, error } = await supabase
+        .from('tweets')
+        .select('*, users:user_id(*)')
+        .eq('id', id)
+        .single();
+        
+      if (error) throw error;
+      
+      // Convert to application Tweet type
+      const user = data.users ? dbUserToUser(data.users) : null;
+      return dbTweetToTweet(data, user!);
     } catch (error) {
       console.error(`Error fetching tweet ${id}:`, error);
       return null;
@@ -233,9 +315,15 @@ export const tweetService = {
         return { success: true };
       }
       
-      // Otherwise try to delete from API
-      const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}`);
-      return response.data;
+      // Otherwise try to delete from Supabase
+      const { error } = await supabase
+        .from('tweets')
+        .delete()
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      return { success: true };
     } catch (error) {
       console.error(`Error deleting tweet ${id}:`, error);
       
@@ -270,23 +358,36 @@ export const tweetService = {
         return { success: false, message: "Authentication required" };
       }
       
-      // Try to call API first
-      try {
-        const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
-        console.log("API like successful:", response.data);
+      // Get current tweet
+      const { data: tweetData, error: tweetError } = await supabase
+        .from('tweets')
+        .select('likes')
+        .eq('id', id)
+        .single();
         
-        // Update local tweet
-        updateLocalTweetLikes(id, userId, true);
-        
-        return response.data;
-      } catch (apiError) {
-        console.log("API like failed, using local fallback:", apiError);
-        
-        // Fallback to updating the tweet locally
-        updateLocalTweetLikes(id, userId, true);
-        
-        return { success: true, message: "Liked locally only" };
+      if (tweetError) throw tweetError;
+      
+      // Check if user already liked the tweet
+      const currentLikes = tweetData.likes || [];
+      if (currentLikes.includes(userId)) {
+        return { success: true, message: "Already liked" };
       }
+      
+      // Add user to likes array
+      const newLikes = [...currentLikes, userId];
+      
+      // Update tweet
+      const { error } = await supabase
+        .from('tweets')
+        .update({ likes: newLikes })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update local tweet
+      updateLocalTweetLikes(id, userId, true);
+      
+      return { success: true };
     } catch (error: any) {
       console.error(`Error liking tweet ${id}:`, error);
       toast.error("Failed to like tweet");
@@ -310,23 +411,36 @@ export const tweetService = {
         return { success: false, message: "Authentication required" };
       }
       
-      // Try to call API first
-      try {
-        const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
-        console.log("API unlike successful:", response.data);
+      // Get current tweet
+      const { data: tweetData, error: tweetError } = await supabase
+        .from('tweets')
+        .select('likes')
+        .eq('id', id)
+        .single();
         
-        // Update local tweet
-        updateLocalTweetLikes(id, userId, false);
-        
-        return response.data;
-      } catch (apiError) {
-        console.log("API unlike failed, using local fallback:", apiError);
-        
-        // Fallback to updating the tweet locally
-        updateLocalTweetLikes(id, userId, false);
-        
-        return { success: true, message: "Unliked locally only" };
+      if (tweetError) throw tweetError;
+      
+      // Check if user already liked the tweet
+      const currentLikes = tweetData.likes || [];
+      if (!currentLikes.includes(userId)) {
+        return { success: true, message: "Not liked" };
       }
+      
+      // Remove user from likes array
+      const newLikes = currentLikes.filter((uid: string) => uid !== userId);
+      
+      // Update tweet
+      const { error } = await supabase
+        .from('tweets')
+        .update({ likes: newLikes })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update local tweet
+      updateLocalTweetLikes(id, userId, false);
+      
+      return { success: true };
     } catch (error: any) {
       console.error(`Error unliking tweet ${id}:`, error);
       toast.error("Failed to unlike tweet");

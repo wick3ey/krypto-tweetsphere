@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/hooks/useUser';
 import ProfileCard from '@/components/profile/ProfileCard';
 import { RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   // Changed default feed from 'trending' to 'latest'
@@ -33,6 +34,30 @@ const Index = () => {
       console.log('Current user stored in localStorage:', currentUser);
     }
   }, [currentUser]);
+  
+  // Setup realtime subscription for tweets
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tweets'
+        },
+        (payload) => {
+          console.log('Realtime update from tweets table:', payload);
+          // Invalidate queries to refresh data
+          queryClient.invalidateQueries({ queryKey: ['tweets'] });
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
   
   // Try to sync local tweets with server on initial load
   useEffect(() => {
