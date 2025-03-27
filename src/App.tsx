@@ -1,5 +1,5 @@
 
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -35,7 +35,7 @@ const ProfileSetup = lazy(() => import('./pages/ProfileSetup'));
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = !!localStorage.getItem('jwt_token');
+  const isAuthenticated = authService.isLoggedIn();
   
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -54,13 +54,19 @@ const SetupProfileWrapper = ({ children }: { children: React.ReactNode }) => {
     const checkProfileCompletion = async () => {
       if (token) {
         try {
-          const user = await authService.getCurrentUser();
-          // If user exists and has both username and displayName, setup is complete
-          hasCompletedSetup.current = !!(user && user.username && user.displayName);
+          // Check if profile setup is needed
+          const needsSetup = await authService.checkProfileSetup();
+          hasCompletedSetup.current = !needsSetup;
+          
+          if (needsSetup && !window.location.pathname.includes('/setup-profile')) {
+            // Will redirect in the next render cycle
+            hasCompletedSetup.current = false;
+          }
         } catch (error) {
           console.error("Error checking profile completion:", error);
-          // If we can't verify, assume they need to set up their profile to be safe
-          hasCompletedSetup.current = false;
+          // If we can't verify, clear auth data and assume they need to login again
+          authService.clearAuthData();
+          hasCompletedSetup.current = true; // Let them access the page, auth check will redirect them
         }
       } else {
         // No token means they're not logged in, so they don't need setup yet
@@ -85,15 +91,12 @@ const SetupProfileWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  // Pre-fetch current user data if token exists
-  React.useEffect(() => {
-    const token = localStorage.getItem('jwt_token');
-    if (token) {
-      queryClient.prefetchQuery({
-        queryKey: ['currentUser'],
-        queryFn: () => authService.getCurrentUser(),
-        staleTime: 5 * 60 * 1000,
-      });
+  // Clear auth data on app start to ensure users have to reconnect each time
+  useEffect(() => {
+    // Only clear if not on profile setup page to avoid interrupting setup process
+    if (!window.location.pathname.includes('/setup-profile')) {
+      console.log('Clearing auth data on app start');
+      authService.clearAuthData();
     }
   }, []);
   
@@ -105,7 +108,11 @@ const App = () => {
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 {/* Profile setup route outside of main layout */}
-                <Route path="/setup-profile" element={<ProfileSetup />} />
+                <Route path="/setup-profile" element={
+                  <ProtectedRoute>
+                    <ProfileSetup />
+                  </ProtectedRoute>
+                } />
                 
                 {/* NotFound page outside of the main layout for better user experience */}
                 <Route path="/404" element={<NotFound />} />

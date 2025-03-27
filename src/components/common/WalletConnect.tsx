@@ -1,5 +1,5 @@
 
-import { Wallet } from 'lucide-react';
+import { Wallet, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -7,6 +7,14 @@ import { authService } from '@/api/authService';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/hooks/useUser';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Add TypeScript declaration for window.solana and window.phantom
 declare global {
@@ -14,6 +22,9 @@ declare global {
     solana?: any;
     phantom?: {
       solana?: any;
+    };
+    ethereum?: {
+      providers?: any[];
     };
   }
 }
@@ -64,7 +75,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     // Check if Phantom is present in the injected providers
     // This is a more thorough check
     if (typeof window !== 'undefined') {
-      const providers = (window as any)?.ethereum?.providers;
+      const providers = window.ethereum?.providers;
       if (providers) {
         const phantomProvider = providers.find((p: any) => p.isPhantom);
         if (phantomProvider) {
@@ -82,46 +93,14 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     });
     return null;
   };
-  
-  // When component mounts, try to eagerly connect
+
+  // The component will NOT eagerly connect on mount anymore
+  // This is to ensure users have to explicitly connect their wallet each time
   useEffect(() => {
-    console.debug("WalletConnect component mounted");
+    console.debug("WalletConnect component mounted, automatic connection disabled");
     
-    const tryEagerConnect = async () => {
-      const provider = getProvider();
-      if (!provider) return;
-      
-      try {
-        // Try to eagerly connect if the user has already connected before
-        const resp = await provider.connect({ onlyIfTrusted: true });
-        const address = resp.publicKey.toString();
-        console.info("Eagerly connected to wallet", { address });
-        
-        setWalletAddress(address);
-        setIsConnected(true);
-        
-        // Check if token exists in localStorage
-        const storedToken = localStorage.getItem('jwt_token');
-        if (!storedToken) {
-          // Verify with the server
-          await verifyWalletConnection(provider, address);
-        } else {
-          // Just update localStorage with wallet address
-          localStorage.setItem('wallet_address', address);
-          
-          // Refetch current user to make sure we have the latest data
-          refetchCurrentUser();
-          
-          // Let the parent component know about the connection
-          if (onConnect) {
-            onConnect(address);
-          }
-        }
-      } catch (error) {
-        console.debug("No eager connection available", error);
-        // This is expected if the wallet hasn't connected before
-      }
-    };
+    // Clear any existing auth data on component mount
+    authService.clearAuthData();
     
     // Setup account change handler
     const setupAccountChangeListener = () => {
@@ -134,19 +113,26 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
           const newAddress = publicKey.toString();
           console.info("Switched wallet account", { newAddress });
           
-          setWalletAddress(newAddress);
-          localStorage.setItem('wallet_address', newAddress);
+          // This will require re-authentication
+          setIsConnected(false);
+          setWalletAddress('');
+          authService.clearAuthData();
           
           // Invalidate any cached user data
           queryClient.invalidateQueries({ queryKey: ['currentUser'] });
           
-          if (onConnect) {
-            onConnect(newAddress);
-          }
+          // Prompt user to reconnect with the new account
+          toast.info("Plånbok ändrad", {
+            description: "Du behöver ansluta igen med ditt nya konto.",
+          });
+          
+          // Trigger connection with the new account
+          handleConnect();
         } else {
           // User switched to an account that isn't connected to the app
-          // Try to reconnect
-          handleConnect();
+          setIsConnected(false);
+          setWalletAddress('');
+          authService.clearAuthData();
         }
       });
       
@@ -155,15 +141,13 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         console.info("Wallet disconnected");
         setIsConnected(false);
         setWalletAddress('');
-        localStorage.removeItem('jwt_token');
-        localStorage.removeItem('wallet_address');
+        authService.clearAuthData();
         
         // Invalidate any cached user data
         queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       });
     };
     
-    tryEagerConnect();
     setupAccountChangeListener();
     
     // Cleanup when component unmounts
@@ -175,7 +159,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       }
       console.debug("WalletConnect component unmounted");
     };
-  }, [refetchCurrentUser, queryClient, onConnect]);
+  }, [queryClient]);
   
   const verifyWalletConnection = async (provider: any, address: string) => {
     try {
@@ -216,9 +200,9 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       
       // Verify signature with the server and get JWT token
       console.debug("Verifying signature with server");
-      const authResult = await authService.verifySignature(address, signature);
+      const authResult = await authService.verifySignature(address, signature, message);
       console.info("Signature verified successfully", 
-        { userId: authResult.user.id, isNewUser: authResult.isNewUser });
+        { userId: authResult.user.id, needsProfileSetup: authResult.needsProfileSetup });
       
       // Invalidate any cached user data
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
@@ -228,8 +212,8 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       }
       
       // Check if this is a new user who needs to complete profile setup
-      if (authResult.isNewUser) {
-        console.info("New user detected, redirecting to profile setup", 
+      if (authResult.needsProfileSetup) {
+        console.info("Profile setup needed, redirecting to profile setup", 
           { userId: authResult.user.id });
           
         toast.success("Wallet ansluten! Låt oss konfigurera din profil", {
@@ -286,6 +270,8 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       await verifyWalletConnection(provider, address);
     } catch (error: any) {
       console.error("Wallet connection error", { error });
+      setIsConnected(false);
+      setWalletAddress('');
       
       // Check for specific error codes
       if (error.code === 4001) {
@@ -308,20 +294,86 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     }
   };
   
+  const handleDisconnect = async () => {
+    try {
+      const provider = getProvider();
+      if (provider) {
+        // Disconnect from Phantom
+        await provider.disconnect();
+      }
+      
+      // Logout from Supabase
+      await authService.logout();
+      
+      // Reset state
+      setIsConnected(false);
+      setWalletAddress('');
+      
+      // Invalidate user queries
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
+      
+      toast.success("Wallet bortkopplad", {
+        description: "Du har loggat ut från din plånbok.",
+      });
+      
+      // Redirect to home page
+      navigate('/');
+    } catch (error) {
+      console.error("Error disconnecting wallet:", error);
+      toast.error("Utloggning misslyckades", {
+        description: "Kunde inte koppla bort plånboken. Försök igen.",
+      });
+    }
+  };
+  
   const formatWalletAddress = (address: string): string => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
+
+  // Show different UI based on connection state
+  if (isConnected) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="outline" 
+            className={className}
+          >
+            <Wallet className="mr-2 h-4 w-4" />
+            {formatWalletAddress(walletAddress)}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Wallet</DropdownMenuLabel>
+          <DropdownMenuItem 
+            onClick={() => {
+              navigator.clipboard.writeText(walletAddress);
+              toast.success("Kopierat", {
+                description: "Plånboksadressen kopierad till urklipp",
+              });
+            }}
+          >
+            Kopiera adress
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleDisconnect} className="text-red-500">
+            <LogOut className="mr-2 h-4 w-4" />
+            Logga ut
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
 
   return (
     <Button 
       onClick={handleConnect}
       disabled={isConnecting}
       className={className}
-      variant={isConnected ? "outline" : "default"}
+      variant="default"
     >
       <Wallet className="mr-2 h-4 w-4" />
-      {isConnecting ? "Ansluter..." : 
-       isConnected ? formatWalletAddress(walletAddress) : "Anslut Wallet"}
+      {isConnecting ? "Ansluter..." : "Anslut Wallet"}
     </Button>
   );
 };

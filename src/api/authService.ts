@@ -9,14 +9,22 @@ interface NonceResponse {
   message: string;
 }
 
+// Authentication states
+const AUTH_KEYS = {
+  TOKEN: 'jwt_token',
+  WALLET: 'wallet_address',
+  USER: 'current_user'
+};
+
 export const authService = {
   async getNonce(walletAddress: string) {
     try {
-      // We'll use a raw query here since nonce_challenges isn't in our type definitions
+      console.log('Getting nonce for wallet address:', walletAddress);
+      // Call the get_nonce function to get a challenge
       const { data, error } = await supabase
         .rpc('get_nonce', { wallet_addr: walletAddress });
 
-      if (error) {
+      if (error || !data) {
         console.error('Error getting nonce:', error);
         // Create a new nonce if we couldn't get one
         const nonce = Math.floor(Math.random() * 1000000).toString();
@@ -31,7 +39,7 @@ export const authService = {
           
         if (insertError) {
           console.error('Error creating nonce:', insertError);
-          return { nonce: '', message: '' };
+          throw new Error('Failed to generate authentication challenge');
         }
         
         return { nonce, message };
@@ -39,142 +47,116 @@ export const authService = {
       
       // Safely typecast data to get nonce and message
       const typedData = data as NonceResponse;
+      console.log('Successfully got nonce message:', typedData.message);
       return { nonce: typedData.nonce, message: typedData.message };
     } catch (error) {
       console.error('Error getting nonce:', error);
-      return { nonce: '', message: '' };
+      throw new Error('Failed to generate authentication challenge');
     }
   },
 
-  async verifySignature(walletAddress: string, signature: string) {
+  async verifySignature(walletAddress: string, signature: string, message: string = '') {
     try {
-      // In a real implementation, verify the signature against the nonce
-      // For now, we'll simulate a successful verification
+      console.log('Verifying signature for wallet:', walletAddress);
       
-      // Check if user exists
-      const { data: existingUser, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('wallet_address', walletAddress)
-        .maybeSingle();
-        
-      if (userError) throw userError;
+      // Clear any existing auth data
+      this.clearAuthData();
       
-      let isNewUser = false;
-      let userId = existingUser?.id;
-      
-      // If user doesn't exist, create a placeholder
-      if (!existingUser) {
-        isNewUser = true;
-        
-        // Generate a temporary username from wallet address
-        const tempUsername = `user_${walletAddress.substring(0, 8).toLowerCase()}`;
-        
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            wallet_address: walletAddress,
-            username: tempUsername,
-            display_name: 'New User',
-          })
-          .select()
-          .single();
-          
-        if (insertError) throw insertError;
-        userId = newUser.id;
-      }
-      
-      // Get Supabase session
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: `${walletAddress}@phantom.wallet`,
-        password: signature.substring(0, 20),  // Use part of signature as password
+      // Call the Supabase Edge Function to verify the signature
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/verify-wallet-signature`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.supabaseKey}`
+        },
+        body: JSON.stringify({
+          walletAddress,
+          signature,
+          message
+        })
       });
       
-      if (error) {
-        // If user doesn't exist in auth, sign up
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: `${walletAddress}@phantom.wallet`,
-          password: signature.substring(0, 20),
-          options: {
-            data: {
-              wallet_address: walletAddress,
-            }
-          }
-        });
-        
-        if (signUpError) throw signUpError;
-        
-        // Store session in local storage
-        localStorage.setItem('jwt_token', signUpData.session?.access_token || '');
-      } else {
-        // Store session in local storage
-        localStorage.setItem('jwt_token', data.session?.access_token || '');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Verification API error:', errorData);
+        throw new Error(errorData.error || 'Signature verification failed');
       }
       
-      // Store wallet address
-      localStorage.setItem('wallet_address', walletAddress);
+      const data = await response.json();
       
-      // Get full user data
-      const { data: userData, error: fetchError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      if (fetchError) throw fetchError;
+      if (!data.token) {
+        throw new Error('No authentication token received');
+      }
       
-      // Convert to application User type
-      const user = dbUserToUser(userData);
+      // Store auth data
+      localStorage.setItem(AUTH_KEYS.TOKEN, data.token);
+      localStorage.setItem(AUTH_KEYS.WALLET, walletAddress);
       
       // Store user data
-      localStorage.setItem('current_user', JSON.stringify(user));
+      const user = dbUserToUser(data.user);
+      localStorage.setItem(AUTH_KEYS.USER, JSON.stringify(user));
       
-      return { user, isNewUser };
+      console.log('Authentication successful, user:', user.username);
+      
+      // Also set Supabase session
+      await supabase.auth.setSession({
+        access_token: data.token,
+        refresh_token: '',
+      });
+      
+      return { 
+        user, 
+        isNewUser: data.isNewUser, 
+        needsProfileSetup: data.needsProfileSetup 
+      };
     } catch (error) {
       console.error('Error verifying signature:', error);
+      this.clearAuthData();
       throw error;
     }
   },
 
   async getCurrentUser(): Promise<User> {
     try {
-      const token = localStorage.getItem('jwt_token');
+      const token = localStorage.getItem(AUTH_KEYS.TOKEN);
       
       if (!token) {
         throw new Error('No authentication token found');
       }
       
-      // Get user data from localStorage as a fallback
-      const storedUser = localStorage.getItem('current_user');
-      let cachedUser: User | null = null;
-      
-      if (storedUser) {
-        try {
-          cachedUser = JSON.parse(storedUser);
-        } catch (e) {
-          console.error('Error parsing stored user:', e);
-        }
-      }
-      
       // Get the user's wallet address
-      const walletAddress = localStorage.getItem('wallet_address');
+      const walletAddress = localStorage.getItem(AUTH_KEYS.WALLET);
       
       if (!walletAddress) {
         throw new Error('No wallet address found');
       }
       
-      // Fetch the latest user data from Supabase
+      // Try to get user from Supabase
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('wallet_address', walletAddress)
         .maybeSingle();
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching user from database:', error);
+        
+        // Get user data from localStorage as a fallback
+        const storedUser = localStorage.getItem(AUTH_KEYS.USER);
+        
+        if (storedUser) {
+          try {
+            return JSON.parse(storedUser);
+          } catch (e) {
+            console.error('Error parsing stored user:', e);
+            throw new Error('Failed to get user data');
+          }
+        }
+        
+        throw new Error('User not found');
+      }
       
       if (!data) {
-        // If no data found, return cached user or throw error
-        if (cachedUser) return cachedUser;
         throw new Error('User not found');
       }
       
@@ -182,7 +164,7 @@ export const authService = {
       const user = dbUserToUser(data);
       
       // Update cached user
-      localStorage.setItem('current_user', JSON.stringify(user));
+      localStorage.setItem(AUTH_KEYS.USER, JSON.stringify(user));
       
       return user;
     } catch (error) {
@@ -190,16 +172,46 @@ export const authService = {
       throw error;
     }
   },
+  
+  isLoggedIn(): boolean {
+    return !!localStorage.getItem(AUTH_KEYS.TOKEN);
+  },
+  
+  async checkProfileSetup(): Promise<boolean> {
+    try {
+      if (!this.isLoggedIn()) {
+        return false;
+      }
+      
+      const user = await this.getCurrentUser();
+      
+      // Check if profile setup is needed
+      return !user.username || 
+             user.username.startsWith('user_') || 
+             !user.displayName || 
+             user.displayName === 'New User';
+    } catch (error) {
+      console.error('Error checking profile setup:', error);
+      return false;
+    }
+  },
 
   async logout() {
     try {
+      console.log('Logging out...');
       await supabase.auth.signOut();
-      localStorage.removeItem('jwt_token');
-      localStorage.removeItem('wallet_address');
-      localStorage.removeItem('current_user');
+      this.clearAuthData();
     } catch (error) {
       console.error('Error logging out:', error);
+      // Still clear local storage even if there's an error
+      this.clearAuthData();
       throw error;
     }
+  },
+  
+  clearAuthData() {
+    localStorage.removeItem(AUTH_KEYS.TOKEN);
+    localStorage.removeItem(AUTH_KEYS.WALLET);
+    localStorage.removeItem(AUTH_KEYS.USER);
   }
 };

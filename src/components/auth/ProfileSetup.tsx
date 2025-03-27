@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -21,6 +21,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { userService } from '@/api/userService';
 import { User as UserType } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/hooks/useUser';
+import { authService } from '@/api/authService';
 
 // Set up schema validation
 const profileSetupSchema = z.object({
@@ -45,6 +47,7 @@ type ProfileSetupFormValues = z.infer<typeof profileSetupSchema>;
 
 const ProfileSetup = () => {
   const navigate = useNavigate();
+  const { currentUser, isLoadingCurrentUser, refetchCurrentUser } = useUser();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -52,6 +55,8 @@ const ProfileSetup = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
+  const [isValidating, setIsValidating] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(true);
   
   const form = useForm<ProfileSetupFormValues>({
     resolver: zodResolver(profileSetupSchema),
@@ -61,6 +66,34 @@ const ProfileSetup = () => {
       bio: '',
     },
   });
+
+  // Set initial values if user data is available
+  useEffect(() => {
+    if (currentUser) {
+      // Only set initial values if they're not already set by the user
+      const currentUsername = form.getValues('username');
+      if (!currentUsername && currentUser.username && !currentUser.username.startsWith('user_')) {
+        form.setValue('username', currentUser.username);
+      }
+      
+      const currentDisplayName = form.getValues('displayName');
+      if (!currentDisplayName && currentUser.displayName && currentUser.displayName !== 'New User') {
+        form.setValue('displayName', currentUser.displayName);
+      }
+      
+      if (currentUser.bio) {
+        form.setValue('bio', currentUser.bio);
+      }
+      
+      if (currentUser.avatarUrl) {
+        setAvatarPreview(currentUser.avatarUrl);
+      }
+      
+      if (currentUser.headerUrl) {
+        setHeaderPreview(currentUser.headerUrl);
+      }
+    }
+  }, [currentUser, form]);
 
   // Handle avatar upload
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,8 +119,53 @@ const ProfileSetup = () => {
     }
   };
 
+  // Username availability check
+  const checkUsernameAvailability = async (username: string) => {
+    if (username.length < 3) return true; // Skip check if too short
+    
+    setIsValidating(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username)
+        .neq('id', currentUser?.id || '') // Don't check against current user
+        .maybeSingle();
+        
+      const isAvailable = !data;
+      setUsernameAvailable(isAvailable);
+      return isAvailable;
+    } catch (error) {
+      console.error('Error checking username availability:', error);
+      return false;
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
   const handleNextStep = () => {
-    setCurrentStep(prevStep => prevStep + 1);
+    // Validate current step before moving to next
+    if (currentStep === 0) {
+      // Validate username and display name
+      form.trigger(['username', 'displayName']).then(async (isValid) => {
+        if (isValid) {
+          const username = form.getValues('username');
+          const isAvailable = await checkUsernameAvailability(username);
+          
+          if (!isAvailable) {
+            form.setError('username', { 
+              type: 'manual', 
+              message: 'Username is already taken' 
+            });
+            return;
+          }
+          
+          setCurrentStep(1);
+        }
+      });
+    } else {
+      setCurrentStep(prevStep => prevStep + 1);
+    }
   };
 
   const handlePrevStep = () => {
@@ -100,21 +178,14 @@ const ProfileSetup = () => {
       let avatarUrl = '';
       let headerUrl = '';
       
-      // Get current user ID
-      const walletAddress = localStorage.getItem('wallet_address');
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('wallet_address', walletAddress)
-        .single();
-        
-      if (userError) throw userError;
-      const userId = userData.id;
+      if (!currentUser) {
+        throw new Error('User not found');
+      }
       
       // Upload avatar if selected
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
-        const filePath = `${userId}/avatar_${Date.now()}.${fileExt}`;
+        const filePath = `${currentUser.id}/avatar_${Date.now()}.${fileExt}`;
         
         const { data: avatarData, error: avatarError } = await supabase.storage
           .from('profiles')
@@ -133,7 +204,7 @@ const ProfileSetup = () => {
       // Upload header if selected
       if (headerFile) {
         const fileExt = headerFile.name.split('.').pop();
-        const filePath = `${userId}/header_${Date.now()}.${fileExt}`;
+        const filePath = `${currentUser.id}/header_${Date.now()}.${fileExt}`;
         
         const { data: headerData, error: headerError } = await supabase.storage
           .from('profiles')
@@ -149,7 +220,10 @@ const ProfileSetup = () => {
         headerUrl = headerUrlData.publicUrl;
       }
       
-      return { avatarUrl, headerUrl };
+      return { 
+        avatarUrl: avatarUrl || avatarPreview, 
+        headerUrl: headerUrl || headerPreview 
+      };
     } catch (error) {
       console.error('Error uploading images:', error);
       toast.error('Failed to upload images');
@@ -171,29 +245,56 @@ const ProfileSetup = () => {
         username: data.username,
         displayName: data.displayName,
         bio: data.bio || '',
-        avatarUrl: avatarUrl || avatarPreview,
-        headerUrl: headerUrl || headerPreview,
+        avatarUrl,
+        headerUrl,
       };
       
       // Send to API - using the server endpoint for profile setup
       await userService.setupProfile(profileData);
       
       // Show success message
-      toast.success('Profile setup complete!', {
-        description: 'Welcome to F3oci3ty!',
+      toast.success('Profilinställning klar!', {
+        description: 'Välkommen till KryptoSphere!',
       });
       
-      // Redirect to profile page instead of dashboard (which doesn't exist)
+      // Refresh user data
+      await refetchCurrentUser();
+      
+      // Redirect to profile page
       navigate('/profile');
     } catch (error) {
       console.error('Error setting up profile:', error);
-      toast.error('Profile setup failed', {
-        description: 'Please try again.',
+      toast.error('Profilinställning misslyckades', {
+        description: 'Vänligen försök igen.',
       });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Check if the user is authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isLoggedIn = authService.isLoggedIn();
+      
+      if (!isLoggedIn) {
+        toast.error('Du måste vara inloggad', {
+          description: 'Du måste ansluta din wallet för att fortsätta.',
+        });
+        navigate('/', { replace: true });
+      }
+    };
+    
+    checkAuth();
+  }, [navigate]);
+
+  if (isLoadingCurrentUser) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin h-8 w-8 border-4 border-crypto-blue border-t-transparent rounded-full"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-md mx-auto bg-background rounded-lg shadow-sm border">
@@ -208,8 +309,8 @@ const ProfileSetup = () => {
           </div>
         </div>
         <div className="flex justify-between px-4 text-xs text-muted-foreground">
-          <span>Profile Info</span>
-          <span>Photos</span>
+          <span>Profilinformation</span>
+          <span>Bilder</span>
           <span>Bio</span>
         </div>
       </div>
@@ -219,8 +320,8 @@ const ProfileSetup = () => {
           {currentStep === 0 && (
             <div className="space-y-6 px-4 py-6 sm:px-6">
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold">Set Up Your Profile</h1>
-                <p className="text-muted-foreground mt-2">Choose how you'll appear on F3oci3ty</p>
+                <h1 className="text-2xl font-semibold">Konfigurera din profil</h1>
+                <p className="text-muted-foreground mt-2">Välj hur du vill visas på KryptoSphere</p>
               </div>
               
               <FormField
@@ -228,17 +329,30 @@ const ProfileSetup = () => {
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Användarnamn</FormLabel>
                     <FormControl>
                       <div className="flex items-center">
                         <span className="text-muted-foreground mr-1">@</span>
                         <Input
-                          placeholder="username"
+                          placeholder="användarnamn"
                           {...field}
                           className="flex-1"
+                          onChange={(e) => {
+                            field.onChange(e);
+                            checkUsernameAvailability(e.target.value);
+                          }}
                         />
                       </div>
                     </FormControl>
+                    {isValidating && (
+                      <p className="text-xs text-muted-foreground">Kontrollerar tillgänglighet...</p>
+                    )}
+                    {!isValidating && field.value.length >= 3 && !usernameAvailable && (
+                      <p className="text-xs text-red-500">Användarnamnet är redan taget</p>
+                    )}
+                    {!isValidating && field.value.length >= 3 && usernameAvailable && (
+                      <p className="text-xs text-green-500">Användarnamnet är tillgängligt</p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -249,10 +363,10 @@ const ProfileSetup = () => {
                 name="displayName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Display Name</FormLabel>
+                    <FormLabel>Visningsnamn</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Your name"
+                        placeholder="Ditt namn"
                         {...field}
                       />
                     </FormControl>
@@ -262,7 +376,7 @@ const ProfileSetup = () => {
               />
               
               <div className="flex justify-end">
-                <Button type="button" onClick={handleNextStep}>Next</Button>
+                <Button type="button" onClick={handleNextStep}>Nästa</Button>
               </div>
             </div>
           )}
@@ -270,14 +384,14 @@ const ProfileSetup = () => {
           {currentStep === 1 && (
             <div className="space-y-6 px-4 py-6 sm:px-6">
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold">Upload Profile Photos</h1>
-                <p className="text-muted-foreground mt-2">Add a profile picture and header image</p>
+                <h1 className="text-2xl font-semibold">Ladda upp profilbilder</h1>
+                <p className="text-muted-foreground mt-2">Lägg till en profilbild och omslagsbild</p>
               </div>
               
               <div className="space-y-6">
                 {/* Avatar Upload */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Profile Picture</label>
+                  <label className="block text-sm font-medium mb-2">Profilbild</label>
                   <div className="flex items-center gap-4">
                     <div className="relative group">
                       <Avatar className="h-16 w-16 border-2 border-border">
@@ -297,7 +411,7 @@ const ProfileSetup = () => {
                       />
                     </div>
                     <div>
-                      <p className="text-sm font-medium">{avatarFile ? avatarFile.name : 'No file chosen'}</p>
+                      <p className="text-sm font-medium">{avatarFile ? avatarFile.name : 'Ingen fil vald'}</p>
                       {avatarFile && (
                         <p className="text-xs text-muted-foreground">{Math.round(avatarFile.size / 1024)} KB</p>
                       )}
@@ -307,7 +421,7 @@ const ProfileSetup = () => {
                 
                 {/* Header Upload */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Header Image</label>
+                  <label className="block text-sm font-medium mb-2">Omslagsbild</label>
                   <div className="border-2 border-dashed border-border rounded-lg p-4 text-center relative group cursor-pointer">
                     {headerPreview ? (
                       <div className="relative">
@@ -323,7 +437,7 @@ const ProfileSetup = () => {
                     ) : (
                       <div className="py-6">
                         <Image className="h-12 w-12 mx-auto text-muted-foreground" />
-                        <p className="mt-2 text-sm text-muted-foreground">Click to upload a header image</p>
+                        <p className="mt-2 text-sm text-muted-foreground">Klicka för att ladda upp en omslagsbild</p>
                       </div>
                     )}
                     <Input
@@ -343,10 +457,10 @@ const ProfileSetup = () => {
               
               <div className="flex justify-between">
                 <Button type="button" variant="outline" onClick={handlePrevStep}>
-                  Back
+                  Tillbaka
                 </Button>
                 <Button type="button" onClick={handleNextStep}>
-                  Next
+                  Nästa
                 </Button>
               </div>
             </div>
@@ -355,8 +469,8 @@ const ProfileSetup = () => {
           {currentStep === 2 && (
             <div className="space-y-6 px-4 py-6 sm:px-6">
               <div className="text-center mb-8">
-                <h1 className="text-2xl font-semibold">Complete Your Bio</h1>
-                <p className="text-muted-foreground mt-2">Tell others about yourself</p>
+                <h1 className="text-2xl font-semibold">Slutför din profil</h1>
+                <p className="text-muted-foreground mt-2">Berätta om dig själv</p>
               </div>
               
               <FormField
@@ -367,7 +481,7 @@ const ProfileSetup = () => {
                     <FormLabel>Bio</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Write a short bio about yourself..."
+                        placeholder="Skriv en kort beskrivning om dig själv..."
                         className="h-32 resize-none"
                         {...field}
                       />
@@ -382,7 +496,7 @@ const ProfileSetup = () => {
               
               <div className="flex justify-between">
                 <Button type="button" variant="outline" onClick={handlePrevStep}>
-                  Back
+                  Tillbaka
                 </Button>
                 <Button 
                   type="submit" 
@@ -390,10 +504,10 @@ const ProfileSetup = () => {
                   className="flex items-center gap-1"
                 >
                   {isSubmitting || isUploading ? (
-                    <>Submitting...</>
+                    <>Sparar...</>
                   ) : (
                     <>
-                      Complete <Check className="h-4 w-4" />
+                      Slutför <Check className="h-4 w-4" />
                     </>
                   )}
                 </Button>
