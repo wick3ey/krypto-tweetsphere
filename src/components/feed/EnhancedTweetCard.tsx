@@ -47,7 +47,23 @@ const EnhancedTweetCard = ({
     }
   }, [animated]);
 
-  const formattedDate = formatDistanceToNow(new Date(tweet.timestamp), { addSuffix: true });
+  // Safe date formatting with error handling
+  const getFormattedDate = () => {
+    try {
+      const date = new Date(tweet.timestamp);
+      // Check if date is valid before formatting
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid timestamp in tweet:", tweet.timestamp);
+        return "recently";
+      }
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      console.error("Error formatting date:", error, tweet.timestamp);
+      return "recently";
+    }
+  };
+  
+  const formattedDate = getFormattedDate();
   
   const formatNumber = (num: number): string => {
     if (num >= 1000000) {
@@ -70,6 +86,20 @@ const EnhancedTweetCard = ({
   
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
+  };
+
+  // Safe timestamp for display
+  const safeTimestamp = () => {
+    try {
+      const date = new Date(tweet.timestamp);
+      if (isNaN(date.getTime())) {
+        return new Date().toLocaleString(); // Fallback to current time
+      }
+      return date.toLocaleString();
+    } catch (error) {
+      console.error("Error formatting timestamp:", error);
+      return new Date().toLocaleString(); // Fallback to current time
+    }
   };
 
   if (compact) {
@@ -178,7 +208,7 @@ const EnhancedTweetCard = ({
             
             <div className="flex items-center">
               <span className="text-xs text-muted-foreground hidden md:inline-block">
-                <time dateTime={tweet.timestamp} title={new Date(tweet.timestamp).toLocaleString()}>
+                <time dateTime={tweet.timestamp} title={safeTimestamp()}>
                   {formattedDate}
                 </time>
               </span>
@@ -294,7 +324,7 @@ const EnhancedTweetCard = ({
           <div className="mt-2 md:hidden text-xs text-muted-foreground">
             <Calendar className="h-3 w-3 inline-block align-text-bottom mr-1" />
             <time dateTime={tweet.timestamp}>
-              {new Date(tweet.timestamp).toLocaleString()}
+              {safeTimestamp()}
             </time>
           </div>
         </div>

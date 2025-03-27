@@ -138,6 +138,12 @@ export const tweetService = {
           newTweet.user = userData;
         }
         
+        // Ensure timestamp is valid
+        if (!newTweet.timestamp || typeof newTweet.timestamp !== 'string') {
+          console.warn('Tweet has invalid timestamp, setting to current time');
+          newTweet.timestamp = new Date().toISOString();
+        }
+        
         // Also save locally for offline use
         saveLocalTweet(newTweet);
         
@@ -150,7 +156,7 @@ export const tweetService = {
           id: 'local-' + Date.now(),
           content: content,
           user: userData,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date().toISOString(), // Ensure valid ISO timestamp
           likes: 0,
           retweets: 0,
           comments: 0,
@@ -283,6 +289,12 @@ function saveLocalTweet(tweet: Tweet) {
   // Check if tweet already exists
   const exists = localTweets.some((t: Tweet) => t.id === tweet.id);
   
+  // Ensure timestamp is valid before saving
+  if (!tweet.timestamp || typeof tweet.timestamp !== 'string') {
+    console.warn('Tweet has invalid timestamp before saving, fixing it');
+    tweet.timestamp = new Date().toISOString();
+  }
+  
   if (!exists) {
     // Add to beginning of array
     localTweets.unshift(tweet);
@@ -292,4 +304,3 @@ function saveLocalTweet(tweet: Tweet) {
     console.log('Tweet saved to local storage:', tweet);
   }
 }
-
