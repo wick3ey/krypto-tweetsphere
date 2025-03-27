@@ -20,13 +20,6 @@ serve(async (req) => {
     });
   }
 
-  // Get environment variables
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-
-  // Create Supabase client
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
   try {
     // Parse request body
     const { walletAddress, signature, message } = await req.json();
@@ -46,12 +39,19 @@ serve(async (req) => {
 
     console.log('Request received:', { walletAddress, message, signature: signature.substring(0, 20) + '...' });
 
+    // Get environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
     // Find or create a user
     const { data: existingUser, error: getUserError } = await supabase
       .from('users')
       .select('*')
       .eq('wallet_address', walletAddress)
-      .single();
+      .maybeSingle();
 
     if (getUserError && getUserError.code !== 'PGRST116') {
       console.error('Error checking for existing user:', getUserError);

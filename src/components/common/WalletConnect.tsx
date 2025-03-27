@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { PhantomIcon } from '@/components/icons/PhantomIcon';
 import { useUser } from '@/hooks/useUser';
 
-// Define the PhantomProvider interface once
+// Define the PhantomProvider interface
 interface PhantomProvider {
   isPhantom?: boolean;
   connect: () => Promise<{ publicKey: { toString: () => string } }>;
@@ -100,7 +100,7 @@ export const WalletConnect = () => {
         message
       });
       
-      // Verify the signature with the backend - explicitly only sending content-type header
+      // Verify the signature with the backend - only sending content-type header
       const authResponse = await fetch('https://dtrlmfwgtjrjkepvgatv.supabase.co/functions/v1/verify-wallet-signature', {
         method: 'POST',
         headers: {
