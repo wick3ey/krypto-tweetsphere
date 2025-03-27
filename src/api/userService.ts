@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { User } from '@/lib/types';
 import { toast } from "sonner";
@@ -7,6 +6,12 @@ import { logService } from './logService';
 export const userService = {
   searchUsers: async (query: string) => {
     try {
+      // Validate that query has some meaningful content before making API call
+      if (!query || query.trim().length === 0) {
+        logService.debug("Skipping empty user search query", {}, "userService");
+        return []; // Return empty array instead of making the API call
+      }
+      
       logService.debug("Searching users", { query }, "userService");
       const response = await apiClient.get('https://f3oci3ty.xyz/api/users/search', { params: { query } });
       return response.data.users;

@@ -44,6 +44,45 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Setup route wrapper to ensure completed profile
+const SetupProfileWrapper = ({ children }: { children: React.ReactNode }) => {
+  const token = localStorage.getItem('jwt_token');
+  const hasCompletedSetup = React.useRef<boolean | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  
+  React.useEffect(() => {
+    const checkProfileCompletion = async () => {
+      if (token) {
+        try {
+          const user = await authService.getCurrentUser();
+          hasCompletedSetup.current = !!(user.username && user.displayName);
+        } catch (error) {
+          console.error("Error checking profile completion:", error);
+          // If we can't verify, we'll assume they need to set up their profile
+          hasCompletedSetup.current = false;
+        }
+      } else {
+        // No token means they're not logged in, so they don't need setup yet
+        hasCompletedSetup.current = true;
+      }
+      setLoading(false);
+    };
+    
+    checkProfileCompletion();
+  }, [token]);
+  
+  if (loading) {
+    return <LoadingFallback />;
+  }
+  
+  // If they have a token but haven't completed setup, redirect to setup
+  if (token && hasCompletedSetup.current === false) {
+    return <Navigate to="/setup-profile" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
 const App = () => {
   // Pre-fetch current user data if token exists
   React.useEffect(() => {
@@ -71,7 +110,11 @@ const App = () => {
                 <Route path="/404" element={<NotFound />} />
                 
                 {/* Main layout with primary routes */}
-                <Route path="/" element={<AppLayout />}>
+                <Route path="/" element={
+                  <SetupProfileWrapper>
+                    <AppLayout />
+                  </SetupProfileWrapper>
+                }>
                   <Route index element={<Index />} />
                   <Route path="/profile" element={
                     <ProtectedRoute>

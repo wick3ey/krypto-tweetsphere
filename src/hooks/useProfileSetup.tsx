@@ -18,7 +18,10 @@ export const useProfileSetup = () => {
           // If user doesn't have a username or display name, they need to complete setup
           if (!user.username || !user.displayName) {
             setNeedsSetup(true);
-            navigate('/setup-profile');
+            // Only navigate if we're not already on the setup page
+            if (!window.location.pathname.includes('/setup-profile')) {
+              navigate('/setup-profile');
+            }
           }
         }
       } catch (error) {

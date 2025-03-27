@@ -45,7 +45,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   
   // Get Phantom provider using the recommended method
   const getProvider = () => {
-    // Check if phantom is in window
+    // Check if phantom is in window using the recommended approach
     if ('phantom' in window) {
       const provider = window.phantom?.solana;
       
@@ -77,6 +77,9 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     console.log("No Phantom wallet detected, redirecting to install page");
     // Phantom is not installed, redirect to Phantom website
     window.open('https://phantom.app/', '_blank');
+    toast.error("Phantom plånbok saknas", {
+      description: "Du behöver installera Phantom plånbok för att fortsätta.",
+    });
     return null;
   };
   
@@ -260,8 +263,8 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     const provider = getProvider();
     if (!provider) {
       console.log("No provider found, cannot connect");
-      toast.error("Phantom wallet not detected", {
-        description: "Please install the Phantom wallet extension and refresh the page.",
+      toast.error("Phantom plånbok kunde inte hittas", {
+        description: "Installera Phantom plånboken och ladda om sidan.",
       });
       return;
     }
@@ -284,9 +287,15 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     } catch (error: any) {
       console.error("Wallet connection error", { error });
       
+      // Check for specific error codes
       if (error.code === 4001) {
         // User rejected the connection
-        toast.error("Anslutning avbruten", {
+        toast.info("Anslutning avbruten", {
+          description: "Du avbröt anslutningsbegäran.",
+        });
+      } else if (error.message?.includes("rejected")) {
+        // Alternative way to detect user rejections
+        toast.info("Anslutning avbruten", {
           description: "Du avbröt anslutningsbegäran.",
         });
       } else {
