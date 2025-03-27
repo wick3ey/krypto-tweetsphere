@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
@@ -18,13 +19,15 @@ export const userService = {
         query = query.select('*, following(count)');
       }
 
+      // Apply filter after all select configurations
+      let filteredQuery;
       if (identifier.startsWith('user_')) {
-        query = query.eq('username', identifier);
+        filteredQuery = query.eq('username', identifier);
       } else {
-        query = query.eq('id', identifier);
+        filteredQuery = query.eq('id', identifier);
       }
 
-      const { data, error } = await query.maybeSingle();
+      const { data, error } = await filteredQuery.maybeSingle();
 
       if (error) {
         console.error('Error fetching user profile:', error);
@@ -232,6 +235,35 @@ export const userService = {
       return data?.map(dbUserToUser) || [];
     } catch (error) {
       console.error('Error in getSuggestedUsers:', error);
+      throw error;
+    }
+  },
+  
+  // Add searchUsers method that was missing - it can reuse the getSuggestedUsers logic for now
+  searchUsers: async (query: string): Promise<User[]> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      let queryBuilder = supabase.from('users').select('*');
+      
+      if (session) {
+        queryBuilder = queryBuilder.not('id', 'eq', session.user.id);
+      }
+      
+      if (query) {
+        queryBuilder = queryBuilder.or(`username.ilike.%${query}%,display_name.ilike.%${query}%`);
+      }
+      
+      const { data, error } = await queryBuilder.limit(5);
+
+      if (error) {
+        console.error('Error searching users:', error);
+        throw error;
+      }
+
+      return data?.map(dbUserToUser) || [];
+    } catch (error) {
+      console.error('Error in searchUsers:', error);
       throw error;
     }
   }

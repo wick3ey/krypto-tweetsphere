@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -34,9 +35,10 @@ import { Link } from 'react-router-dom';
 interface EnhancedTweetCardProps {
   tweet: Tweet;
   animated?: boolean;
+  animationDelay?: number; // Add this prop to fix the TypeScript error
 }
 
-const EnhancedTweetCard = ({ tweet, animated = true }: EnhancedTweetCardProps) => {
+const EnhancedTweetCard = ({ tweet, animated = true, animationDelay = 0 }: EnhancedTweetCardProps) => {
   const [isLiked, setIsLiked] = useState(tweet.likedBy?.includes('current-user-id') || false);
   const [likesCount, setLikesCount] = useState(tweet.likes || 0);
   const { currentUser } = useUser();
@@ -216,10 +218,13 @@ const EnhancedTweetCard = ({ tweet, animated = true }: EnhancedTweetCardProps) =
   };
   
   return (
-    <div className={cn(
-      "relative border rounded-lg bg-card text-card-foreground shadow-sm transition-all duration-300 hover:shadow-md",
-      animated ? "hover:scale-[1.01]" : ""
-    )}>
+    <div 
+      className={cn(
+        "relative border rounded-lg bg-card text-card-foreground shadow-sm transition-all duration-300 hover:shadow-md",
+        animated ? "hover:scale-[1.01]" : ""
+      )}
+      style={{ animationDelay: animationDelay ? `${animationDelay}ms` : undefined }}
+    >
       {renderDropdownMenu()}
       
       <div className="flex space-x-3 p-4">

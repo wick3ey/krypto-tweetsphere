@@ -71,7 +71,7 @@ const Home = () => {
     isLoading: isLoadingSuggested
   } = useQuery({
     queryKey: ['suggestedUsers'],
-    queryFn: () => userService.searchUsers(''),
+    queryFn: () => userService.getSuggestedUsers(),
     enabled: isLoggedIn,
     staleTime: 5 * 60 * 1000
   });
