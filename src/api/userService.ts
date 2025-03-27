@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User, Tweet, UserProfile } from '@/lib/types';
 import { dbUserToUser, dbTweetToTweet } from '@/lib/db-types';
@@ -54,7 +55,7 @@ export const userService = {
         display_name: profileData.displayName,
         bio: profileData.bio || userData.bio,
         avatar_url: profileData.avatarUrl || userData.avatar_url,
-        header_url: profileData.headerImage || userData.header_url,
+        header_url: profileData.headerUrl || userData.header_url,
       };
       
       // Update user profile
@@ -209,7 +210,7 @@ export const userService = {
     }
   },
   
-  async getUserTweets(userId: string, options = {}): Promise<Tweet[]> {
+  async getUserTweets(userId: string, options: { type?: string } = {}): Promise<Tweet[]> {
     try {
       const type = options.type || 'tweets';
       

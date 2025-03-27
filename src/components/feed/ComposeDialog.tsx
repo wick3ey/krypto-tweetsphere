@@ -1,187 +1,185 @@
-
-import { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { AtSign, Image, FileText, Smile, X, Pencil } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { useUser } from '@/hooks/useUser';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { tweetService } from '@/api/tweetService';
 import { toast } from 'sonner';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useQuery } from '@tanstack/react-query';
-import { authService } from '@/api/authService';
+import { X, Paperclip } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ComposeDialogProps {
-  onSubmit: (content: string) => Promise<void>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  replyToTweetId?: string;
 }
 
-const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProps) => {
   const [content, setContent] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isMobile = useIsMobile();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewContent, setPreviewContent] = useState('');
+  const { currentUser } = useUser();
+  const queryClient = useQueryClient();
   
-  // Get current user data for the avatar
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => authService.getCurrentUser(),
-    enabled: !!localStorage.getItem('jwt_token'),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Auto focus textarea when dialog opens
-  useEffect(() => {
-    if (isOpen && textareaRef.current) {
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 100);
-    }
-  }, [isOpen]);
-
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-    
-    if (!content.trim() || isSubmitting) return;
-    
-    setIsSubmitting(true);
-    
-    try {
-      console.log("ComposeDialog: Submitting tweet with content:", content);
-      await onSubmit(content);
+  const { mutate: createTweet, isLoading: isCreatingTweet } = useMutation({
+    mutationFn: () => tweetService.createTweet(content, attachments, replyToTweetId),
+    onSuccess: () => {
+      toast.success('Tweet skapad!');
       setContent('');
-      setIsOpen(false);
-      
-      toast.success("Inlägget publicerat!", {
-        description: "Ditt inlägg har publicerats framgångsrikt.",
+      setAttachments([]);
+      setPreviewVisible(false);
+      setPreviewContent('');
+      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ['tweets'] });
+      queryClient.invalidateQueries({ queryKey: ['userTweets', currentUser?.id] });
+    },
+    onError: (error: any) => {
+      toast.error('Kunde inte skapa tweet', {
+        description: error.message || 'Försök igen senare.'
       });
-    } catch (error) {
-      console.error("ComposeDialog: Error submitting tweet:", error);
-      toast.error("Kunde inte publicera inlägg", {
-        description: "Ett fel uppstod. Försök igen senare.",
-      });
-      // Don't close the dialog if there was an error, so user can try again
-    } finally {
-      setIsSubmitting(false);
     }
-  };
-
-  // Check if user is authenticated
-  const isAuthenticated = !!localStorage.getItem('jwt_token');
+  });
   
-  const handleTriggerClick = () => {
-    setIsOpen(true);
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+  };
+  
+  const handleAddAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setAttachments([...attachments, ...files]);
+  };
+  
+  const handleRemoveAttachment = (index: number) => {
+    const newAttachments = [...attachments];
+    newAttachments.splice(index, 1);
+    setAttachments(newAttachments);
+  };
+  
+  const handleSubmit = () => {
+    if (content.trim() === '' && attachments.length === 0) {
+      toast.error('Du måste skriva något eller lägga till en bild!');
+      return;
+    }
+    
+    createTweet();
+  };
+  
+  const handlePreview = () => {
+    setPreviewContent(content);
+    setPreviewVisible(true);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      setIsOpen(open);
-      if (!open) {
-        setContent(''); // Clear content when dialog closes
-      }
-    }}>
-      <DialogTrigger asChild>
-        {isMobile ? (
-          <Button 
-            className="fixed right-4 bottom-24 md:hidden rounded-full h-14 w-14 shadow-lg z-20 bg-crypto-blue hover:bg-crypto-blue/90"
-            onClick={handleTriggerClick}
-          >
-            <Pencil className="h-6 w-6" />
-          </Button>
-        ) : (
-          <div className="w-full">
-            <div 
-              className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-shadow cursor-text" 
-              onClick={handleTriggerClick}
-            >
-              <Avatar className="h-10 w-10 border border-border/50">
-                <AvatarImage 
-                  src={currentUser?.profilePicture || "https://api.dicebear.com/7.x/identicon/svg?seed=user"} 
-                  alt={currentUser?.displayName || "User"} 
-                />
-                <AvatarFallback>{(currentUser?.displayName || "U").charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className="text-muted-foreground text-base flex-1 font-medium">
-                Vad händer i kryptovärlden?
-              </div>
-            </div>
-          </div>
-        )}
-      </DialogTrigger>
-      
-      <DialogContent className="sm:max-w-[500px] p-0 gap-0 bg-background border-border/50">
-        <DialogHeader className="p-4 border-b border-border/30">
-          <DialogTitle className="flex items-center justify-between">
-            <span>Skapa inlägg</span>
-            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => setIsOpen(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Dela dina tankar om kryptomarknaden med andra
-            {!isAuthenticated && (
-              <span className="ml-1 text-crypto-blue">
-                (För att spara dina inlägg permanent, anslut din plånbok)
-              </span>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <form onSubmit={handleSubmit}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-xl p-0 overflow-hidden">
+        <div className="relative">
+          {/* Header */}
+          <DialogHeader className="px-4 py-2 border-b">
+            <DialogTitle className="text-lg font-medium">Skapa inlägg</DialogTitle>
+          </DialogHeader>
+          
+          {/* Content */}
           <div className="p-4">
             <div className="flex gap-3">
-              <Avatar className="h-10 w-10 border border-border/50">
-                <AvatarImage 
-                  src={currentUser?.profilePicture || "https://api.dicebear.com/7.x/identicon/svg?seed=user"} 
-                  alt={currentUser?.displayName || "User"} 
-                />
-                <AvatarFallback>{(currentUser?.displayName || "U").charAt(0)}</AvatarFallback>
+              <Avatar className="h-10 w-10 border border-border">
+                <AvatarImage src={currentUser?.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUser?.username || 'anonymous'}`} />
+                <AvatarFallback>
+                  {currentUser?.displayName?.charAt(0) || 'U'}
+                </AvatarFallback>
               </Avatar>
               
               <div className="flex-1">
-                <Textarea 
-                  ref={textareaRef}
-                  placeholder="Vad händer i kryptovärlden?"
-                  className="min-h-[120px] border-none focus-visible:ring-0 resize-none text-base p-0 bg-transparent"
+                <Textarea
+                  placeholder="Vad händer?"
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={handleInputChange}
+                  className="w-full h-24 resize-none border-none focus-visible:ring-0 shadow-none"
                 />
                 
-                {content.length > 0 && (
-                  <div className="text-right text-sm text-muted-foreground mt-1">
-                    {content.length}/280
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center">
+                    <Input
+                      type="file"
+                      id="image-upload"
+                      multiple
+                      accept="image/*"
+                      onChange={handleAddAttachment}
+                      className="hidden"
+                    />
+                    <label htmlFor="image-upload">
+                      <Button variant="ghost" size="icon" asChild>
+                        <Paperclip className="h-5 w-5" />
+                      </Button>
+                    </label>
                   </div>
-                )}
+                  
+                  <Button onClick={handleSubmit} disabled={isCreatingTweet}>
+                    {isCreatingTweet ? 'Skapar...' : 'Skapa'}
+                  </Button>
+                </div>
               </div>
+              
             </div>
           </div>
           
-          <div className="flex items-center justify-between p-4 border-t border-border/30">
-            <div className="flex gap-1">
-              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-                <Image className="h-5 w-5" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-                <FileText className="h-5 w-5" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-                <AtSign className="h-5 w-5" />
-              </Button>
-              <Button type="button" variant="ghost" size="icon" className="rounded-full text-crypto-blue h-9 w-9">
-                <Smile className="h-5 w-5" />
-              </Button>
-            </div>
+          {/* Bottom */}
+          <div className="p-4 pt-0">
             
-            <Button 
-              type="submit"
-              className="rounded-full bg-crypto-blue hover:bg-crypto-blue/90 text-white"
-              disabled={!content.trim() || isSubmitting}
-            >
-              {isSubmitting ? "Publicerar..." : "Publicera"}
-            </Button>
+            {/* Preview */}
+            {previewVisible && attachments.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {attachments.map((file, index) => (
+                  <div key={index} className="relative">
+                    <img 
+                      src={URL.createObjectURL(file)} 
+                      alt={`Attachment ${index + 1}`} 
+                      className="h-24 w-24 object-cover rounded-lg"
+                    />
+                    <Button
+                      size="icon"
+                      variant="destructive"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={() => handleRemoveAttachment(index)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {previewContent && (
+              <Card className="mt-4 overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={currentUser?.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUser?.username || 'anonymous'}`} />
+                      <AvatarFallback>{currentUser?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                    </Avatar>
+                    
+                    <div>
+                      <div className="flex items-center space-x-2 text-sm">
+                        <span className="font-bold">{currentUser?.displayName || 'Anonym'}</span>
+                        <span className="text-muted-foreground">@{currentUser?.username || 'anonym'}</span>
+                      </div>
+                      <p className="text-sm mt-1">{previewContent}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        </form>
+          
+        </div>
       </DialogContent>
     </Dialog>
   );

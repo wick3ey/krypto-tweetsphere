@@ -165,7 +165,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      follow_user: {
+        Args: {
+          follower_id: string
+          followed_id: string
+        }
+        Returns: undefined
+      }
+      unfollow_user: {
+        Args: {
+          follower_id: string
+          followed_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -6,30 +6,28 @@ import { dbUserToUser } from '@/lib/db-types';
 export const authService = {
   async getNonce(walletAddress: string) {
     try {
+      // We'll use a raw query here since nonce_challenges isn't in our type definitions
       const { data, error } = await supabase
-        .from('nonce_challenges')
-        .select('*')
-        .eq('wallet_address', walletAddress)
-        .maybeSingle();
+        .rpc('get_nonce', { wallet_addr: walletAddress })
+        .single();
 
-      if (error) throw error;
-
-      // If no nonce exists, create one
-      if (!data) {
+      if (error) {
+        console.error('Error getting nonce:', error);
+        // Create a new nonce if we couldn't get one
         const nonce = Math.floor(Math.random() * 1000000).toString();
         const message = `Sign this message to verify your wallet ownership: ${nonce}`;
         
-        const { data: newNonce, error: insertError } = await supabase
-          .from('nonce_challenges')
-          .insert({
-            wallet_address: walletAddress,
-            nonce,
-            message
-          })
-          .select()
-          .single();
+        const { error: insertError } = await supabase
+          .rpc('create_nonce', { 
+            wallet_addr: walletAddress,
+            nonce_value: nonce,
+            message_text: message
+          });
           
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Error creating nonce:', insertError);
+          return { nonce: '', message: '' };
+        }
         
         return { nonce, message };
       }

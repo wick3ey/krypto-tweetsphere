@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
@@ -64,10 +63,8 @@ const Profile = () => {
   
   const { currentUser, isLoadingCurrentUser, followUser, unfollowUser } = useUser();
   
-  // Hämta identifieraren för användarprofilen, prioritetsordning: username, wallet, currentUser
   const identifier = username || currentUser?.username;
   
-  // Hämta användarprofilen baserat på identifieraren
   const { 
     data: userProfile, 
     isLoading: isLoadingProfile,
@@ -80,11 +77,9 @@ const Profile = () => {
     retry: 1
   });
   
-  // Beräkna om den inloggade användaren följer denna profil
   const isOwnProfile = currentUser?.id === userProfile?.id;
   const isFollowing = currentUser?.following?.includes?.(userProfile?.id);
   
-  // Hämta användarens tweets - Fixed here by passing an object with the type property
   const { 
     data: userTweets = [], 
     isLoading: isLoadingTweets,
@@ -97,10 +92,9 @@ const Profile = () => {
               activeTab === "media" ? "media" : "tweets" }
     ),
     enabled: !!userProfile?.id,
-    staleTime: 60 * 1000 // 1 minut
+    staleTime: 60 * 1000
   });
   
-  // Hämta föreslagna användare
   const { 
     data: suggestedUsers = [],
     isLoading: isLoadingSuggested
@@ -108,17 +102,15 @@ const Profile = () => {
     queryKey: ['suggestedUsers'],
     queryFn: () => userService.searchUsers(''),
     enabled: !isOwnProfile && !!userProfile,
-    staleTime: 5 * 60 * 1000 // 5 minuter
+    staleTime: 5 * 60 * 1000
   });
   
-  // Återställ tillstånd när användarnamnet ändras
   useEffect(() => {
     setActiveTab("tweets");
     setViewMode("grid");
     setShowSettings(false);
   }, [username]);
   
-  // Animera in när komponenten monteras
   useEffect(() => {
     const elements = document.querySelectorAll('.animate-on-load');
     elements.forEach((el, index) => {
@@ -147,12 +139,10 @@ const Profile = () => {
     setHighlightedTweet(id);
   }, []);
   
-  // Hantera tabbyte
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value);
   }, []);
   
-  // Visa laddningsindikator medan profildata hämtas
   if (isLoadingProfile || isLoadingCurrentUser) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -165,7 +155,6 @@ const Profile = () => {
     );
   }
   
-  // Visa felmeddelande om profilen inte kunde hämtas
   if (profileError || !userProfile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -186,7 +175,6 @@ const Profile = () => {
       <Navigation />
       
       <main className="container max-w-4xl pt-20 px-4">
-        {/* Hero-sektion med parallaxeffekt */}
         <div className="relative h-48 md:h-64 mb-16 overflow-hidden rounded-xl">
           <div 
             className="absolute inset-0 bg-gradient-to-r from-crypto-blue/30 to-crypto-lightBlue/30 transform hover:scale-105 transition-transform duration-500"
@@ -226,7 +214,6 @@ const Profile = () => {
           </div>
         </div>
         
-        {/* Användarinfo och åtgärder */}
         <div className="mb-6 animate-fade-in animate-on-load">
           <div className="flex justify-between items-start">
             <div>
@@ -290,7 +277,6 @@ const Profile = () => {
             </div>
           </div>
           
-          {/* Användarbio och detaljer */}
           <div className="mt-4">
             <p className="text-balance">{userProfile.bio}</p>
             
@@ -333,17 +319,16 @@ const Profile = () => {
             
             <div className="mt-3 flex space-x-5">
               <Link to="#" className="hover:underline hover:text-crypto-blue transition-colors">
-                <span className="font-semibold">{userProfile.following?.length || 0}</span>
+                <span className="font-semibold">{Array.isArray(userProfile.following) ? userProfile.following.length : userProfile.following || 0}</span>
                 <span className="text-muted-foreground ml-1">Följer</span>
               </Link>
               <Link to="#" className="hover:underline hover:text-crypto-blue transition-colors">
-                <span className="font-semibold">{userProfile.followers?.length || 0}</span>
+                <span className="font-semibold">{Array.isArray(userProfile.followers) ? userProfile.followers.length : userProfile.followers || 0}</span>
                 <span className="text-muted-foreground ml-1">Följare</span>
               </Link>
             </div>
           </div>
           
-          {/* Inställningspanel (hopfällbar) */}
           <Collapsible 
             open={showSettings} 
             onOpenChange={setShowSettings}
@@ -380,7 +365,6 @@ const Profile = () => {
           </Collapsible>
         </div>
         
-        {/* Tabbnavigering med animerad linje */}
         <div className="mt-6 animate-fade-in animate-on-load" style={{ animationDelay: '100ms' }}>
           <Tabs 
             defaultValue={activeTab} 
@@ -403,7 +387,6 @@ const Profile = () => {
               </TabsTrigger>
             </TabsList>
             
-            {/* Växlare för visningsläge */}
             <div className="mt-4 flex justify-end">
               <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value)}>
                 <ToggleGroupItem value="list" size="sm" className="rounded-l-md rounded-r-none">
@@ -479,7 +462,6 @@ const Profile = () => {
               )}
             </TabsContent>
             
-            {/* Återstående tabbar hålls enkla för läsbarhet */}
             <TabsContent value="replies" className="mt-6">
               <AnimatedCard delay={200} className="p-8 text-center">
                 <MessageSquare className="h-10 w-10 mx-auto mb-2 text-muted-foreground/50" />
@@ -520,7 +502,6 @@ const Profile = () => {
           </Tabs>
         </div>
         
-        {/* Föreslagna liknande användare */}
         {!isOwnProfile && (
           <div className="mt-12 animate-fade-in" style={{ animationDelay: '300ms' }}>
             <Card className="glass-card">
@@ -576,7 +557,6 @@ const Profile = () => {
           </div>
         )}
         
-        {/* Feedback-knapp */}
         <div className="fixed bottom-24 md:bottom-8 right-8 z-10">
           <Button
             className="rounded-full shadow-lg bg-crypto-blue hover:bg-crypto-blue/90 p-3 h-auto animate-pulse-subtle"
