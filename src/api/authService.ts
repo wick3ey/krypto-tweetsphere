@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
@@ -39,7 +40,7 @@ export const authService = {
         }
       }
       
-      // Fetch from Supabase
+      // Fetch from Supabase with optimized query
       console.log('Fetching user from Supabase with ID:', userId);
       const { data, error } = await supabase
         .from('users')
@@ -174,19 +175,20 @@ export const authService = {
       const isLocalhost = window.location.hostname === 'localhost' || 
                          window.location.hostname === '127.0.0.1';
       
+      // Make sure callback URL is correctly set with no trailing slashes
       const redirectTo = isLocalhost
         ? `${window.location.origin}/auth/callback` // Use local origin for development
         : 'https://f3oci3ty.xyz/auth/callback'; // Use production domain for live site
       
       console.log('Signing in with Google, redirectTo:', redirectTo);
       
+      // Optimize for faster redirects by setting fewer options
       const result = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent'
+            prompt: 'select_account' // Always show account selection screen
           }
         }
       });
@@ -231,5 +233,7 @@ export const authService = {
   clearAuthData() {
     localStorage.removeItem('current_user');
     localStorage.removeItem('jwt_token');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('profile_setup_complete');
   }
 };

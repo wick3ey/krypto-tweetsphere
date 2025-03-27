@@ -179,22 +179,54 @@ function App() {
   
   // Custom auth callback handling for when /auth/callback is loaded
   useEffect(() => {
+    if (!location.pathname.includes('/auth/callback')) {
+      return;
+    }
+    
+    // Optimize auth callback handling
     const handleAuthCallback = async () => {
-      if (location.pathname.includes('/auth/callback')) {
-        try {
-          // The auth state listener should handle the session automatically,
-          // but we'll add a timeout to redirect if it doesn't happen quickly
-          const timeoutId = setTimeout(() => {
-            console.log('Auth callback timeout reached, redirecting to home');
-            navigate('/', { replace: true });
-          }, 8000); // 8 seconds timeout
+      try {
+        console.log('Auth callback page detected, processing authentication...');
+        
+        // Force immediate session check
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log('Session found on callback, redirecting to home');
+          // Store essential auth data
+          localStorage.setItem('jwt_token', session.access_token);
+          localStorage.setItem('user_id', session.user.id);
           
-          return () => clearTimeout(timeoutId);
-        } catch (error) {
-          console.error('Error during auth callback:', error);
-          toast.error('Inloggning misslyckades');
+          // Fetch user data in background
+          authService.getCurrentUser()
+            .then(() => {
+              toast.success('Inloggad!');
+            })
+            .catch(error => {
+              console.error('Error in auth callback user fetch:', error);
+            });
+          
+          // Redirect immediately rather than waiting
           navigate('/', { replace: true });
+        } else {
+          // Wait a brief moment and check again in case the session is being established
+          setTimeout(async () => {
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            if (retrySession) {
+              console.log('Session found after retry, redirecting to home');
+              localStorage.setItem('jwt_token', retrySession.access_token);
+              localStorage.setItem('user_id', retrySession.user.id);
+              navigate('/', { replace: true });
+            } else {
+              console.log('No session found after retry, redirecting to home anyway');
+              navigate('/', { replace: true });
+            }
+          }, 2000); // Short timeout for final check
         }
+      } catch (error) {
+        console.error('Error during auth callback:', error);
+        toast.error('Inloggning misslyckades');
+        navigate('/', { replace: true });
       }
     };
     
