@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
@@ -13,14 +12,12 @@ export const tweetService = {
       // Normalize the response data to handle different formats
       const normalizedTweets = normalizeTweetResponse(response.data);
       
-      // Merge with local tweets
-      const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-      const allTweets = [...localTweets, ...normalizedTweets].filter(
-        (tweet, index, self) => index === self.findIndex((t) => t.id === tweet.id)
-      );
+      // Store tweets locally for offline access
+      if (normalizedTweets && normalizedTweets.length > 0) {
+        saveLocalTweets(normalizedTweets);
+      }
       
-      console.log('All tweets after merging:', allTweets);
-      return allTweets;
+      return normalizedTweets;
     } catch (error) {
       console.error('Error fetching feed:', error);
       
@@ -45,14 +42,12 @@ export const tweetService = {
       // Normalize the response data to handle different formats
       const normalizedTweets = normalizeTweetResponse(response.data);
       
-      // Merge with local tweets
-      const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-      const allTweets = [...localTweets, ...normalizedTweets].filter(
-        (tweet, index, self) => index === self.findIndex((t) => t.id === tweet.id)
-      );
+      // Store tweets locally for offline access
+      if (normalizedTweets && normalizedTweets.length > 0) {
+        saveLocalTweets(normalizedTweets);
+      }
       
-      console.log('All tweets after merging:', allTweets);
-      return allTweets;
+      return normalizedTweets;
     } catch (error) {
       console.error('Error fetching explore feed:', error);
       
@@ -81,17 +76,11 @@ export const tweetService = {
   
   createTweet: async (content: string, attachments?: string[]) => {
     const token = localStorage.getItem('jwt_token');
-    if (!token) {
-      toast.error("Authentication required", {
-        description: "Please connect your wallet to post tweets"
-      });
-      throw new Error('Authentication required');
-    }
     
     try {
       console.log('Creating tweet with content:', content);
       
-      // Create a mock tweet with user data
+      // Create a mock tweet with user data for local storage
       const userData = JSON.parse(localStorage.getItem('current_user') || '{}') as User;
       console.log('Current user data:', userData);
       
@@ -103,10 +92,13 @@ export const tweetService = {
         throw new Error('No user data available');
       }
       
-      // Try to call the real API first
+      // Always try to send to the real API first, even if no token (for public posting)
       try {
-        console.log('Attempting to call the real API endpoint');
-        const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', { content, attachments });
+        console.log('Sending tweet to API endpoint');
+        const payload = { content, attachments };
+        console.log('Tweet payload:', payload);
+        
+        const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', payload);
         console.log('Tweet created successfully via API:', response.data);
         
         // Handle different response formats
@@ -122,39 +114,28 @@ export const tweetService = {
         }
         
         // Make sure the tweet has all necessary fields
-        if (!newTweet.user && userData) {
-          newTweet.user = userData;
-        }
-        
-        // Ensure tweet has an id
-        if (!newTweet.id && newTweet._id) {
-          newTweet.id = newTweet._id;
-        }
-        
-        // Ensure timestamp is valid
-        if (!newTweet.timestamp || typeof newTweet.timestamp !== 'string' || isNaN(new Date(newTweet.timestamp).getTime())) {
-          console.warn('Tweet has invalid timestamp, setting to current time');
-          newTweet.timestamp = new Date().toISOString();
-        }
-        
-        // If createdAt exists but no timestamp, use createdAt as timestamp
-        if (!newTweet.timestamp && newTweet.createdAt) {
-          newTweet.timestamp = newTweet.createdAt;
-        }
+        newTweet = normalizeTweet(newTweet);
         
         // Also save locally for offline use
         saveLocalTweet(newTweet);
         
         return newTweet;
       } catch (apiError) {
-        console.error('API call failed, creating local tweet instead:', apiError);
+        console.error('API call failed:', apiError);
         
-        // If API fails, create a local tweet
+        // If not authenticated, show error
+        if (!token) {
+          toast.error("Authentication required for persistent tweets", {
+            description: "Connect your wallet to save tweets to the server"
+          });
+        }
+        
+        // Create a local tweet as fallback
         const mockTweet: Tweet = {
           id: 'local-' + Date.now(),
           content: content,
           user: userData,
-          timestamp: new Date().toISOString(), // Ensure valid ISO timestamp
+          timestamp: new Date().toISOString(),
           likes: 0,
           retweets: 0,
           comments: 0,
@@ -164,16 +145,58 @@ export const tweetService = {
         // Save to local storage
         saveLocalTweet(mockTweet);
         
-        console.log('Created local tweet:', mockTweet);
+        console.log('Created local tweet as fallback:', mockTweet);
         toast.info("Tweet saved locally", {
-          description: "API unavailable. Tweet will be visible to you only."
+          description: "API unavailable. Attempting to sync in the background."
         });
+        
+        // Attempt to sync local tweet in the background
+        syncLocalTweet(mockTweet);
         
         return mockTweet;
       }
     } catch (error: any) {
       console.error('Error creating tweet:', error);
       throw error;
+    }
+  },
+  
+  syncLocalTweets: async () => {
+    const token = localStorage.getItem('jwt_token');
+    if (!token) {
+      console.log('Cannot sync tweets: Not authenticated');
+      return { success: false, synced: 0 };
+    }
+    
+    try {
+      const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+      const localOnlyTweets = localTweets.filter((t: Tweet) => t.id.startsWith('local-'));
+      
+      if (localOnlyTweets.length === 0) {
+        console.log('No local-only tweets to sync');
+        return { success: true, synced: 0 };
+      }
+      
+      console.log(`Attempting to sync ${localOnlyTweets.length} local tweets`);
+      
+      let syncedCount = 0;
+      for (const tweet of localOnlyTweets) {
+        try {
+          await syncLocalTweet(tweet);
+          syncedCount++;
+        } catch (error) {
+          console.error(`Failed to sync tweet ${tweet.id}:`, error);
+        }
+      }
+      
+      if (syncedCount > 0) {
+        toast.success(`Synced ${syncedCount} tweets to server`);
+      }
+      
+      return { success: true, synced: syncedCount };
+    } catch (error) {
+      console.error('Error syncing local tweets:', error);
+      return { success: false, synced: 0 };
     }
   },
   
@@ -321,7 +344,11 @@ function normalizeTweet(item: any): Tweet | null {
     likes: typeof item.likes === 'number' ? item.likes : (item.likeCount || 0),
     retweets: typeof item.retweets === 'number' ? item.retweets : (item.retweetCount || 0),
     comments: typeof item.comments === 'number' ? item.comments : (item.commentCount || 0),
-    hashtags: item.hashtags || extractHashtags(item.content || '')
+    hashtags: item.hashtags || extractHashtags(item.content || ''),
+    likeCount: typeof item.likes === 'number' ? item.likes : (item.likeCount || 0),
+    retweetCount: typeof item.retweets === 'number' ? item.retweets : (item.retweetCount || 0),
+    commentCount: typeof item.comments === 'number' ? item.comments : (item.commentCount || 0),
+    createdAt: item.createdAt || item.timestamp || new Date().toISOString()
   };
   
   return tweet;
@@ -392,16 +419,6 @@ function extractHashtags(content: string): string[] {
   return matches ? matches.map(tag => tag.substring(1)) : [];
 }
 
-// Helper function to process API response that might have a nested tweet structure
-function processApiResponse(data: any): Tweet[] {
-  return normalizeTweetResponse(data);
-}
-
-// Helper function to process a tweet object and ensure it has all required fields
-function processTweetObject(tweet: any): Tweet | null {
-  return normalizeTweet(tweet);
-}
-
 // Helper function to save a tweet to local storage
 function saveLocalTweet(tweet: Tweet) {
   const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
@@ -419,5 +436,89 @@ function saveLocalTweet(tweet: Tweet) {
     const limitedTweets = localTweets.slice(0, 100);
     localStorage.setItem('local_tweets', JSON.stringify(limitedTweets));
     console.log('Tweet saved to local storage:', tweet);
+  }
+}
+
+// Helper function to save multiple tweets to local storage
+function saveLocalTweets(tweets: Tweet[]) {
+  if (!tweets || tweets.length === 0) return;
+  
+  const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+  let updated = false;
+  
+  for (const tweet of tweets) {
+    // Check if tweet already exists
+    const exists = localTweets.some((t: Tweet) => t.id === tweet.id);
+    
+    if (!exists) {
+      // Ensure timestamp is valid before saving
+      tweet.timestamp = ensureValidTimestamp(tweet.timestamp);
+      localTweets.push(tweet);
+      updated = true;
+    }
+  }
+  
+  if (updated) {
+    // Sort by timestamp (newest first)
+    localTweets.sort((a: Tweet, b: Tweet) => {
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+    
+    // Limit to 100 tweets to avoid localStorage size issues
+    const limitedTweets = localTweets.slice(0, 100);
+    localStorage.setItem('local_tweets', JSON.stringify(limitedTweets));
+    console.log(`Saved ${tweets.length} tweets to local storage`);
+  }
+}
+
+// Function to attempt to sync a local tweet with the server
+async function syncLocalTweet(tweet: Tweet) {
+  const token = localStorage.getItem('jwt_token');
+  if (!token || !tweet.id.startsWith('local-')) {
+    return false;
+  }
+  
+  try {
+    console.log(`Attempting to sync local tweet ${tweet.id} with server`);
+    
+    const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', {
+      content: tweet.content,
+      attachments: tweet.attachments || []
+    });
+    
+    if (response.data) {
+      console.log(`Successfully synced tweet ${tweet.id} to server:`, response.data);
+      
+      // Remove local tweet and replace with server version
+      const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+      const updatedTweets = localTweets.filter((t: Tweet) => t.id !== tweet.id);
+      
+      // Add normalized server tweet
+      let serverTweet;
+      if (response.data.data) {
+        serverTweet = response.data.data;
+      } else if (response.data.tweet) {
+        serverTweet = response.data.tweet;
+      } else if (response.data.success && response.data.tweet) {
+        serverTweet = response.data.tweet;
+      } else {
+        serverTweet = response.data;
+      }
+      
+      // Normalize the server tweet
+      const normalizedTweet = normalizeTweet(serverTweet);
+      
+      if (normalizedTweet) {
+        updatedTweets.unshift(normalizedTweet);
+      }
+      
+      localStorage.setItem('local_tweets', JSON.stringify(updatedTweets));
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error(`Failed to sync local tweet ${tweet.id}:`, error);
+    return false;
   }
 }

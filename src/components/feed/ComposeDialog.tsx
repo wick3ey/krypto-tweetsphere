@@ -67,16 +67,10 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
     }
   };
 
-  // Check if user is authenticated
+  // Check if user is authenticated - but don't require it for posting
   const isAuthenticated = !!localStorage.getItem('jwt_token');
   
   const handleTriggerClick = () => {
-    if (!isAuthenticated) {
-      toast.error("Authentication required", {
-        description: "Please connect your wallet to post tweets",
-      });
-      return;
-    }
     setIsOpen(true);
   };
 
@@ -126,6 +120,11 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
             Dela dina tankar om kryptomarknaden med andra
+            {!isAuthenticated && (
+              <span className="ml-1 text-crypto-blue">
+                (För att spara dina inlägg permanent, anslut din plånbok)
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         

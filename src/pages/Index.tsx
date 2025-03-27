@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import { Button } from '@/components/ui/button';
@@ -32,6 +31,17 @@ const Index = () => {
       console.log('Current user stored in localStorage:', currentUser);
     }
   }, [currentUser]);
+  
+  // Try to sync local tweets with server on initial load
+  useEffect(() => {
+    if (isLoggedIn) {
+      tweetService.syncLocalTweets().then(result => {
+        if (result.synced > 0) {
+          console.log(`Synced ${result.synced} tweets with server`);
+        }
+      });
+    }
+  }, [isLoggedIn]);
   
   // Get local tweets for initialization and fallback
   const getLocalTweets = useCallback(() => {
@@ -116,13 +126,6 @@ const Index = () => {
   const handleTweet = async (tweetContent: string): Promise<void> => {
     if (!tweetContent.trim()) return Promise.reject(new Error("Tweet content is empty"));
     
-    if (!isLoggedIn) {
-      toast.error("Authentication required", {
-        description: "Please connect your wallet to post tweets"
-      });
-      return Promise.reject(new Error("Not authenticated"));
-    }
-    
     console.log("Index: Submitting tweet:", tweetContent);
     // Return the promise from the mutation
     return createTweetMutation.mutateAsync(tweetContent);
@@ -159,41 +162,16 @@ const Index = () => {
   const normalizeAndRenderTweet = (tweet: any) => {
     if (!tweet) return null;
     
-    // If tweet has nested tweet structure, normalize it
-    let normalizedTweet = tweet;
-    
-    // Handle API response format where tweet is nested in 'tweet' property
-    if (tweet.success === true && tweet.tweet) {
-      normalizedTweet = tweet.tweet;
-    }
-    
-    // Make sure ID is consistent
-    if (!normalizedTweet.id && normalizedTweet._id) {
-      normalizedTweet.id = normalizedTweet._id;
-    }
-    
     // Skip tweets that don't have the required structure
-    if (!normalizedTweet.user && normalizedTweet.userId) {
-      // Convert userId to user if it's an object
-      if (typeof normalizedTweet.userId === 'object') {
-        normalizedTweet.user = {
-          id: normalizedTweet.userId._id || normalizedTweet.userId.id || 'unknown-id',
-          username: normalizedTweet.userId.username || 'unknown',
-          displayName: normalizedTweet.userId.displayName || normalizedTweet.userId.username || 'Unknown User',
-          avatarUrl: normalizedTweet.userId.profileImage || normalizedTweet.userId.avatarUrl || '/placeholder.svg'
-        };
-      }
-    }
-    
-    if (!normalizedTweet.user) {
-      console.warn('Tweet without user object:', normalizedTweet);
+    if (!tweet.user && (!tweet.userId || typeof tweet.userId !== 'object')) {
+      console.warn('Tweet without user object:', tweet);
       return null;
     }
     
     return (
       <EnhancedTweetCard
-        key={normalizedTweet.id || normalizedTweet._id || `tweet-${Math.random().toString(36).substring(2, 9)}`}
-        tweet={normalizedTweet}
+        key={tweet.id || tweet._id || `tweet-${Math.random().toString(36).substring(2, 9)}`}
+        tweet={tweet}
         animated={false}
       />
     );
