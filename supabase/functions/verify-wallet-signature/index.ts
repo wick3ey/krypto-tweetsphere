@@ -1,7 +1,7 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
-import * as bs58 from "npm:bs58@5.0.0";
+import * as bs58 from "bs58";
 
 // Set up CORS headers
 const corsHeaders = {
