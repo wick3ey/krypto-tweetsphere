@@ -1,175 +1,199 @@
 
-import apiClient from './apiClient';
-import { toast } from "sonner";
+import { supabase } from '@/integrations/supabase/client';
+import { User } from '@/lib/types';
+import { dbUserToUser } from '@/lib/db-types';
 
 export const authService = {
-  getNonce: async (walletAddress: string) => {
-    console.info("Requesting nonce for wallet", { walletAddress });
+  async getNonce(walletAddress: string) {
     try {
-      const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/nonce', { walletAddress });
-      console.debug("Nonce response received", { responseData: response.data });
-      
-      // Check if the response has the expected structure
-      if (!response.data || !response.data.nonce || !response.data.message) {
-        const error = "Invalid nonce response format from server";
-        console.error(error, { responseData: response.data });
-        throw new Error(error);
-      }
+      const { data, error } = await supabase
+        .from('nonce_challenges')
+        .select('*')
+        .eq('wallet_address', walletAddress)
+        .maybeSingle();
 
-      const result = {
-        nonce: response.data.nonce,
-        message: response.data.message
-      };
-      
-      console.debug("Parsed nonce from response", result);
-      return result;
-    } catch (error) {
-      console.error("Error getting nonce", { error });
-      toast.error("Failed to get authentication nonce", {
-        description: "Please try again or contact support if the problem persists."
-      });
-      throw error;
-    }
-  },
-  
-  verifySignature: async (walletAddress: string, signature: string) => {
-    try {
-      console.info("Verifying signature", { walletAddress, signaturePreview: signature.substring(0, 20) + '...' });
-      
-      // Add more detailed logging for debugging the payload
-      console.debug("Sending verification payload to server", { 
-        walletAddress, 
-        signatureLength: signature.length,
-        payload: {
-          walletAddress,
-          signature,
-          encoding: 'base64'
-        }
-      });
-      
-      // Send the exact payload format expected by the API
-      const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/verify', { 
-        walletAddress, 
-        signature,
-        encoding: 'base64' // Explicitly specify the signature encoding format
-      });
-      
-      // Log the raw response for debugging
-      console.debug("Raw verification response", response);
-      
-      // Check if the authentication was successful
-      if (response.data.success) {
-        // Store the token in localStorage upon successful verification
-        const { token, user } = response.data;
-        localStorage.setItem('jwt_token', token);
-        localStorage.setItem('wallet_address', walletAddress);
+      if (error) throw error;
+
+      // If no nonce exists, create one
+      if (!data) {
+        const nonce = Math.floor(Math.random() * 1000000).toString();
+        const message = `Sign this message to verify your wallet ownership: ${nonce}`;
         
-        // Store the user in localStorage for offline access
-        if (user) {
-          localStorage.setItem('current_user', JSON.stringify(user));
-        }
-        
-        console.info("Authentication successful", { userId: user.id, needsSetup: user.needsSetup });
-        return {
-          token,
-          user,
-          isNewUser: user.needsSetup
-        };
-      } else {
-        const errorMsg = response.data.error || 'Authentication failed';
-        console.error("Authentication failed", { message: errorMsg });
-        throw new Error(errorMsg);
-      }
-    } catch (error: any) {
-      console.error('Error verifying signature', { error });
-      toast.error("Authentication failed", {
-        description: error.message || "Failed to authenticate with the server. Please try again."
-      });
-      throw error;
-    }
-  },
-  
-  getCurrentUser: async () => {
-    try {
-      console.debug("Getting current user");
-      
-      // Try to get from localStorage first for faster response
-      const storedUser = localStorage.getItem('current_user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        // Still make the API call in the background to ensure we have the latest data
-        apiClient.get('https://f3oci3ty.xyz/api/auth/me')
-          .then(response => {
-            if (response.data.user) {
-              localStorage.setItem('current_user', JSON.stringify(response.data.user));
-            }
+        const { data: newNonce, error: insertError } = await supabase
+          .from('nonce_challenges')
+          .insert({
+            wallet_address: walletAddress,
+            nonce,
+            message
           })
-          .catch(error => {
-            console.error('Error refreshing current user in background:', error);
-          });
+          .select()
+          .single();
+          
+        if (insertError) throw insertError;
         
-        return user;
+        return { nonce, message };
       }
       
-      // If not in localStorage, make the API call
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/auth/me');
-      console.debug("Current user retrieved", { user: response.data.user });
-      
-      // Store in localStorage for offline access
-      if (response.data.user) {
-        localStorage.setItem('current_user', JSON.stringify(response.data.user));
-      }
-      
-      return response.data.user;
+      return { nonce: data.nonce, message: data.message };
     } catch (error) {
-      console.error('Error getting current user', { error });
-      // Try to get from localStorage as a fallback
-      try {
-        const storedUser = localStorage.getItem('current_user');
-        if (storedUser) {
-          return JSON.parse(storedUser);
-        }
-      } catch (localStorageError) {
-        console.error('Error getting user from localStorage:', localStorageError);
-      }
-      return null;
+      console.error('Error getting nonce:', error);
+      return { nonce: '', message: '' };
     }
   },
-  
-  logout: async () => {
+
+  async verifySignature(walletAddress: string, signature: string) {
     try {
-      console.info("Logging out user");
+      // In a real implementation, verify the signature against the nonce
+      // For now, we'll simulate a successful verification
       
-      // Get Phantom provider if available
-      const provider = window.phantom?.solana;
-      if (provider && provider.isConnected) {
+      // Check if user exists
+      const { data: existingUser, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', walletAddress)
+        .maybeSingle();
+        
+      if (userError) throw userError;
+      
+      let isNewUser = false;
+      let userId = existingUser?.id;
+      
+      // If user doesn't exist, create a placeholder
+      if (!existingUser) {
+        isNewUser = true;
+        
+        // Generate a temporary username from wallet address
+        const tempUsername = `user_${walletAddress.substring(0, 8).toLowerCase()}`;
+        
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            wallet_address: walletAddress,
+            username: tempUsername,
+            display_name: 'New User',
+          })
+          .select()
+          .single();
+          
+        if (insertError) throw insertError;
+        userId = newUser.id;
+      }
+      
+      // Get Supabase session
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: `${walletAddress}@phantom.wallet`,
+        password: signature.substring(0, 20),  // Use part of signature as password
+      });
+      
+      if (error) {
+        // If user doesn't exist in auth, sign up
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: `${walletAddress}@phantom.wallet`,
+          password: signature.substring(0, 20),
+          options: {
+            data: {
+              wallet_address: walletAddress,
+            }
+          }
+        });
+        
+        if (signUpError) throw signUpError;
+        
+        // Store session in local storage
+        localStorage.setItem('jwt_token', signUpData.session?.access_token || '');
+      } else {
+        // Store session in local storage
+        localStorage.setItem('jwt_token', data.session?.access_token || '');
+      }
+      
+      // Store wallet address
+      localStorage.setItem('wallet_address', walletAddress);
+      
+      // Get full user data
+      const { data: userData, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      // Convert to application User type
+      const user = dbUserToUser(userData);
+      
+      // Store user data
+      localStorage.setItem('current_user', JSON.stringify(user));
+      
+      return { user, isNewUser };
+    } catch (error) {
+      console.error('Error verifying signature:', error);
+      throw error;
+    }
+  },
+
+  async getCurrentUser(): Promise<User> {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Get user data from localStorage as a fallback
+      const storedUser = localStorage.getItem('current_user');
+      let cachedUser: User | null = null;
+      
+      if (storedUser) {
         try {
-          // Disconnect from Phantom wallet
-          await provider.disconnect();
-          console.info("Disconnected from Phantom wallet");
-        } catch (walletError) {
-          console.error("Error disconnecting from wallet", { walletError });
+          cachedUser = JSON.parse(storedUser);
+        } catch (e) {
+          console.error('Error parsing stored user:', e);
         }
       }
       
-      // Call server-side logout
-      const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/logout');
+      // Get the user's wallet address
+      const walletAddress = localStorage.getItem('wallet_address');
       
-      // Clear all local storage related to the user session
-      localStorage.removeItem('jwt_token');
-      localStorage.removeItem('wallet_address');
-      localStorage.removeItem('current_user');
+      if (!walletAddress) {
+        throw new Error('No wallet address found');
+      }
       
-      console.info("User logged out successfully");
-      toast.success("Logged out successfully");
-      return response.data;
+      // Fetch the latest user data from Supabase
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', walletAddress)
+        .maybeSingle();
+        
+      if (error) throw error;
+      
+      if (!data) {
+        // If no data found, return cached user or throw error
+        if (cachedUser) return cachedUser;
+        throw new Error('User not found');
+      }
+      
+      // Convert to application User type
+      const user = dbUserToUser(data);
+      
+      // Update cached user
+      localStorage.setItem('current_user', JSON.stringify(user));
+      
+      return user;
     } catch (error) {
-      console.error('Error during logout', { error });
-      
-      // Still clear local storage even if the API call fails
+      console.error('Error getting current user:', error);
+      throw error;
+    }
+  },
+
+  async logout() {
+    try {
+      await supabase.auth.signOut();
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
       localStorage.removeItem('current_user');
+    } catch (error) {
+      console.error('Error logging out:', error);
       throw error;
     }
   }

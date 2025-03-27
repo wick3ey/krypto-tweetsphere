@@ -1,265 +1,267 @@
-
-import apiClient from './apiClient';
-import { User } from '@/lib/types';
-import { toast } from "sonner";
-import { logService } from './logService';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Tweet, UserProfile } from '@/lib/types';
+import { dbUserToUser, dbTweetToTweet } from '@/lib/db-types';
+import { authService } from './authService';
 
 export const userService = {
-  searchUsers: async (query: string) => {
+  async getUserProfile(identifier: string, options = {}): Promise<User> {
     try {
-      // Validate that query has some meaningful content before making API call
-      if (!query || query.trim().length === 0) {
-        logService.debug("Skipping empty user search query", {}, "userService");
-        return []; // Return empty array instead of making the API call
+      let query = supabase.from('users').select('*');
+      
+      // Check if identifier is a UUID (assuming UUIDs are 36 chars long)
+      if (identifier.length === 36) {
+        query = query.eq('id', identifier);
+      }
+      // Check if identifier looks like a wallet address (0x followed by at least 40 chars)
+      else if (identifier.startsWith('0x') || identifier.length >= 42) {
+        query = query.eq('wallet_address', identifier);
+      }
+      // Otherwise, assume it's a username
+      else {
+        query = query.eq('username', identifier);
       }
       
-      logService.debug("Searching users", { query }, "userService");
-      const response = await apiClient.get('https://f3oci3ty.xyz/api/users/search', { params: { query } });
-      return response.data.users;
+      const { data, error } = await query.maybeSingle();
+      
+      if (error) throw error;
+      if (!data) throw new Error('User not found');
+      
+      return dbUserToUser(data);
     } catch (error) {
-      logService.error('Error searching users:', { error }, "userService");
-      // Return empty array instead of throwing
-      return [];
-    }
-  },
-  
-  setupProfile: async (profileData: Partial<User>) => {
-    try {
-      logService.info("Setting up user profile", { profileData }, "userService");
-      const response = await apiClient.post('https://f3oci3ty.xyz/api/users/setup', profileData);
-      logService.info("Profile setup completed", { userId: response.data.user.id }, "userService");
-      
-      // Save updated user to localStorage for faster access and offline support
-      if (response.data.user) {
-        localStorage.setItem('current_user', JSON.stringify(response.data.user));
-      }
-      
-      toast.success("Profile setup completed successfully");
-      return response.data.user;
-    } catch (error: any) {
-      logService.error('Error completing profile setup', { error }, "userService");
-      toast.error("Profile setup failed", {
-        description: error.response?.data?.error || error.message || "Please try again."
-      });
+      console.error('Error fetching user profile:', error);
       throw error;
     }
   },
   
-  getUserProfile: async (identifier: string, options?: { includeNFTs?: boolean, includeTweets?: boolean }) => {
+  async setupProfile(profileData: Partial<User>): Promise<User> {
     try {
-      const params = new URLSearchParams();
-      if (options?.includeNFTs) params.append('includeNFTs', 'true');
-      if (options?.includeTweets) params.append('includeTweets', 'true');
+      const walletAddress = localStorage.getItem('wallet_address');
+      if (!walletAddress) throw new Error('No wallet address found');
       
-      // Try to get from localStorage first for faster response
-      const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-      if (currentUser && 
-          (currentUser.id === identifier || 
-           currentUser.username === identifier || 
-           currentUser.walletAddress === identifier)) {
-        return currentUser;
-      }
+      // Get the current user from Supabase
+      const { data: userData, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', walletAddress)
+        .maybeSingle();
+        
+      if (fetchError) throw fetchError;
+      if (!userData) throw new Error('User not found');
       
-      logService.debug("Getting user profile", { identifier, options }, "userService");
-      const response = await apiClient.get(
-        `https://f3oci3ty.xyz/api/users/${identifier}${params.toString() ? `?${params.toString()}` : ''}`
-      );
-      return response.data.user;
+      // Prepare data for update
+      const updateData = {
+        username: profileData.username,
+        display_name: profileData.displayName,
+        bio: profileData.bio || userData.bio,
+        avatar_url: profileData.avatarUrl || userData.avatar_url,
+        header_url: profileData.headerImage || userData.header_url,
+      };
+      
+      // Update user profile
+      const { data, error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', userData.id)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      // Convert to application User type and return
+      return dbUserToUser(data);
     } catch (error) {
-      logService.error('Error getting user profile', { error, identifier }, "userService");
-      // Try to use mock data if API fails
-      if (identifier === 'me' || identifier === localStorage.getItem('wallet_address')) {
-        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-        if (currentUser && currentUser.id) {
-          return currentUser;
-        }
-      }
+      console.error('Error setting up profile:', error);
       throw error;
     }
   },
   
-  updateProfile: async (profileData: Partial<User>) => {
+  async updateProfile(profileData: Partial<User>): Promise<User> {
     try {
-      logService.info("Updating user profile", { profileData }, "userService");
-      const response = await apiClient.put('https://f3oci3ty.xyz/api/users/profile', profileData);
+      const currentUser = await authService.getCurrentUser();
       
-      // Update local storage with the updated user data
-      if (response.data.user) {
-        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-        const updatedUser = { ...currentUser, ...response.data.user };
-        localStorage.setItem('current_user', JSON.stringify(updatedUser));
-      }
+      // Prepare data for update
+      const updateData = {
+        username: profileData.username || currentUser.username,
+        display_name: profileData.displayName || currentUser.displayName,
+        bio: profileData.bio || currentUser.bio,
+        avatar_url: profileData.avatarUrl || currentUser.avatarUrl,
+        header_url: profileData.headerUrl || currentUser.headerUrl,
+      };
       
-      logService.info("Profile updated successfully", { userId: response.data.user.id }, "userService");
-      toast.success("Profile updated successfully");
-      return response.data.user;
-    } catch (error: any) {
-      logService.error('Error updating profile', { error, profileData }, "userService");
-      toast.error("Profile update failed", {
-        description: error.response?.data?.error || error.message || "Please try again."
-      });
+      // Update user profile
+      const { data, error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', currentUser.id)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      // Convert to application User type
+      const updatedUser = dbUserToUser(data);
+      
+      // Update cached user
+      localStorage.setItem('current_user', JSON.stringify(updatedUser));
+      
+      return updatedUser;
+    } catch (error) {
+      console.error('Error updating profile:', error);
       throw error;
     }
   },
   
-  followUser: async (userId: string) => {
-    if (!userId) {
-      toast.error("Invalid user ID", { description: "Cannot follow this user" });
-      return { success: false };
-    }
-    
+  async followUser(userId: string): Promise<void> {
     try {
-      logService.info("Following user", { targetUserId: userId }, "userService");
+      const currentUser = await authService.getCurrentUser();
       
-      // First update local state optimistically
-      const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-      if (currentUser && currentUser.id) {
-        // Add to following list if not already there
-        if (!currentUser.following) {
-          currentUser.following = [];
-        }
-        if (!Array.isArray(currentUser.following)) {
-          currentUser.following = [];
-        }
-        if (!currentUser.following.includes(userId)) {
-          currentUser.following.push(userId);
-          localStorage.setItem('current_user', JSON.stringify(currentUser));
-        }
-      }
-      
-      // Now try the API call
-      try {
-        const response = await apiClient.post(`https://f3oci3ty.xyz/api/users/${userId}/follow`);
-        logService.info("Successfully followed user", { targetUserId: userId }, "userService");
-        return response.data;
-      } catch (apiError) {
-        console.error('API call failed, using local fallback:', apiError);
-        // We already updated the local state, just return success
-        return { success: true, message: "Followed user (local only)" };
-      }
-    } catch (error: any) {
-      logService.error('Error following user', { error, targetUserId: userId }, "userService");
-      toast.error("Failed to follow user", {
-        description: error.response?.data?.error || error.message || "Please try again."
+      // Add userId to current user's following array
+      const { error: followError } = await supabase.rpc('follow_user', {
+        follower_id: currentUser.id,
+        followed_id: userId
       });
-      return { success: false, error };
-    }
-  },
-  
-  unfollowUser: async (userId: string) => {
-    if (!userId) {
-      toast.error("Invalid user ID", { description: "Cannot unfollow this user" });
-      return { success: false };
-    }
-    
-    try {
-      logService.info("Unfollowing user", { targetUserId: userId }, "userService");
       
-      // First update local state optimistically
-      const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-      if (currentUser && currentUser.id && currentUser.following) {
-        // Remove from following list
-        if (Array.isArray(currentUser.following)) {
-          currentUser.following = currentUser.following.filter((id: string) => id !== userId);
-          localStorage.setItem('current_user', JSON.stringify(currentUser));
-        }
-      }
-      
-      // Now try the API call
-      try {
-        const response = await apiClient.delete(`https://f3oci3ty.xyz/api/users/${userId}/follow`);
-        logService.info("Successfully unfollowed user", { targetUserId: userId }, "userService");
-        return response.data;
-      } catch (apiError) {
-        console.error('API call failed, using local fallback:', apiError);
-        // We already updated the local state, just return success
-        return { success: true, message: "Unfollowed user (local only)" };
-      }
-    } catch (error: any) {
-      logService.error('Error unfollowing user', { error, targetUserId: userId }, "userService");
-      toast.error("Failed to unfollow user", {
-        description: error.response?.data?.error || error.message || "Please try again."
-      });
-      return { success: false, error };
-    }
-  },
-  
-  getUserFollowers: async (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
-    try {
-      logService.debug("Getting user followers", { userId, page, limit, sortBy }, "userService");
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/followers`, {
-        params: { page, limit, sortBy }
-      });
-      return response.data.followers;
+      if (followError) throw followError;
     } catch (error) {
-      logService.error('Error getting user followers', { error, userId }, "userService");
-      return [];
+      console.error('Error following user:', error);
+      throw error;
     }
   },
   
-  getUserFollowing: async (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
+  async unfollowUser(userId: string): Promise<void> {
     try {
-      logService.debug("Getting user following", { userId, page, limit, sortBy }, "userService");
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/following`, {
-        params: { page, limit, sortBy }
-      });
-      return response.data.following;
-    } catch (error) {
-      logService.error('Error getting user following', { error, userId }, "userService");
-      return [];
-    }
-  },
-  
-  getUserTweets: async (userId: string, options?: { type?: string, page?: number, limit?: number, sortBy?: string }) => {
-    try {
-      const { type = 'all', page = 1, limit = 20, sortBy = 'recent' } = options || {};
-      logService.debug("Getting user tweets", { userId, type, page, limit, sortBy }, "userService");
+      const currentUser = await authService.getCurrentUser();
       
-      // Try to get from API first
-      try {
-        const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/tweets`, {
-          params: { type, page, limit, sortBy }
-        });
-        
-        // Return sorted by most recent first
-        const tweets = Array.isArray(response.data.tweets) ? response.data.tweets : 
-                      (Array.isArray(response.data) ? response.data : []);
-                      
-        return tweets.sort((a, b) => {
-          const dateA = new Date(a.timestamp || a.createdAt || 0);
-          const dateB = new Date(b.timestamp || b.createdAt || 0);
-          return dateB.getTime() - dateA.getTime();
-        });
-      } catch (apiError) {
-        console.error('API call failed, using local fallback:', apiError);
-        
-        // Fallback to local storage
-        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-        const userTweets = localTweets.filter((tweet: any) => {
-          // Include tweets created by this user
-          if (tweet.user && (tweet.user.id === userId || tweet.user._id === userId)) {
-            return true;
-          }
-          
-          // Include retweets by this user
-          if (tweet.retweetedBy && Array.isArray(tweet.retweetedBy) && 
-              tweet.retweetedBy.includes(userId)) {
-            return true;
-          }
-          
-          return false;
-        });
-        
-        // Sort by most recent first
-        return userTweets.sort((a: any, b: any) => {
-          const dateA = new Date(a.timestamp || a.createdAt || 0);
-          const dateB = new Date(b.timestamp || b.createdAt || 0);
-          return dateB.getTime() - dateA.getTime();
-        });
-      }
+      // Remove userId from current user's following array
+      const { error: unfollowError } = await supabase.rpc('unfollow_user', {
+        follower_id: currentUser.id,
+        followed_id: userId
+      });
+      
+      if (unfollowError) throw unfollowError;
     } catch (error) {
-      logService.error('Error getting user tweets', { error, userId }, "userService");
-      return [];
+      console.error('Error unfollowing user:', error);
+      throw error;
+    }
+  },
+  
+  async getUserFollowers(userId: string, page = 1, limit = 20, sortBy = 'recent'): Promise<User[]> {
+    try {
+      // Get followers IDs from the user record
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('followers')
+        .eq('id', userId)
+        .single();
+        
+      if (userError) throw userError;
+      
+      if (!userData.followers || userData.followers.length === 0) {
+        return [];
+      }
+      
+      // Fetch follower user records
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .in('id', userData.followers)
+        .range((page - 1) * limit, page * limit - 1);
+        
+      if (error) throw error;
+      
+      // Convert to application User type
+      return data.map(dbUserToUser);
+    } catch (error) {
+      console.error('Error getting user followers:', error);
+      throw error;
+    }
+  },
+  
+  async getUserFollowing(userId: string, page = 1, limit = 20, sortBy = 'recent'): Promise<User[]> {
+    try {
+      // Get following IDs from the user record
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('following')
+        .eq('id', userId)
+        .single();
+        
+      if (userError) throw userError;
+      
+      if (!userData.following || userData.following.length === 0) {
+        return [];
+      }
+      
+      // Fetch following user records
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .in('id', userData.following)
+        .range((page - 1) * limit, page * limit - 1);
+        
+      if (error) throw error;
+      
+      // Convert to application User type
+      return data.map(dbUserToUser);
+    } catch (error) {
+      console.error('Error getting user following:', error);
+      throw error;
+    }
+  },
+  
+  async getUserTweets(userId: string, options = {}): Promise<Tweet[]> {
+    try {
+      const type = options.type || 'tweets';
+      
+      let query = supabase
+        .from('tweets')
+        .select('*, users:user_id(*)');
+      
+      // Filter based on type
+      if (type === 'tweets') {
+        query = query.eq('user_id', userId)
+          .is('reply_to', null);
+      } else if (type === 'replies') {
+        query = query.eq('user_id', userId)
+          .not('reply_to', 'is', null);
+      } else if (type === 'media') {
+        query = query.eq('user_id', userId)
+          .not('attachments', 'is', '{}');
+      }
+      
+      // Add ordering
+      query = query.order('created_at', { ascending: false });
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      // Convert to application Tweet type
+      return data.map(item => {
+        const user = dbUserToUser(item.users);
+        return dbTweetToTweet(item, user);
+      });
+    } catch (error) {
+      console.error('Error getting user tweets:', error);
+      throw error;
+    }
+  },
+  
+  async searchUsers(query: string, options = {}): Promise<User[]> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
+        .limit(10);
+        
+      if (error) throw error;
+      
+      // Convert to application User type
+      return data.map(dbUserToUser);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      throw error;
     }
   }
 };

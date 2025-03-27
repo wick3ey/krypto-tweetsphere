@@ -9,7 +9,157 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          tweet_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          tweet_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          tweet_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_tweet_id_fkey"
+            columns: ["tweet_id"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tweets: {
+        Row: {
+          attachments: string[] | null
+          comment_count: number | null
+          content: string
+          created_at: string | null
+          hashtags: string[] | null
+          id: string
+          likes: string[] | null
+          mentions: string[] | null
+          reply_to: string | null
+          retweet_of: string | null
+          retweets: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          attachments?: string[] | null
+          comment_count?: number | null
+          content: string
+          created_at?: string | null
+          hashtags?: string[] | null
+          id?: string
+          likes?: string[] | null
+          mentions?: string[] | null
+          reply_to?: string | null
+          retweet_of?: string | null
+          retweets?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          attachments?: string[] | null
+          comment_count?: number | null
+          content?: string
+          created_at?: string | null
+          hashtags?: string[] | null
+          id?: string
+          likes?: string[] | null
+          mentions?: string[] | null
+          reply_to?: string | null
+          retweet_of?: string | null
+          retweets?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tweets_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tweets_retweet_of_fkey"
+            columns: ["retweet_of"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tweets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          display_name: string
+          followers: string[] | null
+          following: string[] | null
+          header_url: string | null
+          id: string
+          joined_date: string | null
+          last_seen: string | null
+          username: string
+          verified: boolean | null
+          wallet_address: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          display_name: string
+          followers?: string[] | null
+          following?: string[] | null
+          header_url?: string | null
+          id?: string
+          joined_date?: string | null
+          last_seen?: string | null
+          username: string
+          verified?: boolean | null
+          wallet_address: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          display_name?: string
+          followers?: string[] | null
+          following?: string[] | null
+          header_url?: string | null
+          id?: string
+          joined_date?: string | null
+          last_seen?: string | null
+          username?: string
+          verified?: boolean | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
