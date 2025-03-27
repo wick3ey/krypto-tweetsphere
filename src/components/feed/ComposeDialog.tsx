@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -32,7 +31,9 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
   const queryClient = useQueryClient();
   
   const { mutate: createTweet, isPending: isCreatingTweet } = useMutation({
-    mutationFn: () => tweetService.createTweet(content, attachments, replyToTweetId),
+    mutationFn: () => {
+      return tweetService.createTweet(content, attachments);
+    },
     onSuccess: () => {
       toast.success('Tweet skapad!');
       setContent('');
@@ -83,12 +84,10 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl p-0 overflow-hidden">
         <div className="relative">
-          {/* Header */}
           <DialogHeader className="px-4 py-2 border-b">
             <DialogTitle className="text-lg font-medium">Skapa inlägg</DialogTitle>
           </DialogHeader>
           
-          {/* Content */}
           <div className="p-4">
             <div className="flex gap-3">
               <Avatar className="h-10 w-10 border border-border">
@@ -132,10 +131,8 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
             </div>
           </div>
           
-          {/* Bottom */}
           <div className="p-4 pt-0">
             
-            {/* Preview */}
             {previewVisible && attachments.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {attachments.map((file, index) => (
@@ -179,7 +176,6 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
               </Card>
             )}
           </div>
-          
         </div>
       </DialogContent>
     </Dialog>

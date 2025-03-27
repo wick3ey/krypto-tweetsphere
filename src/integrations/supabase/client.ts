@@ -26,7 +26,7 @@ declare module '@supabase/supabase-js' {
     rpc<FunctionName extends keyof RPCFunctions>(
       fn: FunctionName,
       args?: Parameters<RPCFunctions[FunctionName]>[0]
-    ): ReturnType<SupabaseClient['rpc']>;
+    ): Promise<{ data: ReturnType<RPCFunctions[FunctionName]> extends Promise<infer T> ? T : never; error: null } | { data: null; error: Error }>;
   }
 }
 
