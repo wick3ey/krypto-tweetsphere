@@ -1,217 +1,223 @@
-import React, { useState, useEffect } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { PhantomIcon } from '@/components/icons/PhantomIcon';
-import { useNavigate } from 'react-router-dom';
-import { authService } from '@/api/authService';
+import { LogOut, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
-import { useUser } from '@/hooks/useUser';
+import { useNavigate } from 'react-router-dom';
+import { PhantomIcon } from '@/components/icons/PhantomIcon';
 import { supabase } from '@/integrations/supabase/client';
-import { dbUserToUser } from '@/lib/db-types';
+import { useUser } from '@/hooks/useUser';
 
-interface WalletConnectProps {
-  className?: string;
-  variant?: 'default' | 'outline' | 'ghost' | 'link';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
-  fullWidth?: boolean;
-}
-
-export const WalletConnect = ({
-  className = '',
-  variant = 'default',
-  size = 'default',
-  fullWidth = false,
-}: WalletConnectProps) => {
+export const WalletConnect = () => {
   const [isConnecting, setIsConnecting] = useState(false);
-  const [hasPhantomWallet, setHasPhantomWallet] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const navigate = useNavigate();
   const { refetchCurrentUser } = useUser();
 
+  // Check if wallet is connected on component mount
   useEffect(() => {
-    const checkForPhantom = async () => {
-      try {
-        const isPhantomInstalled = window.phantom?.solana || window.solana?.isPhantom;
-        setHasPhantomWallet(!!isPhantomInstalled);
-        
-        if (isPhantomInstalled) {
-          console.log('Detected Phantom wallet via window.phantom.solana');
-        }
-      } catch (error) {
-        console.error('Error checking for Phantom wallet:', error);
-        setHasPhantomWallet(false);
+    const checkConnection = async () => {
+      // Check if we have a wallet address stored locally
+      const storedWalletAddress = localStorage.getItem('wallet_address');
+      const token = localStorage.getItem('jwt_token');
+      
+      if (storedWalletAddress && token) {
+        setWalletAddress(storedWalletAddress);
       }
     };
-
-    checkForPhantom();
+    
+    checkConnection();
   }, []);
 
-  const connectWallet = async () => {
+  // Checks if Phantom is available
+  const getProvider = () => {
+    if (window.phantom?.solana) {
+      return window.phantom.solana;
+    } else if (window.solana) {
+      return window.solana;
+    }
+    return null;
+  };
+
+  // Connect to wallet and authenticate with backend
+  const handleConnect = async () => {
     try {
       setIsConnecting(true);
-      console.log('Initiating wallet connection...');
       
-      const provider = window.phantom?.solana || window.solana;
+      // Check if Phantom is installed
+      const provider = getProvider();
       
       if (!provider) {
-        toast.error('Phantom wallet not installed', {
-          description: 'Please install Phantom wallet extension',
+        // Phantom wallet not found
+        toast.error("Wallet not found", {
+          description: "Please install Phantom wallet extension",
+          action: {
+            label: "Install",
+            onClick: () => window.open("https://phantom.app/", "_blank"),
+          },
         });
         return;
       }
       
-      console.log('Detected Phantom wallet via window.phantom.solana');
-      console.log('Initiating wallet connection');
-      
+      // Connect to Phantom wallet
       const response = await provider.connect();
-      const publicKey = response.publicKey.toString();
+      const newWalletAddress = response.publicKey.toString();
       
-      console.log('Connected to wallet', response);
+      // Store wallet address
+      setWalletAddress(newWalletAddress);
+      localStorage.setItem('wallet_address', newWalletAddress);
       
-      localStorage.setItem('wallet_address', publicKey);
+      // Get a nonce to sign from Supabase
+      const { data: nonceData, error: nonceError } = await supabase.rpc('get_nonce', { 
+        wallet_addr: newWalletAddress 
+      });
       
-      if (authService.isLoggedIn()) {
-        try {
-          await refetchCurrentUser();
-          
-          const currentUser = await authService.getCurrentUser();
-          
-          if (currentUser.username.startsWith('user_') || 
-              !currentUser.displayName || 
-              currentUser.displayName === 'New User') {
-            navigate('/setup-profile');
-          } else {
-            navigate('/');
-          }
-        } catch (error) {
-          console.error('Error refreshing user data:', error);
-          
-          await authenticateWithWallet(publicKey);
-        }
-      } else {
-        await authenticateWithWallet(publicKey);
+      if (nonceError) {
+        console.error("Error fetching nonce:", nonceError);
+        
+        // Create a new nonce if none exists
+        const newNonce = crypto.randomUUID();
+        const messageText = `Sign this message to verify your wallet ownership: ${newNonce}`;
+        
+        await supabase.rpc('create_nonce', { 
+          wallet_addr: newWalletAddress,
+          nonce_value: newNonce,
+          message_text: messageText
+        });
+        
+        nonceData = { nonce: newNonce, message: messageText };
       }
-    } catch (error) {
-      console.log('Wallet connection error', error);
-      toast.error('Could not connect to wallet', { 
+      
+      const message = nonceData.message;
+      
+      // Sign the message with the wallet
+      const encodedMessage = new TextEncoder().encode(message);
+      const signResult = await provider.signMessage(encodedMessage, "utf8");
+      const signature = Array.from(signResult.signature)
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+      
+      // Verify the signature with the backend
+      const response = await fetch('https://dtrlmfwgtjrjkepvgatv.supabase.co/functions/v1/verify-wallet-signature', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          walletAddress: newWalletAddress,
+          signature,
+          message
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+      
+      // Store JWT token
+      localStorage.setItem('jwt_token', data.token);
+      
+      // Check if profile needs setup
+      if (data.needsProfileSetup) {
+        toast.success('Wallet connected', {
+          description: 'Please set up your profile'
+        });
+        navigate('/setup-profile');
+      } else {
+        toast.success('Wallet connected', {
+          description: 'Welcome back!'
+        });
+        
+        // Store user data locally for faster access
+        localStorage.setItem('current_user', JSON.stringify(data.user));
+        
+        // Refresh current user data
+        refetchCurrentUser();
+      }
+    } catch (error: any) {
+      console.error('Wallet connection error:', error);
+      toast.error('Failed to connect wallet', {
         description: error.message || 'Please try again'
       });
+      
+      // Clean up on failure
+      localStorage.removeItem('wallet_address');
+      localStorage.removeItem('jwt_token');
+      setWalletAddress(null);
     } finally {
       setIsConnecting(false);
     }
   };
   
-  const authenticateWithWallet = async (walletAddress: string) => {
+  // Disconnect wallet and clear auth state
+  const handleDisconnect = async () => {
     try {
-      console.log('Requesting nonce for wallet', walletAddress);
+      const provider = getProvider();
       
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('wallet_address', walletAddress)
-          .maybeSingle();
-        
-        if (error) throw error;
-        
-        let userExists = !!data;
-        let needsSetup = false;
-        
-        if (userExists) {
-          needsSetup = !data.username || 
-                     data.username.startsWith('user_') || 
-                     !data.display_name || 
-                     data.display_name === 'New User';
-        }
-        
-        const { nonce, message } = await authService.getNonce(walletAddress);
-        
-        const provider = window.phantom?.solana || window.solana;
-        
-        const { signature } = await provider.signMessage(
-          new TextEncoder().encode(message),
-          'utf8'
-        );
-        
-        const signatureBase64 = btoa(
-          String.fromCharCode.apply(null, new Uint8Array(signature))
-        );
-        
-        const { user, isNewUser, needsProfileSetup } = await authService.verifySignature(
-          walletAddress, 
-          signatureBase64, 
-          message
-        );
-        
-        if (isNewUser || needsProfileSetup || needsSetup) {
-          const userObj = userExists ? dbUserToUser(data) : user;
-          
-          localStorage.setItem('current_user', JSON.stringify(userObj));
-          
-          toast.success('Login successful', {
-            description: 'Please set up your profile'
-          });
-          
-          navigate('/setup-profile');
-        } else {
-          toast.success('Login successful', {
-            description: 'Welcome back!'
-          });
-          
-          navigate('/');
-        }
-      } catch (error) {
-        console.error('Error checking user in database:', error);
-        
-        const { nonce, message } = await authService.getNonce(walletAddress);
-        
-        const provider = window.phantom?.solana || window.solana;
-        
-        const { signature } = await provider.signMessage(
-          new TextEncoder().encode(message),
-          'utf8'
-        );
-        
-        const signatureBase64 = btoa(
-          String.fromCharCode.apply(null, new Uint8Array(signature))
-        );
-        
-        const { user, isNewUser, needsProfileSetup } = await authService.verifySignature(
-          walletAddress, 
-          signatureBase64, 
-          message
-        );
-        
-        if (isNewUser || needsProfileSetup) {
-          toast.success('Login successful', {
-            description: 'Please set up your profile'
-          });
-          
-          navigate('/setup-profile');
-        } else {
-          toast.success('Login successful', {
-            description: 'Welcome back!'
-          });
-          
-          navigate('/');
-        }
+      if (provider) {
+        await provider.disconnect();
       }
-    } catch (error) {
-      console.log('Authentication error', error);
-      toast.error('Authentication failed', { 
+      
+      // Clear auth data
+      localStorage.removeItem('wallet_address');
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('current_user');
+      
+      setWalletAddress(null);
+      
+      toast.success('Wallet disconnected');
+      
+      // Navigate to home page
+      navigate('/');
+    } catch (error: any) {
+      console.error('Wallet disconnection error:', error);
+      toast.error('Failed to disconnect wallet', { 
         description: error.message || 'Please try again'
       });
     }
   };
   
+  // Format wallet address for display
+  const formatWalletAddress = (address: string) => {
+    if (!address) return '';
+    return `${address.substring(0, 4)}...${address.substring(address.length - 4)}`;
+  };
+
   return (
-    <Button
-      variant={variant}
-      size={size}
-      className={`${className} ${fullWidth ? 'w-full' : ''}`}
-      onClick={connectWallet}
-      disabled={isConnecting}
-    >
-      {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-      <PhantomIcon className="ml-2 h-4 w-4" />
-    </Button>
+    <div>
+      {walletAddress ? (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="rounded-full"
+          onClick={handleDisconnect}
+        >
+          <span className="font-mono text-xs mr-1">{formatWalletAddress(walletAddress)}</span>
+          <LogOut className="h-4 w-4" />
+        </Button>
+      ) : (
+        <Button 
+          variant="default" 
+          size="sm" 
+          className="rounded-full bg-gradient-to-r from-crypto-blue to-crypto-purple hover:from-crypto-purple hover:to-crypto-blue text-white"
+          onClick={handleConnect}
+          disabled={isConnecting}
+        >
+          {isConnecting ? (
+            <div className="flex items-center">
+              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-r-transparent"></div>
+              <span>Connecting...</span>
+            </div>
+          ) : (
+            <div className="flex items-center">
+              <PhantomIcon className="h-4 w-4 mr-1" />
+              <span>Connect</span>
+            </div>
+          )}
+        </Button>
+      )}
+    </div>
   );
 };
