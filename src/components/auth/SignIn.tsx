@@ -28,13 +28,7 @@ export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
       setIsLoading(true);
       await authService.signInWithEmail(email, password);
       toast.success('Inloggad!');
-      
-      // Kontrollera om användaren behöver gå till profilinställningssidan
-      if (localStorage.getItem('profile_setup_complete') !== 'true') {
-        navigate('/setup-profile');
-      } else {
-        navigate('/');
-      }
+      navigate('/');
     } catch (error: any) {
       console.error('Inloggningsfel:', error);
       

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -38,9 +39,6 @@ export const SignUp = ({ onToggleForm }: { onToggleForm: () => void }) => {
       setIsLoading(true);
       await authService.signUpWithEmail(email, password);
       
-      // Markera att profilinställning behövs
-      localStorage.removeItem('profile_setup_complete');
-      
       toast.success('Konto skapat!', {
         description: 'Du kan nu logga in med dina uppgifter.'
       });
@@ -67,12 +65,6 @@ export const SignUp = ({ onToggleForm }: { onToggleForm: () => void }) => {
     try {
       setGoogleLoading(true);
       toast.info('Omdirigerar till Google...');
-      
-      // Markera att profilinställning behövs för Google-registrering
-      localStorage.removeItem('profile_setup_complete');
-      
-      // Använd genväg för att garantera att användaren dirigeras till profilinställningen efter Google-auth
-      localStorage.setItem('needs_profile_setup', 'true');
       
       await authService.signUpWithGoogle();
       
