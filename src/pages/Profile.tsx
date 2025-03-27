@@ -84,7 +84,7 @@ const Profile = () => {
   const isOwnProfile = currentUser?.id === userProfile?.id;
   const isFollowing = currentUser?.following?.includes?.(userProfile?.id);
   
-  // Hämta användarens tweets
+  // Hämta användarens tweets - Fixed here by passing an object with the type property
   const { 
     data: userTweets = [], 
     isLoading: isLoadingTweets,
@@ -93,8 +93,8 @@ const Profile = () => {
     queryKey: ['userTweets', userProfile?.id, activeTab],
     queryFn: () => userService.getUserTweets(
       userProfile?.id,
-      activeTab === "replies" ? "replies" : 
-      activeTab === "media" ? "media" : "tweets"
+      { type: activeTab === "replies" ? "replies" : 
+              activeTab === "media" ? "media" : "tweets" }
     ),
     enabled: !!userProfile?.id,
     staleTime: 60 * 1000 // 1 minut

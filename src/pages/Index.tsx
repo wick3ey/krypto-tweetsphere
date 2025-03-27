@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import AnimatedCard from '@/components/common/AnimatedCard';
@@ -76,10 +75,8 @@ const Index = () => {
     if (!tweetContent.trim()) return Promise.reject(new Error("Tweet content is empty"));
     
     if (!isLoggedIn) {
-      toast({
-        title: "Authentication required",
-        description: "Please connect your wallet to post tweets",
-        variant: "destructive",
+      toast.error("Authentication required", {
+        description: "Please connect your wallet to post tweets"
       });
       return Promise.reject(new Error("Not authenticated"));
     }
