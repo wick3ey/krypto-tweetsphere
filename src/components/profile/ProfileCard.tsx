@@ -188,11 +188,11 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
           
           <div className="mt-3 flex space-x-5">
             <div className="bg-secondary/50 px-3 py-1.5 rounded-lg">
-              <span className="font-semibold">{profile.following?.length || 0}</span>
+              <span className="font-semibold">{profile.following}</span>
               <span className="text-muted-foreground ml-1">Följer</span>
             </div>
             <div className="bg-secondary/50 px-3 py-1.5 rounded-lg">
-              <span className="font-semibold">{profile.followers?.length || 0}</span>
+              <span className="font-semibold">{profile.followers}</span>
               <span className="text-muted-foreground ml-1">Följare</span>
             </div>
           </div>
