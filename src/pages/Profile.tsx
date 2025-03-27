@@ -78,7 +78,9 @@ const Profile = () => {
   });
   
   const isOwnProfile = currentUser?.id === userProfile?.id;
-  const isFollowing = currentUser?.following?.includes?.(userProfile?.id);
+  const isFollowing = userProfile?.id && Array.isArray(currentUser?.following) 
+    ? currentUser?.following.includes(userProfile.id) 
+    : false;
   
   const { 
     data: userTweets = [], 
@@ -479,7 +481,7 @@ const Profile = () => {
                     ? "Anslut din wallet för att visa dina tillgångar" 
                     : "Denna användare har inte anslutit några tillgångar"}
                 </p>
-                {isOwnProfile && !currentUser?.hasConnectedWallet && (
+                {isOwnProfile && (
                   <Button className="mt-4">Anslut Wallet</Button>
                 )}
               </AnimatedCard>

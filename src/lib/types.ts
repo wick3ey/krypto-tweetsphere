@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   username: string;
@@ -15,6 +14,7 @@ export interface User {
   twitterHandle?: string; // Added for Twitter handle
   _id?: string;
   profileImage?: string;
+  hasConnectedWallet?: boolean; // Added to support property used in Profile.tsx
 }
 
 export interface Tweet {

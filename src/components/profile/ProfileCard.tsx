@@ -23,7 +23,10 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
   
   // Check if the logged-in user follows this profile
   const isCurrentUser = currentUser?.id === profile.id;
-  const isFollowing = currentUser?.following?.includes?.(profile.id);
+  // Fix: Safely check if following includes the profile.id regardless of type
+  const isFollowing = Array.isArray(currentUser?.following) 
+    ? currentUser?.following.includes(profile.id) 
+    : false;
   
   const formatJoinDate = (dateString: string) => {
     try {
