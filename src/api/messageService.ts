@@ -50,39 +50,69 @@ export const messageService = {
         return [];
       }
       
+      // Fetch user data for all users the current user has communicated with
+      // First, get unique user IDs of people the current user has messaged with
+      const { data: messagePartners, error: partnerError } = await supabase
+        .from('messages')
+        .select('sender_id, receiver_id')
+        .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`);
+
+      if (partnerError) {
+        console.error('Error fetching message partners:', partnerError);
+        return [];
+      }
+
+      // Extract unique user IDs (excluding the current user)
+      const uniqueUserIds = [...new Set(
+        messagePartners?.flatMap(msg => 
+          [msg.sender_id, msg.receiver_id].filter(id => id !== currentUserId)
+        ) || []
+      )];
+
+      if (uniqueUserIds.length === 0) {
+        return [];
+      }
+
+      // Fetch user data for these users
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .in('id', uniqueUserIds);
+        
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        return [];
+      }
+
+      // Convert the DB users to app users and create a map for quick lookup
+      const userMap = new Map();
+      userData?.forEach(user => {
+        userMap.set(user.id, dbUserToUser(user));
+      });
+
       // Hämta alla konversationer där användaren är avsändare
       const { data: sentMessages, error: sentError } = await supabase
         .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          read,
-          receiver_id,
-          sender_id,
-          users:receiver_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
-        `)
+        .select('*')
         .eq('sender_id', currentUserId)
         .order('created_at', { ascending: false });
         
-      if (sentError) throw sentError;
+      if (sentError) {
+        console.error('Error fetching sent messages:', sentError);
+        return [];
+      }
       
       // Hämta alla konversationer där användaren är mottagare
       const { data: receivedMessages, error: receivedError } = await supabase
         .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          read,
-          receiver_id,
-          sender_id,
-          users:sender_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
-        `)
+        .select('*')
         .eq('receiver_id', currentUserId)
         .order('created_at', { ascending: false });
         
-      if (receivedError) throw receivedError;
+      if (receivedError) {
+        console.error('Error fetching received messages:', receivedError);
+        return [];
+      }
       
       // Kombinera meddelanden och strukturera dem i konversationer
       const conversations = new Map();
@@ -90,17 +120,14 @@ export const messageService = {
       // Lägg till skickade meddelanden
       if (sentMessages && sentMessages.length > 0) {
         sentMessages.forEach(message => {
-          const otherUser = message.users;
+          const userId = message.receiver_id;
+          const user = userMap.get(userId);
           
-          if (!otherUser) return;
-          
-          const userId = otherUser.id;
-          
-          if (!userId) return; // Skip if user id is undefined
+          if (!user) return; // Skip if we couldn't find the user
           
           if (!conversations.has(userId)) {
             conversations.set(userId, {
-              user: dbUserToUser(otherUser),
+              user,
               lastMessage: {
                 id: message.id,
                 content: message.content,
@@ -128,17 +155,14 @@ export const messageService = {
       // Lägg till mottagna meddelanden
       if (receivedMessages && receivedMessages.length > 0) {
         receivedMessages.forEach(message => {
-          const otherUser = message.users;
+          const userId = message.sender_id;
+          const user = userMap.get(userId);
           
-          if (!otherUser) return;
-          
-          const userId = otherUser.id;
-          
-          if (!userId) return; // Skip if user id is undefined
+          if (!user) return; // Skip if we couldn't find the user
           
           if (!conversations.has(userId)) {
             conversations.set(userId, {
-              user: dbUserToUser(otherUser),
+              user,
               lastMessage: {
                 id: message.id,
                 content: message.content,
