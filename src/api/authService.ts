@@ -63,11 +63,11 @@ export const authService = {
       this.clearAuthData();
       
       // Call the Supabase Edge Function to verify the signature
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/verify-wallet-signature`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-wallet-signature`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.supabaseKey}`
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           walletAddress,
