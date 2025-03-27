@@ -134,6 +134,8 @@ export const authService = {
         ? window.location.origin // Use local origin for development
         : 'https://f3oci3ty.xyz'; // Use production domain for live site
       
+      console.log('Signing in with Google, redirectTo:', redirectTo);
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
