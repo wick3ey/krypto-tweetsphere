@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';

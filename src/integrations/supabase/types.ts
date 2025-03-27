@@ -476,7 +476,7 @@ export type Database = {
           last_seen: string | null
           username: string
           verified: boolean | null
-          wallet_address: string
+          wallet_address: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -490,7 +490,7 @@ export type Database = {
           last_seen?: string | null
           username: string
           verified?: boolean | null
-          wallet_address: string
+          wallet_address?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -504,7 +504,7 @@ export type Database = {
           last_seen?: string | null
           username?: string
           verified?: boolean | null
-          wallet_address?: string
+          wallet_address?: string | null
         }
         Relationships: []
       }

@@ -1,4 +1,3 @@
-
 import { User as UserType, Tweet as TweetType } from '@/lib/types';
 
 // Database User Type - represents the structure from Supabase
@@ -10,7 +9,7 @@ export interface DbUser {
   header_url?: string;
   bio?: string;
   joined_date: string;
-  last_seen?: string; // Make last_seen optional to fix type errors
+  last_seen?: string;
   verified: boolean;
   following: string[];
   followers: string[];
