@@ -6,8 +6,8 @@ export interface User {
   walletAddress: string;
   bio: string;
   joinedDate: string;
-  following: number;
-  followers: number;
+  following: number | string[];
+  followers: number | string[];
   verified: boolean;
   _id?: string;
   profileImage?: string;
@@ -32,6 +32,8 @@ export interface Tweet {
   createdAt?: string;
   retweetOf?: string;
   replyTo?: string;
+  likedBy?: string[];  // Array of user IDs who liked this tweet
+  retweetedBy?: string[]; // Array of user IDs who retweeted this tweet
 }
 
 export interface Transaction {

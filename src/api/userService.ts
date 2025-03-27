@@ -214,10 +214,49 @@ export const userService = {
     try {
       const { type = 'all', page = 1, limit = 20, sortBy = 'recent' } = options || {};
       logService.debug("Getting user tweets", { userId, type, page, limit, sortBy }, "userService");
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/tweets`, {
-        params: { type, page, limit, sortBy }
-      });
-      return response.data.tweets;
+      
+      // Try to get from API first
+      try {
+        const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/tweets`, {
+          params: { type, page, limit, sortBy }
+        });
+        
+        // Return sorted by most recent first
+        const tweets = Array.isArray(response.data.tweets) ? response.data.tweets : 
+                      (Array.isArray(response.data) ? response.data : []);
+                      
+        return tweets.sort((a, b) => {
+          const dateA = new Date(a.timestamp || a.createdAt || 0);
+          const dateB = new Date(b.timestamp || b.createdAt || 0);
+          return dateB.getTime() - dateA.getTime();
+        });
+      } catch (apiError) {
+        console.error('API call failed, using local fallback:', apiError);
+        
+        // Fallback to local storage
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const userTweets = localTweets.filter((tweet: any) => {
+          // Include tweets created by this user
+          if (tweet.user && (tweet.user.id === userId || tweet.user._id === userId)) {
+            return true;
+          }
+          
+          // Include retweets by this user
+          if (tweet.retweetedBy && Array.isArray(tweet.retweetedBy) && 
+              tweet.retweetedBy.includes(userId)) {
+            return true;
+          }
+          
+          return false;
+        });
+        
+        // Sort by most recent first
+        return userTweets.sort((a: any, b: any) => {
+          const dateA = new Date(a.timestamp || a.createdAt || 0);
+          const dateB = new Date(b.timestamp || b.createdAt || 0);
+          return dateB.getTime() - dateA.getTime();
+        });
+      }
     } catch (error) {
       logService.error('Error getting user tweets', { error, userId }, "userService");
       return [];

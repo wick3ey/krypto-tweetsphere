@@ -38,9 +38,15 @@ const TweetActions = ({ tweet, onReply, compact, className }: TweetActionsProps)
     setLikeCount(tweet.likes || tweet.likeCount || 0);
     setRetweetCount(tweet.retweets || tweet.retweetCount || 0);
     
-    // Check if user has already liked/retweeted this tweet (if we implement this on backend)
-    // This would require the API to return liked and retweeted status for the currentUser
-  }, [tweet]);
+    // Check if user has already liked/retweeted this tweet
+    if (currentUser && tweet.likedBy && Array.isArray(tweet.likedBy)) {
+      setLiked(tweet.likedBy.includes(currentUser.id));
+    }
+    
+    if (currentUser && tweet.retweetedBy && Array.isArray(tweet.retweetedBy)) {
+      setRetweeted(tweet.retweetedBy.includes(currentUser.id));
+    }
+  }, [tweet, currentUser]);
   
   const formatNumber = (num: number): string => {
     if (!num && num !== 0) return '0';
@@ -181,7 +187,7 @@ const TweetActions = ({ tweet, onReply, compact, className }: TweetActionsProps)
           onClick={handleRetweet}
           disabled={isRetweeting}
         >
-          <Repeat2 className="h-3 w-3 mr-1" />
+          <Repeat2 className={cn("h-3 w-3 mr-1", retweeted && "fill-crypto-green")} />
           <span>{formatNumber(retweetCount)}</span>
         </button>
       </div>
@@ -215,7 +221,7 @@ const TweetActions = ({ tweet, onReply, compact, className }: TweetActionsProps)
           "p-1.5 rounded-full transition-colors",
           retweeted ? "bg-crypto-green/10" : "group-hover:bg-crypto-green/10"
         )}>
-          <Repeat2 className="h-4 w-4 transition-colors" />
+          <Repeat2 className={cn("h-4 w-4 transition-colors", retweeted && "fill-crypto-green")} />
         </div>
         <span>{formatNumber(retweetCount)}</span>
       </button>

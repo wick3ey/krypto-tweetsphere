@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
@@ -140,6 +139,8 @@ export const tweetService = {
           likes: 0,
           retweets: 0,
           comments: 0,
+          likedBy: [],
+          retweetedBy: [],
           hashtags: content.match(/#(\w+)/g)?.map(tag => tag.substring(1)) || []
         };
         
@@ -260,24 +261,29 @@ export const tweetService = {
     }
     
     try {
+      // Get current user ID
+      const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const userId = userData?.id;
+      
+      if (!userId) {
+        toast.error("User data missing", { description: "Please log in to like tweets" });
+        return { success: false, message: "Authentication required" };
+      }
+      
       // Try to call API first
       try {
         const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
         console.log("API like successful:", response.data);
+        
+        // Update local tweet
+        updateLocalTweetLikes(id, userId, true);
+        
         return response.data;
       } catch (apiError) {
         console.log("API like failed, using local fallback:", apiError);
         
         // Fallback to updating the tweet locally
-        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
-        
-        if (tweetIndex >= 0) {
-          // Increment the likes count
-          localTweets[tweetIndex].likes = (localTweets[tweetIndex].likes || 0) + 1;
-          localTweets[tweetIndex].likeCount = (localTweets[tweetIndex].likeCount || 0) + 1;
-          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
-        }
+        updateLocalTweetLikes(id, userId, true);
         
         return { success: true, message: "Liked locally only" };
       }
@@ -295,24 +301,29 @@ export const tweetService = {
     }
     
     try {
+      // Get current user ID
+      const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const userId = userData?.id;
+      
+      if (!userId) {
+        toast.error("User data missing", { description: "Please log in to unlike tweets" });
+        return { success: false, message: "Authentication required" };
+      }
+      
       // Try to call API first
       try {
         const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
         console.log("API unlike successful:", response.data);
+        
+        // Update local tweet
+        updateLocalTweetLikes(id, userId, false);
+        
         return response.data;
       } catch (apiError) {
         console.log("API unlike failed, using local fallback:", apiError);
         
         // Fallback to updating the tweet locally
-        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
-        
-        if (tweetIndex >= 0) {
-          // Decrement the likes count, but don't go below 0
-          localTweets[tweetIndex].likes = Math.max(0, (localTweets[tweetIndex].likes || 0) - 1);
-          localTweets[tweetIndex].likeCount = Math.max(0, (localTweets[tweetIndex].likeCount || 0) - 1);
-          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
-        }
+        updateLocalTweetLikes(id, userId, false);
         
         return { success: true, message: "Unliked locally only" };
       }
@@ -330,50 +341,57 @@ export const tweetService = {
     }
     
     try {
+      // Get current user ID
+      const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const userId = userData?.id;
+      
+      if (!userId) {
+        toast.error("User data missing", { description: "Please log in to retweet" });
+        return { success: false, message: "Authentication required" };
+      }
+      
       // Try to call API first
       try {
         const payload = comment ? { comment } : {};
         const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`, payload);
         console.log("API retweet successful:", response.data);
+        
+        // Update local tweet
+        updateLocalTweetRetweets(id, userId, true);
+        
         return response.data;
       } catch (apiError) {
         console.log("API retweet failed, using local fallback:", apiError);
         
         // Fallback to updating the tweet locally
-        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        updateLocalTweetRetweets(id, userId, true);
         
-        if (tweetIndex >= 0) {
-          // Increment the retweets count
-          localTweets[tweetIndex].retweets = (localTweets[tweetIndex].retweets || 0) + 1;
-          localTweets[tweetIndex].retweetCount = (localTweets[tweetIndex].retweetCount || 0) + 1;
-          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+        // Also create a local retweet
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const originalTweet = localTweets.find((t: Tweet) => t.id === id);
+        
+        if (originalTweet && userData) {
+          // Create a retweet object
+          const retweetContent = comment || `RT @${originalTweet.user.username}: ${originalTweet.content}`;
+          const retweetId = 'local-retweet-' + Date.now();
           
-          // Also create a local retweet if we have user data
-          const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
-          if (userData && userData.id) {
-            const originalTweet = localTweets[tweetIndex];
-            
-            // Create a retweet object
-            const retweetContent = comment || `RT @${originalTweet.user.username}: ${originalTweet.content}`;
-            const retweetId = 'local-retweet-' + Date.now();
-            
-            const retweetObj: Tweet = {
-              id: retweetId,
-              content: retweetContent,
-              user: userData,
-              timestamp: new Date().toISOString(),
-              likes: 0,
-              retweets: 0,
-              comments: 0,
-              hashtags: originalTweet.hashtags || [],
-              retweetOf: id
-            };
-            
-            // Save it to local storage
-            localTweets.unshift(retweetObj);
-            localStorage.setItem('local_tweets', JSON.stringify(localTweets));
-          }
+          const retweetObj: Tweet = {
+            id: retweetId,
+            content: retweetContent,
+            user: userData,
+            timestamp: new Date().toISOString(),
+            likes: 0,
+            retweets: 0,
+            comments: 0,
+            hashtags: originalTweet.hashtags || [],
+            retweetOf: id,
+            likedBy: [],
+            retweetedBy: [userId]
+          };
+          
+          // Save it to local storage
+          localTweets.unshift(retweetObj);
+          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
         }
         
         return { success: true, message: "Retweeted locally only" };
@@ -392,34 +410,36 @@ export const tweetService = {
     }
     
     try {
+      // Get current user ID
+      const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
+      const userId = userData?.id;
+      
+      if (!userId) {
+        toast.error("User data missing", { description: "Please log in to unretweet" });
+        return { success: false, message: "Authentication required" };
+      }
+      
       // Try to call API first
       try {
         const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`);
         console.log("API unretweet successful:", response.data);
+        
+        // Update local tweet
+        updateLocalTweetRetweets(id, userId, false);
+        
         return response.data;
       } catch (apiError) {
         console.log("API unretweet failed, using local fallback:", apiError);
         
         // Fallback to updating the tweet locally
-        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        updateLocalTweetRetweets(id, userId, false);
         
-        if (tweetIndex >= 0) {
-          // Decrement the retweets count, but don't go below 0
-          localTweets[tweetIndex].retweets = Math.max(0, (localTweets[tweetIndex].retweets || 0) - 1);
-          localTweets[tweetIndex].retweetCount = Math.max(0, (localTweets[tweetIndex].retweetCount || 0) - 1);
-          
-          // Also remove any local retweets of this tweet by the current user
-          const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
-          if (userData && userData.id) {
-            const updatedTweets = localTweets.filter((t: Tweet) => {
-              return !(t.retweetOf === id && t.user.id === userData.id);
-            });
-            localStorage.setItem('local_tweets', JSON.stringify(updatedTweets));
-          } else {
-            localStorage.setItem('local_tweets', JSON.stringify(localTweets));
-          }
-        }
+        // Also remove any local retweets of this tweet by the current user
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const updatedTweets = localTweets.filter((t: Tweet) => {
+          return !(t.retweetOf === id && t.user.id === userId);
+        });
+        localStorage.setItem('local_tweets', JSON.stringify(updatedTweets));
         
         return { success: true, message: "Unretweeted locally only" };
       }
@@ -796,5 +816,67 @@ async function syncLocalTweet(tweet: Tweet) {
   } catch (error) {
     console.error(`Failed to sync local tweet ${tweet.id}:`, error);
     return false;
+  }
+}
+
+// Helper function to update likes in local storage
+function updateLocalTweetLikes(tweetId: string, userId: string, like: boolean) {
+  const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+  const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === tweetId);
+  
+  if (tweetIndex >= 0) {
+    // Make sure likedBy exists and is an array
+    if (!localTweets[tweetIndex].likedBy) {
+      localTweets[tweetIndex].likedBy = [];
+    }
+    
+    if (like) {
+      // Add user to likedBy if not already there
+      if (!localTweets[tweetIndex].likedBy.includes(userId)) {
+        localTweets[tweetIndex].likedBy.push(userId);
+        // Increment likes count
+        localTweets[tweetIndex].likes = (localTweets[tweetIndex].likes || 0) + 1;
+        localTweets[tweetIndex].likeCount = (localTweets[tweetIndex].likeCount || 0) + 1;
+      }
+    } else {
+      // Remove user from likedBy
+      localTweets[tweetIndex].likedBy = localTweets[tweetIndex].likedBy.filter((id: string) => id !== userId);
+      // Decrement likes count, but don't go below 0
+      localTweets[tweetIndex].likes = Math.max(0, (localTweets[tweetIndex].likes || 0) - 1);
+      localTweets[tweetIndex].likeCount = Math.max(0, (localTweets[tweetIndex].likeCount || 0) - 1);
+    }
+    
+    localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+  }
+}
+
+// Helper function to update retweets in local storage
+function updateLocalTweetRetweets(tweetId: string, userId: string, retweet: boolean) {
+  const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+  const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === tweetId);
+  
+  if (tweetIndex >= 0) {
+    // Make sure retweetedBy exists and is an array
+    if (!localTweets[tweetIndex].retweetedBy) {
+      localTweets[tweetIndex].retweetedBy = [];
+    }
+    
+    if (retweet) {
+      // Add user to retweetedBy if not already there
+      if (!localTweets[tweetIndex].retweetedBy.includes(userId)) {
+        localTweets[tweetIndex].retweetedBy.push(userId);
+        // Increment retweets count
+        localTweets[tweetIndex].retweets = (localTweets[tweetIndex].retweets || 0) + 1;
+        localTweets[tweetIndex].retweetCount = (localTweets[tweetIndex].retweetCount || 0) + 1;
+      }
+    } else {
+      // Remove user from retweetedBy
+      localTweets[tweetIndex].retweetedBy = localTweets[tweetIndex].retweetedBy.filter((id: string) => id !== userId);
+      // Decrement retweets count, but don't go below 0
+      localTweets[tweetIndex].retweets = Math.max(0, (localTweets[tweetIndex].retweets || 0) - 1);
+      localTweets[tweetIndex].retweetCount = Math.max(0, (localTweets[tweetIndex].retweetCount || 0) - 1);
+    }
+    
+    localStorage.setItem('local_tweets', JSON.stringify(localTweets));
   }
 }
