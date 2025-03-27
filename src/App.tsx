@@ -1,5 +1,5 @@
 
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,14 +10,14 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import NotFound from "./pages/NotFound";
 import { authService } from './api/authService';
 
-// Simple loading fallback to prevent high resource usage during initial load
+// Simple loading fallback
 const LoadingFallback = () => (
   <div className="min-h-screen flex items-center justify-center">
     <p className="text-muted-foreground">Loading...</p>
   </div>
 );
 
-// Create a simpler QueryClient to reduce initialization overhead
+// Create a QueryClient
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -28,36 +28,14 @@ const queryClient = new QueryClient({
   },
 });
 
-// Lazy-load the page components with low priority to improve initial load time
+// Lazy-load the page components
 const Index = lazy(() => import('./pages/Index'));
 const Profile = lazy(() => import('./pages/Profile'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Explore = lazy(() => import('./pages/Explore'));
-const Messages = lazy(() => import('./pages/Messages'));
 const ProfileSetup = lazy(() => import('./pages/ProfileSetup'));
 
-// Protected route wrapper with profile setup check
+// Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = !!localStorage.getItem('jwt_token');
-  
-  // Check if user needs to complete profile setup
-  useEffect(() => {
-    const checkProfileSetup = async () => {
-      if (isAuthenticated) {
-        try {
-          const user = await authService.getCurrentUser();
-          // If user doesn't have a username or display name, redirect to setup
-          if (!user.username || !user.displayName) {
-            window.location.href = '/setup-profile';
-          }
-        } catch (error) {
-          console.error('Error checking user profile:', error);
-        }
-      }
-    };
-    
-    checkProfileSetup();
-  }, [isAuthenticated]);
   
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -74,7 +52,7 @@ const App = () => {
       queryClient.prefetchQuery({
         queryKey: ['currentUser'],
         queryFn: () => authService.getCurrentUser(),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 5 * 60 * 1000,
       });
     }
   }, []);
@@ -89,7 +67,7 @@ const App = () => {
                 {/* Profile setup route outside of main layout */}
                 <Route path="/setup-profile" element={<ProfileSetup />} />
                 
-                {/* Main layout with all routes using standard layout */}
+                {/* Main layout with primary routes */}
                 <Route path="/" element={<AppLayout />}>
                   <Route index element={<Index />} />
                   <Route path="/profile" element={
@@ -98,39 +76,16 @@ const App = () => {
                     </ProtectedRoute>
                   } />
                   <Route path="/profile/:username" element={<Profile />} />
-                  <Route path="/dashboard" element={
-                    <ProtectedRoute>
-                      <Dashboard />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/explore" element={<Explore />} />
-                  <Route path="/messages" element={
-                    <ProtectedRoute>
-                      <Messages />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/tweets" element={<Index />} />
-                  <Route path="/network" element={<Explore />} />
-                  <Route path="/notifications" element={
-                    <ProtectedRoute>
-                      <Index />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/settings" element={
-                    <ProtectedRoute>
-                      <Index />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/hashtag/:tag" element={<Explore />} />
                   <Route path="*" element={<Navigate to="/404" replace />} />
                 </Route>
-                {/* Place the 404 page outside AppLayout since it has its own layout */}
+                
+                {/* 404 page */}
                 <Route path="/404" element={<NotFound />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>
           
-          {/* Place toasters outside routing to prevent them from disappearing on route changes */}
+          {/* Toasters */}
           <Toaster />
           <Sonner />
         </BrowserRouter>
