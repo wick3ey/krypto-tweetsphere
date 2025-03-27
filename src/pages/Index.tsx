@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -19,6 +19,7 @@ const Index = () => {
   const queryClient = useQueryClient();
   const { currentUser } = useUser();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const firstLoadRef = useRef(true);
   
   // Check if user is logged in
   const isLoggedIn = !!localStorage.getItem('jwt_token');
@@ -50,10 +51,12 @@ const Index = () => {
       console.log(`Fetching ${activeFeed} feed...`);
       if (activeFeed === 'trending') {
         return tweetService.getExploreFeed();
-      } else if (activeFeed === 'following') {
+      } else if (activeFeed === 'following' && isLoggedIn) {
         return tweetService.getFeed();
+      } else if (activeFeed === 'latest') {
+        return tweetService.getExploreFeed();
       } else {
-        // Latest feed
+        // Default to explore feed
         return tweetService.getExploreFeed();
       }
     },
@@ -63,6 +66,14 @@ const Index = () => {
     // Initialize with local tweets while waiting for API
     placeholderData: getLocalTweets, 
   });
+  
+  // Force refetch on first load
+  useEffect(() => {
+    if (firstLoadRef.current) {
+      firstLoadRef.current = false;
+      refetch();
+    }
+  }, [refetch]);
   
   // Make sure we have tweets, either from API or local storage
   const tweets = apiTweets.length > 0 ? apiTweets : getLocalTweets();
@@ -85,6 +96,11 @@ const Index = () => {
       
       // Then invalidate the query to trigger a background refresh
       queryClient.invalidateQueries({ queryKey: ['tweets'] });
+      
+      // Also refetch to ensure we get the latest data
+      setTimeout(() => {
+        refetch();
+      }, 500);
     },
     onError: (error: any) => {
       console.error("Error creating tweet:", error);

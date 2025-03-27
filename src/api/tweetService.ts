@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
@@ -9,8 +10,15 @@ export const tweetService = {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/feed');
       console.log("Feed response:", response.data);
       
-      const apiTweets = Array.isArray(response.data) ? response.data : 
-                      (response.data.data ? response.data.data : []);
+      // Handle both array and object response formats
+      let apiTweets = [];
+      if (Array.isArray(response.data)) {
+        apiTweets = response.data;
+      } else if (response.data.tweets && Array.isArray(response.data.tweets)) {
+        apiTweets = response.data.tweets;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        apiTweets = response.data.data;
+      }
       
       // Merge with local tweets
       const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
@@ -18,6 +26,7 @@ export const tweetService = {
         (tweet, index, self) => index === self.findIndex((t) => t.id === tweet.id)
       );
       
+      console.log('All tweets after merging:', allTweets);
       return allTweets;
     } catch (error) {
       console.error('Error fetching feed:', error);
@@ -40,8 +49,15 @@ export const tweetService = {
       const response = await apiClient.get('https://f3oci3ty.xyz/api/tweets/explore');
       console.log("Explore feed response:", response.data);
       
-      const apiTweets = Array.isArray(response.data) ? response.data : 
-                      (response.data.data ? response.data.data : []);
+      // Handle both array and object response formats
+      let apiTweets = [];
+      if (Array.isArray(response.data)) {
+        apiTweets = response.data;
+      } else if (response.data.tweets && Array.isArray(response.data.tweets)) {
+        apiTweets = response.data.tweets;
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        apiTweets = response.data.data;
+      }
       
       // Merge with local tweets
       const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
@@ -49,6 +65,7 @@ export const tweetService = {
         (tweet, index, self) => index === self.findIndex((t) => t.id === tweet.id)
       );
       
+      console.log('All tweets after merging:', allTweets);
       return allTweets;
     } catch (error) {
       console.error('Error fetching explore feed:', error);
@@ -106,7 +123,20 @@ export const tweetService = {
         const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', { content, attachments });
         console.log('Tweet created successfully via API:', response.data);
         
-        const newTweet = response.data.data || response.data;
+        // Handle different response formats
+        let newTweet;
+        if (response.data.data) {
+          newTweet = response.data.data;
+        } else if (response.data.tweet) {
+          newTweet = response.data.tweet;
+        } else {
+          newTweet = response.data;
+        }
+        
+        // Make sure the tweet has all necessary fields
+        if (!newTweet.user && userData) {
+          newTweet.user = userData;
+        }
         
         // Also save locally for offline use
         saveLocalTweet(newTweet);
@@ -262,3 +292,4 @@ function saveLocalTweet(tweet: Tweet) {
     console.log('Tweet saved to local storage:', tweet);
   }
 }
+

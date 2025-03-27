@@ -81,7 +81,12 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      setIsOpen(open);
+      if (!open) {
+        setContent(''); // Clear content when dialog closes
+      }
+    }}>
       <DialogTrigger asChild>
         {isMobile ? (
           <Button 
