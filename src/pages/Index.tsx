@@ -14,7 +14,8 @@ import ProfileCard from '@/components/profile/ProfileCard';
 import { RefreshCw } from 'lucide-react';
 
 const Index = () => {
-  const [activeFeed, setActiveFeed] = useState('trending'); // trending, latest, following
+  // Changed default feed from 'trending' to 'latest'
+  const [activeFeed, setActiveFeed] = useState('latest'); 
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const { currentUser } = useUser();
@@ -60,9 +61,11 @@ const Index = () => {
         return tweetService.getExploreFeed();
       }
     },
-    staleTime: 30000, // 30 seconds
+    // Reduced stale time to update more frequently
+    staleTime: 15000, // 15 seconds
     retry: 2,
     refetchOnWindowFocus: true,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
     // Initialize with local tweets while waiting for API
     placeholderData: getLocalTweets, 
   });
