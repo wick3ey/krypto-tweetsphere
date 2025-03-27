@@ -132,6 +132,12 @@ function App() {
           return;
         }
 
+        // Check if profile setup has been completed
+        const profileSetupComplete = localStorage.getItem('profile_setup_complete') === 'true';
+        if (profileSetupComplete) {
+          return;
+        }
+
         // Get current user data
         const userData = await authService.getCurrentUser();
         if (!userData) {
@@ -149,6 +155,9 @@ function App() {
           setTimeout(() => {
             navigate('/setup-profile', { replace: true });
           }, 100);
+        } else {
+          // Mark profile setup as complete
+          localStorage.setItem('profile_setup_complete', 'true');
         }
       } catch (error) {
         console.error('Error checking profile setup:', error);
@@ -164,7 +173,7 @@ function App() {
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
           <Route path="profile" element={<Profile />} />
-          <Route path="profile/:identifier" element={<Profile />} />
+          <Route path="profile/:username" element={<Profile />} />
           <Route path="setup-profile" element={<ProfileSetupPage />} />
           <Route path="auth/callback" element={
             <div className="flex items-center justify-center min-h-screen">

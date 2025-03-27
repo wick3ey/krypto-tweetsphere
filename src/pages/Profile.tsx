@@ -63,7 +63,7 @@ const Profile = () => {
   
   const { currentUser, isLoadingCurrentUser, followUser, unfollowUser } = useUser();
   
-  const identifier = username || currentUser?.username;
+  const identifier = username || (currentUser?.username || '');
   
   const { 
     data: userProfile, 
@@ -89,7 +89,7 @@ const Profile = () => {
   } = useQuery({
     queryKey: ['userTweets', userProfile?.id, activeTab],
     queryFn: () => userService.getUserTweets(
-      userProfile?.id,
+      userProfile?.id || '',
       { type: activeTab === "replies" ? "replies" : 
               activeTab === "media" ? "media" : "tweets" }
     ),
@@ -125,6 +125,11 @@ const Profile = () => {
   const handleFollowToggle = useCallback(() => {
     if (!currentUser) {
       toast.error("Du måste vara inloggad för att följa användare");
+      return;
+    }
+    
+    if (!userProfile?.id) {
+      toast.error("Kunde inte hitta användarprofilen");
       return;
     }
     

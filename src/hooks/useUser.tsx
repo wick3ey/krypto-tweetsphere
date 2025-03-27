@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/api/userService';
 import { authService } from '@/api/authService';
@@ -11,12 +12,12 @@ export function useUser() {
     data: currentUser,
     isLoading: isLoadingCurrentUser,
     error: currentUserError,
-    refetch: refetchUserQuery // Renamed from refetchCurrentUser to avoid conflict
+    refetch: refetchUserQuery 
   } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => authService.getCurrentUser(),
     enabled: !!localStorage.getItem('jwt_token'),
-    staleTime: 5 * 60 * 1000, // 5 minuter
+    staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
     meta: {
       onError: (error: any) => {
@@ -64,7 +65,6 @@ export function useUser() {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       
       localStorage.setItem('profile_setup_complete', 'true');
-      
       localStorage.setItem('current_user', JSON.stringify(data));
       
       toast.success("Profil skapad");
@@ -195,19 +195,27 @@ export function useUser() {
     isLoadingCurrentUser,
     currentUserError,
     refetchCurrentUser,
-    getUserProfile: () => {}, // These will be implemented below
+    getUserProfile: (identifier: string, options = {}) => {
+      return userService.getUserProfile(identifier, options);
+    },
     checkWalletUser,
     updateProfile: updateProfileMutation.mutate,
     createProfile: createProfileMutation.mutate,
     isUpdatingProfile: updateProfileMutation.isPending,
     isCreatingProfile: createProfileMutation.isPending,
-    followUser: () => {}, // These will be implemented below
-    isFollowingUser: false,
-    unfollowUser: () => {},
-    isUnfollowingUser: false,
-    getUserFollowers: () => {},
-    getUserFollowing: () => {},
-    getUserTweets: () => {},
+    followUser: followUserMutation.mutate,
+    isFollowingUser: followUserMutation.isPending,
+    unfollowUser: unfollowUserMutation.mutate,
+    isUnfollowingUser: unfollowUserMutation.isPending,
+    getUserFollowers: (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
+      return userService.getUserFollowers(userId, page, limit, sortBy);
+    },
+    getUserFollowing: (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
+      return userService.getUserFollowing(userId, page, limit, sortBy);
+    },
+    getUserTweets: (userId: string, options = {}) => {
+      return userService.getUserTweets(userId, options);
+    },
     needsProfileSetup,
     updateCachedUser,
     resetProfileSetupFlag
