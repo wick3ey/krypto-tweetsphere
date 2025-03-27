@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/api/userService';
 import { authService } from '@/api/authService';
@@ -11,7 +12,7 @@ export function useUser() {
     data: currentUser,
     isLoading: isLoadingCurrentUser,
     error: currentUserError,
-    refetch: refetchCurrentUser
+    refetch: refetchUserQuery  // Byt namn här från refetchCurrentUser till refetchUserQuery
   } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => authService.getCurrentUser(),
@@ -169,7 +170,7 @@ export function useUser() {
     currentUser,
     isLoadingCurrentUser,
     currentUserError,
-    refetchCurrentUser,
+    refetchCurrentUser,  // Behåll denna för att inte bryta API:et
     getUserProfile,
     checkWalletUser,
     updateProfile: updateProfileMutation.mutate,
