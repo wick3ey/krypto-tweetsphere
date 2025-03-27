@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { LogOut, Wallet } from 'lucide-react';
@@ -74,7 +73,7 @@ export const WalletConnect = () => {
       
       let messageToSign;
       
-      if (nonceError || !nonceData || nonceData.length === 0) {
+      if (nonceError || !nonceData) {
         console.error("Error fetching nonce:", nonceError);
         
         // Create a new nonce if none exists
