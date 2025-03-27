@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, Menu, X, Moon, Sun, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import WalletConnect from '@/components/common/WalletConnect';
+import { WalletConnect } from '@/components/common/WalletConnect';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';

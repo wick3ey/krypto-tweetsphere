@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { PhantomIcon } from '@/components/icons/PhantomIcon';
@@ -6,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { authService } from '@/api/authService';
 import { toast } from 'sonner';
 import { useUser } from '@/hooks/useUser';
-import { supabase } from '@/integrations/supabase/client'; // Lägg till denna import
-import { dbUserToUser } from '@/lib/db-types'; // Lägg till denna import
+import { supabase } from '@/integrations/supabase/client';
+import { dbUserToUser } from '@/lib/db-types';
 
 interface WalletConnectProps {
   className?: string;
@@ -27,11 +26,9 @@ export const WalletConnect = ({
   const navigate = useNavigate();
   const { refetchCurrentUser } = useUser();
 
-  // Kontrollera om Phantom-plånboken finns tillgänglig
   useEffect(() => {
     const checkForPhantom = async () => {
       try {
-        // @ts-ignore - Phantom är inte i typescript definitionerna
         const isPhantomInstalled = window.phantom?.solana || window.solana?.isPhantom;
         setHasPhantomWallet(!!isPhantomInstalled);
         
@@ -47,13 +44,11 @@ export const WalletConnect = ({
     checkForPhantom();
   }, []);
 
-  // Funktion för att ansluta till plånboken
   const connectWallet = async () => {
     try {
       setIsConnecting(true);
       console.log('Initiating wallet connection...');
       
-      // @ts-ignore - Phantom är inte i typescript definitionerna
       const provider = window.phantom?.solana || window.solana;
       
       if (!provider) {
@@ -66,22 +61,17 @@ export const WalletConnect = ({
       console.log('Detected Phantom wallet via window.phantom.solana');
       console.log('Initiating wallet connection');
       
-      // Anslut till plånboken
       const response = await provider.connect();
       const publicKey = response.publicKey.toString();
       
       console.log('Connected to wallet', response);
       
-      // Spara plånboksadressen i localStorage
       localStorage.setItem('wallet_address', publicKey);
       
-      // Kontrollera om användaren redan är inloggad
       if (authService.isLoggedIn()) {
         try {
-          // Om inloggad, uppdatera bara användardata
           await refetchCurrentUser();
           
-          // Kontrollera om profilen behöver konfigureras
           const currentUser = await authService.getCurrentUser();
           
           if (currentUser.username.startsWith('user_') || 
@@ -94,11 +84,9 @@ export const WalletConnect = ({
         } catch (error) {
           console.error('Error refreshing user data:', error);
           
-          // Om vi inte kan uppdatera användardata, försök logga in igen
           await authenticateWithWallet(publicKey);
         }
       } else {
-        // Om inte inloggad, autentisera med plånboken
         await authenticateWithWallet(publicKey);
       }
     } catch (error) {
@@ -111,14 +99,11 @@ export const WalletConnect = ({
     }
   };
   
-  // Autentisera användaren med plånboksadress
   const authenticateWithWallet = async (walletAddress: string) => {
     try {
       console.log('Requesting nonce for wallet', walletAddress);
       
-      // Kontrollera först om användaren redan finns i databasen
       try {
-        // Kontrollera om användaren finns i databasen
         const { data, error } = await supabase
           .from('users')
           .select('*')
@@ -131,31 +116,25 @@ export const WalletConnect = ({
         let needsSetup = false;
         
         if (userExists) {
-          // Användaren finns, kontrollera om de behöver profiluppsättning
           needsSetup = !data.username || 
                      data.username.startsWith('user_') || 
                      !data.display_name || 
                      data.display_name === 'New User';
         }
         
-        // Hämta nonce för signering
         const { nonce, message } = await authService.getNonce(walletAddress);
         
-        // @ts-ignore - Phantom är inte i typescript definitionerna
         const provider = window.phantom?.solana || window.solana;
         
-        // Signera meddelandet
         const { signature } = await provider.signMessage(
           new TextEncoder().encode(message),
           'utf8'
         );
         
-        // Konvertera signaturen till base64
         const signatureBase64 = btoa(
           String.fromCharCode.apply(null, new Uint8Array(signature))
         );
         
-        // Verifiera signaturen och autentisera användaren
         const { user, isNewUser, needsProfileSetup } = await authService.verifySignature(
           walletAddress, 
           signatureBase64, 
@@ -163,10 +142,8 @@ export const WalletConnect = ({
         );
         
         if (isNewUser || needsProfileSetup || needsSetup) {
-          // Användaren är ny eller behöver konfigurera sin profil
           const userObj = userExists ? dbUserToUser(data) : user;
           
-          // Cachelagra användarobjektet
           localStorage.setItem('current_user', JSON.stringify(userObj));
           
           toast.success('Login successful', {
@@ -175,7 +152,6 @@ export const WalletConnect = ({
           
           navigate('/setup-profile');
         } else {
-          // Användaren är inloggad och har en konfigurerad profil
           toast.success('Login successful', {
             description: 'Welcome back!'
           });
@@ -185,31 +161,25 @@ export const WalletConnect = ({
       } catch (error) {
         console.error('Error checking user in database:', error);
         
-        // Fallback: Försök med standard autentiseringsflöde
         const { nonce, message } = await authService.getNonce(walletAddress);
         
-        // @ts-ignore - Phantom är inte i typescript definitionerna
         const provider = window.phantom?.solana || window.solana;
         
-        // Signera meddelandet
         const { signature } = await provider.signMessage(
           new TextEncoder().encode(message),
           'utf8'
         );
         
-        // Konvertera signaturen till base64
         const signatureBase64 = btoa(
           String.fromCharCode.apply(null, new Uint8Array(signature))
         );
         
-        // Verifiera signaturen och autentisera användaren
         const { user, isNewUser, needsProfileSetup } = await authService.verifySignature(
           walletAddress, 
           signatureBase64, 
           message
         );
         
-        // Användarens tillstånd
         if (isNewUser || needsProfileSetup) {
           toast.success('Login successful', {
             description: 'Please set up your profile'
@@ -232,7 +202,6 @@ export const WalletConnect = ({
     }
   };
   
-  // Oavsett om användaren har Phantom eller inte, visa knappen
   return (
     <Button
       variant={variant}
