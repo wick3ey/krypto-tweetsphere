@@ -30,8 +30,6 @@ export function useProfileActions() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       
-      localStorage.setItem('profile_setup_complete', 'true');
-      localStorage.removeItem('needs_profile_setup');
       localStorage.setItem('current_user', JSON.stringify(data));
       
       toast.success("Profil skapad");

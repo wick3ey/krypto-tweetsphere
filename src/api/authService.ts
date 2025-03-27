@@ -4,6 +4,9 @@ import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
 import { toast } from 'sonner';
 
+// Default profile image URL
+const DEFAULT_PROFILE_IMAGE = '/lovable-uploads/116624cf-7316-4305-8889-76c511a80aca.png';
+
 export const authService = {
   /**
    * Check if user is logged in
@@ -44,16 +47,17 @@ export const authService = {
       }
       
       if (!data) {
-        console.log('User data not found in database, creating minimal profile');
+        console.log('User data not found in database, creating default profile');
         
-        // Create a minimal user profile
+        // Create a default user profile
         const { user } = session;
+        const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
         const newUser = {
           id: user.id,
-          username: `user_${user.id.substring(0, 8)}`,
+          username: `user_${randomSuffix}`,
           display_name: user.user_metadata?.name || user.user_metadata?.full_name || 'New User',
-          avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
-          bio: '',
+          avatar_url: DEFAULT_PROFILE_IMAGE,
+          bio: 'Hey there!',
           joined_date: new Date().toISOString(),
           following: [],
           followers: [],
