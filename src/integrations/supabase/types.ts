@@ -48,6 +48,294 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read: boolean | null
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read?: boolean | null
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read?: boolean | null
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nfts: {
+        Row: {
+          collection_name: string | null
+          contract_address: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          listed: boolean | null
+          name: string
+          owner_id: string
+          price: number | null
+          token_id: string | null
+        }
+        Insert: {
+          collection_name?: string | null
+          contract_address?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          listed?: boolean | null
+          name: string
+          owner_id: string
+          price?: number | null
+          token_id?: string | null
+        }
+        Update: {
+          collection_name?: string | null
+          contract_address?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          listed?: boolean | null
+          name?: string
+          owner_id?: string
+          price?: number | null
+          token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nfts_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read: boolean | null
+          related_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read?: boolean | null
+          related_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read?: boolean | null
+          related_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tips: {
+        Row: {
+          amount: number
+          created_at: string
+          from_user_id: string
+          id: string
+          status: string | null
+          to_user_id: string
+          tweet_id: string | null
+          tx_hash: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          from_user_id: string
+          id?: string
+          status?: string | null
+          to_user_id: string
+          tweet_id?: string | null
+          tx_hash?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          from_user_id?: string
+          id?: string
+          status?: string | null
+          to_user_id?: string
+          tweet_id?: string | null
+          tx_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tips_from_user_id_fkey"
+            columns: ["from_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tips_to_user_id_fkey"
+            columns: ["to_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tips_tweet_id_fkey"
+            columns: ["tweet_id"]
+            isOneToOne: false
+            referencedRelation: "tweets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      token_balances: {
+        Row: {
+          amount: number
+          change_24h: number | null
+          id: string
+          logo: string | null
+          symbol: string
+          token: string
+          updated_at: string
+          user_id: string
+          value_usd: number
+        }
+        Insert: {
+          amount?: number
+          change_24h?: number | null
+          id?: string
+          logo?: string | null
+          symbol: string
+          token: string
+          updated_at?: string
+          user_id: string
+          value_usd?: number
+        }
+        Update: {
+          amount?: number
+          change_24h?: number | null
+          id?: string
+          logo?: string | null
+          symbol?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+          value_usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_balances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          fee: number | null
+          from_address: string | null
+          hash: string | null
+          id: string
+          status: string
+          timestamp: string
+          to_address: string | null
+          token: string
+          token_logo: string | null
+          token_symbol: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          fee?: number | null
+          from_address?: string | null
+          hash?: string | null
+          id?: string
+          status: string
+          timestamp?: string
+          to_address?: string | null
+          token: string
+          token_logo?: string | null
+          token_symbol: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          fee?: number | null
+          from_address?: string | null
+          hash?: string | null
+          id?: string
+          status?: string
+          timestamp?: string
+          to_address?: string | null
+          token?: string
+          token_logo?: string | null
+          token_symbol?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tweets: {
         Row: {
           attachments: string[] | null
@@ -171,6 +459,18 @@ export type Database = {
           followed_id: string
         }
         Returns: undefined
+      }
+      get_unread_messages_count: {
+        Args: {
+          user_id: string
+        }
+        Returns: number
+      }
+      get_unread_notifications_count: {
+        Args: {
+          user_id: string
+        }
+        Returns: number
       }
       unfollow_user: {
         Args: {
