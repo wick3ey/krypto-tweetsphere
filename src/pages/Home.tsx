@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw, Plus, TrendingUp, Sparkles, User, MessageCircle } from 'lucide-react';
@@ -30,26 +29,21 @@ const Home = () => {
   const { currentUser } = useUser();
   const isLoggedIn = !!localStorage.getItem('jwt_token');
   
-  // Set up realtime subscription for tweets
   useRealtime({
     table: 'tweets',
     queryKeys: [['tweets']]
   });
   
-  // Clear local storage of old tweets when component mounts
   useEffect(() => {
-    // Remove old local tweets
     localStorage.removeItem('local_tweets');
   }, []);
   
-  // Store current user in localStorage for offline use
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('current_user', JSON.stringify(currentUser));
     }
   }, [currentUser]);
   
-  // Fetch tweets based on active feed
   const { 
     data: tweets = [], 
     isLoading: isLoadingTweets, 
@@ -63,17 +57,15 @@ const Home = () => {
       } else if (activeFeed === 'following' && isLoggedIn) {
         return tweetService.getFeed();
       } else {
-        // Default to explore feed for 'latest'
         return tweetService.getExploreFeed();
       }
     },
-    staleTime: 15000, // 15 seconds
+    staleTime: 15000,
     retry: 2,
     refetchOnWindowFocus: true,
-    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchInterval: 30000
   });
   
-  // Fetch suggested users if logged in
   const { 
     data: suggestedUsers = [],
     isLoading: isLoadingSuggested
@@ -84,7 +76,6 @@ const Home = () => {
     staleTime: 5 * 60 * 1000
   });
   
-  // Force refetch on first load
   useEffect(() => {
     if (firstLoadRef.current) {
       firstLoadRef.current = false;
@@ -92,7 +83,6 @@ const Home = () => {
     }
   }, [refetch]);
   
-  // Manual refresh function
   const handleRefresh = async () => {
     setIsRefreshing(true);
     toast.info("Uppdaterar flödet...");
@@ -108,7 +98,6 @@ const Home = () => {
     }
   };
   
-  // Render user profile if logged in
   const renderUserProfile = () => {
     if (isLoggedIn && currentUser) {
       return (
@@ -120,7 +109,6 @@ const Home = () => {
     return null;
   };
   
-  // Render suggested users
   const renderSuggestedUsers = () => {
     if (!isLoggedIn || isLoadingSuggested || suggestedUsers.length === 0) {
       return null;
@@ -161,7 +149,6 @@ const Home = () => {
     );
   };
   
-  // Render trending topics
   const renderTrendingTopics = () => {
     return (
       <Card className="mb-6">
@@ -195,11 +182,9 @@ const Home = () => {
     );
   };
   
-  // Normalize tweet data before rendering
   const normalizeAndRenderTweet = (tweet: any, index: number) => {
     if (!tweet) return null;
     
-    // Skip tweets that don't have the required structure
     if (!tweet.user && (!tweet.userId || typeof tweet.userId !== 'object')) {
       console.warn('Tweet without user object:', tweet);
       return null;
@@ -223,7 +208,6 @@ const Home = () => {
       <main className="pt-20 pb-20 md:pb-6 md:pl-20">
         <div className="container max-w-5xl mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
-            {/* Main Content */}
             <div className="lg:col-span-5 space-y-4">
               <div className="sticky top-16 z-10 bg-background border-b border-border pb-2">
                 <h1 className="text-xl font-bold py-4">Hem</h1>
@@ -246,7 +230,6 @@ const Home = () => {
                 </Tabs>
               </div>
               
-              {/* Compose Tweet (only show if logged in) */}
               {isLoggedIn && (
                 <div className="bg-background border border-border rounded-lg p-4">
                   <div className="flex items-start gap-3">
@@ -280,7 +263,6 @@ const Home = () => {
                 </div>
               )}
               
-              {/* Tweets List */}
               <div className="space-y-4 mt-2">
                 {!isLoggedIn && activeFeed === 'following' ? (
                   <Card className="p-6 text-center">
@@ -315,7 +297,6 @@ const Home = () => {
                 )}
               </div>
               
-              {/* Refresh Button (Mobile only) */}
               <div className="fixed bottom-20 right-4 md:hidden">
                 <Button 
                   size="icon"
@@ -328,20 +309,14 @@ const Home = () => {
               </div>
             </div>
             
-            {/* Sidebar */}
             <div className="hidden lg:flex lg:col-span-2 lg:flex-col space-y-4">
-              {/* User Profile */}
               {renderUserProfile()}
               
-              {/* Search */}
               <div className="sticky top-20">
-                {/* Suggested Users */}
                 {renderSuggestedUsers()}
                 
-                {/* Trending Topics */}
                 {renderTrendingTopics()}
                 
-                {/* Onboarding Card for Non-Logged In Users */}
                 {!isLoggedIn && (
                   <Card>
                     <CardHeader>
@@ -363,7 +338,6 @@ const Home = () => {
                   </Card>
                 )}
                 
-                {/* Footer */}
                 <div className="text-xs text-muted-foreground mt-6 space-y-2">
                   <div className="flex flex-wrap gap-2">
                     <a href="#" className="hover:underline">Integritet</a>

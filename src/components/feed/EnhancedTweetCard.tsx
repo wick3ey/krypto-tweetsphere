@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Calendar, MoreHorizontal, Shield, Zap } from 'lucide-react';
 import { Tweet, User } from '@/lib/types';
@@ -15,6 +14,7 @@ interface EnhancedTweetCardProps {
   style?: React.CSSProperties;
   compact?: boolean;
   animated?: boolean;
+  animationDelay?: number;
   onReply?: () => void;
 }
 
@@ -24,6 +24,7 @@ const EnhancedTweetCard = ({
   style, 
   compact = false, 
   animated = true,
+  animationDelay = 0,
   onReply
 }: EnhancedTweetCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -80,11 +81,11 @@ const EnhancedTweetCard = ({
     if (animated) {
       const timer = setTimeout(() => {
         setIsVisible(true);
-      }, Math.random() * 500);
+      }, Math.random() * 500 + animationDelay);
       
       return () => clearTimeout(timer);
     }
-  }, [animated]);
+  }, [animated, animationDelay]);
 
   const getFormattedDate = () => {
     try {
@@ -158,7 +159,7 @@ const EnhancedTweetCard = ({
         )}
         style={{
           ...style,
-          transitionDelay: animated ? `${Math.random() * 0.3}s` : '0s',
+          transitionDelay: animated ? `${Math.random() * 0.3 + (animationDelay / 1000)}s` : '0s',
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -209,7 +210,7 @@ const EnhancedTweetCard = ({
       )}
       style={{
         ...style,
-        transitionDelay: animated ? `${Math.random() * 0.3}s` : '0s',
+        transitionDelay: animated ? `${Math.random() * 0.3 + (animationDelay / 1000)}s` : '0s',
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
