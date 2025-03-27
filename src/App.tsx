@@ -67,6 +67,9 @@ const App = () => {
                 {/* Profile setup route outside of main layout */}
                 <Route path="/setup-profile" element={<ProfileSetup />} />
                 
+                {/* NotFound page outside of the main layout for better user experience */}
+                <Route path="/404" element={<NotFound />} />
+                
                 {/* Main layout with primary routes */}
                 <Route path="/" element={<AppLayout />}>
                   <Route index element={<Index />} />
@@ -76,11 +79,10 @@ const App = () => {
                     </ProtectedRoute>
                   } />
                   <Route path="/profile/:username" element={<Profile />} />
-                  <Route path="*" element={<Navigate to="/404" replace />} />
+                  
+                  {/* This catches all other routes */}
+                  <Route path="*" element={<NotFound />} />
                 </Route>
-                
-                {/* 404 page */}
-                <Route path="/404" element={<NotFound />} />
               </Routes>
             </Suspense>
           </ErrorBoundary>

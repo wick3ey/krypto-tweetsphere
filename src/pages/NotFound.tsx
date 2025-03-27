@@ -1,11 +1,12 @@
 
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { X, ArrowLeft } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     console.error(
@@ -13,6 +14,15 @@ const NotFound = () => {
       location.pathname
     );
   }, [location.pathname]);
+
+  const handleClose = () => {
+    // Try to go back or go to home if can't go back
+    if (window.history.length > 2) {
+      window.history.back();
+    } else {
+      navigate("/");
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -27,13 +37,14 @@ const NotFound = () => {
         <div className="flex flex-col sm:flex-row gap-2 justify-center">
           <Link to="/">
             <Button className="w-full">
+              <ArrowLeft className="mr-2 h-4 w-4" />
               Tillbaka till hemsidan
             </Button>
           </Link>
           <Button 
             variant="outline" 
             className="w-full mt-2 sm:mt-0"
-            onClick={() => window.history.back()}
+            onClick={handleClose}
           >
             <X className="mr-2 h-4 w-4" />
             Stäng
