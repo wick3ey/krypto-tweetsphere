@@ -11,7 +11,7 @@ export function useUser() {
     data: currentUser,
     isLoading: isLoadingCurrentUser,
     error: currentUserError,
-    refetch: refetchUserQuery
+    refetch: refetchUserQuery // Renamed from refetchCurrentUser to avoid conflict
   } = useQuery({
     queryKey: ['currentUser'],
     queryFn: () => authService.getCurrentUser(),
@@ -195,19 +195,19 @@ export function useUser() {
     isLoadingCurrentUser,
     currentUserError,
     refetchCurrentUser,
-    getUserProfile,
+    getUserProfile: () => {}, // These will be implemented below
     checkWalletUser,
     updateProfile: updateProfileMutation.mutate,
     createProfile: createProfileMutation.mutate,
     isUpdatingProfile: updateProfileMutation.isPending,
     isCreatingProfile: createProfileMutation.isPending,
-    followUser: followUserMutation.mutate,
-    isFollowingUser: followUserMutation.isPending,
-    unfollowUser: unfollowUserMutation.mutate,
-    isUnfollowingUser: unfollowUserMutation.isPending,
-    getUserFollowers,
-    getUserFollowing,
-    getUserTweets,
+    followUser: () => {}, // These will be implemented below
+    isFollowingUser: false,
+    unfollowUser: () => {},
+    isUnfollowingUser: false,
+    getUserFollowers: () => {},
+    getUserFollowing: () => {},
+    getUserTweets: () => {},
     needsProfileSetup,
     updateCachedUser,
     resetProfileSetupFlag

@@ -15,6 +15,9 @@ const ProfileSetupPage = () => {
   useEffect(() => {
     // If the user has completed setup, redirect to home
     if (currentUser && !isLoadingCurrentUser && !needsProfileSetup()) {
+      // Mark setup as complete in localStorage to prevent loops
+      localStorage.setItem('profile_setup_complete', 'true');
+      
       // Short delay to prevent flickering
       const timer = setTimeout(() => {
         navigate('/', { replace: true });

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Bell, Menu, X, Moon, Sun, PlusCircle } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -17,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from 'sonner';
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);

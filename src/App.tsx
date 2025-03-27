@@ -5,7 +5,6 @@ import { Toaster } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/api/authService';
 import { useRealtime } from '@/hooks/useRealtime';
-import { useProfileSetup } from '@/hooks/useProfileSetup';
 import { toast } from 'sonner';
 
 // Layout components
@@ -23,16 +22,16 @@ function App() {
   const [sessionChecked, setSessionChecked] = useState(false);
   const [authInitialized, setAuthInitialized] = useState(false);
   
-  // Only initialize profile setup hook after auth is initialized
-  const profileSetup = authInitialized ? useProfileSetup() : { isLoading: true, needsSetup: false };
+  // Skip profile setup check on auth callback and setup pages
+  const skipProfileCheck = location.pathname.includes('/auth/callback') || 
+                           location.pathname.includes('/setup-profile');
   
   // Subscribe to realtime updates for notifications if user is logged in
   const userId = localStorage.getItem('user_id');
   useRealtime({
     table: 'notifications',
     filter: userId ? `user_id=eq.${userId}` : undefined,
-    queryKeys: [['notifications'], ['notificationCount']],
-    enabled: !!userId
+    queryKeys: [['notifications'], ['notificationCount']]
   });
   
   // Set up Supabase auth state listener
@@ -117,6 +116,47 @@ function App() {
       clearInterval(updateLastSeenInterval);
     };
   }, [navigate, location.pathname]);
+
+  // If user is authenticated but not on setup-profile page, check if profile setup is needed
+  useEffect(() => {
+    // Skip if auth is not initialized or on specific pages
+    if (!authInitialized || skipProfileCheck) {
+      return;
+    }
+
+    const checkProfileSetup = async () => {
+      try {
+        // Check if user is logged in
+        const isAuthenticated = !!localStorage.getItem('jwt_token');
+        if (!isAuthenticated) {
+          return;
+        }
+
+        // Get current user data
+        const userData = await authService.getCurrentUser();
+        if (!userData) {
+          return;
+        }
+
+        // Check if profile setup is needed
+        const needsSetup = !userData.username || 
+                           userData.username.startsWith('user_') || 
+                           !userData.displayName || 
+                           userData.displayName === 'New User';
+
+        if (needsSetup) {
+          // Add a small delay to prevent redirect loops
+          setTimeout(() => {
+            navigate('/setup-profile', { replace: true });
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Error checking profile setup:', error);
+      }
+    };
+
+    checkProfileSetup();
+  }, [authInitialized, navigate, skipProfileCheck]);
   
   return (
     <>
