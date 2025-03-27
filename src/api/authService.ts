@@ -182,7 +182,7 @@ export const authService = {
       
       console.log('Signing in with Google, redirectTo:', redirectTo);
       
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const result = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
@@ -193,9 +193,9 @@ export const authService = {
         }
       });
       
-      if (error) throw error;
+      if (result.error) throw result.error;
       
-      return data;
+      return result;
     } catch (error: any) {
       console.error('Google sign in error:', error);
       throw error;

@@ -75,7 +75,11 @@ export const SignUp = ({ onToggleForm }: { onToggleForm: () => void }) => {
       
       console.log('Signing up with Google, redirectTo:', redirectTo);
       
-      await authService.signUpWithGoogle();
+      const result = await authService.signUpWithGoogle();
+      
+      if (result.error) {
+        throw result.error;
+      }
       
       // Google redirection happens here, no need to handle navigation
       // But we'll set a timeout to reset the button state if redirection doesn't happen

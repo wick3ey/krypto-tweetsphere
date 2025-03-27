@@ -66,10 +66,10 @@ export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
       
       console.log('Signing in with Google, redirectTo:', redirectTo);
       
-      const { data, error } = await authService.signInWithGoogle();
+      const result = await authService.signInWithGoogle();
       
-      if (error) {
-        throw error;
+      if (result.error) {
+        throw result.error;
       }
       
       // Google redirection happens here, no need to handle navigation
