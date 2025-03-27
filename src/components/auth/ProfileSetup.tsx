@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -21,6 +22,8 @@ import { userService } from '@/api/userService';
 import { User as UserType } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/hooks/useUser';
+
+const DEFAULT_PROFILE_IMAGE = "/lovable-uploads/116624cf-7316-4305-8889-76c511a80aca.png";
 
 const profileSetupSchema = z.object({
   username: z
@@ -103,7 +106,7 @@ const ProfileSetup = () => {
       } catch (error) {
         console.error('Error checking profile status:', error);
         setDataLoaded(true);
-        setErrorMessage('Ett fel uppstod vid kontroll av din profil');
+        setErrorMessage('An error occurred when checking your profile');
       }
     };
     
@@ -312,7 +315,7 @@ const ProfileSetup = () => {
     return (
       <div className="flex items-center justify-center p-8 h-64">
         <div className="animate-spin h-8 w-8 border-4 border-crypto-blue border-t-transparent rounded-full"></div>
-        <div className="ml-3 text-lg">Kontrollerar din profil...</div>
+        <div className="ml-3 text-lg">Checking your profile...</div>
       </div>
     );
   }

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from "@/components/theme-provider";
 import { SocketProvider } from '@/contexts/SocketContext';
@@ -13,8 +13,8 @@ import Messages from '@/pages/Messages';
 import NotFound from '@/pages/NotFound';
 import { AuthCallback } from '@/pages/AuthCallback';
 import { Welcome } from '@/pages/Welcome';
-import { useCurrentUser } from '@/hooks/user/useCurrentUser';
 import UserProfile from '@/pages/UserProfile';
+import { useCurrentUser } from '@/hooks/user/useCurrentUser';
 
 function App() {
   const location = useLocation();
