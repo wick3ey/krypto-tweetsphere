@@ -43,16 +43,34 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     return window.btoa(binary);
   };
   
-  // Get Phantom provider
+  // Get Phantom provider - improved to correctly detect the wallet
   const getProvider = () => {
-    if ('phantom' in window) {
-      const provider = window.phantom?.solana;
-      
-      if (provider?.isPhantom) {
-        return provider;
+    // Check if window.solana exists and is Phantom
+    if (window.solana?.isPhantom) {
+      console.log("Detected Phantom wallet via window.solana");
+      return window.solana;
+    }
+    
+    // Check if window.phantom.solana exists
+    if (window.phantom?.solana?.isPhantom) {
+      console.log("Detected Phantom wallet via window.phantom.solana");
+      return window.phantom.solana;
+    }
+    
+    // Check if Phantom is present in the injected providers
+    // This is a more thorough check
+    if (typeof window !== 'undefined') {
+      const providers = (window as any)?.ethereum?.providers;
+      if (providers) {
+        const phantomProvider = providers.find((p: any) => p.isPhantom);
+        if (phantomProvider) {
+          console.log("Detected Phantom wallet via ethereum providers");
+          return phantomProvider;
+        }
       }
     }
     
+    console.log("No Phantom wallet detected, redirecting to install page");
     // Phantom is not installed, redirect to Phantom website
     window.open('https://phantom.app/', '_blank');
     return null;
@@ -234,11 +252,18 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   };
   
   const handleConnect = async () => {
+    console.log("Initiating wallet connection...");
     const provider = getProvider();
-    if (!provider) return;
+    if (!provider) {
+      console.log("No provider found, cannot connect");
+      toast.error("Phantom wallet not detected", {
+        description: "Please install the Phantom wallet extension and refresh the page.",
+      });
+      return;
+    }
     
     setIsConnecting(true);
-    console.info("Initierar wallet-anslutning");
+    console.info("Initiating wallet connection");
     
     try {
       // Request wallet connection

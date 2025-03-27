@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Heart, MessageSquare, Repeat2, Share, MoreHorizontal, Calendar, Shield } from 'lucide-react';
 import { Tweet } from '@/lib/types';
@@ -26,19 +27,22 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
     return null;
   }
   
-  const actualTweet = tweet.tweet ? tweet.tweet : tweet;
+  // Make sure we're working with the actual tweet data, not a wrapper
+  const actualTweet = tweet;
   
+  // Make sure ID is consistent
   if (!actualTweet.id && actualTweet._id) {
     actualTweet.id = actualTweet._id;
   }
   
+  // Handle userId object conversion to user if needed
   if (!actualTweet.user && actualTweet.userId) {
     if (typeof actualTweet.userId === 'object') {
       actualTweet.user = {
-        id: actualTweet.userId._id || actualTweet.userId.id,
-        username: actualTweet.userId.username,
-        displayName: actualTweet.userId.displayName || actualTweet.userId.username,
-        avatarUrl: actualTweet.userId.profileImage || actualTweet.userId.avatarUrl
+        id: actualTweet.userId._id || actualTweet.userId.id || 'unknown-id',
+        username: actualTweet.userId.username || 'unknown',
+        displayName: actualTweet.userId.displayName || actualTweet.userId.username || 'Unknown User',
+        avatarUrl: actualTweet.userId.profileImage || actualTweet.userId.avatarUrl || '/placeholder.svg'
       };
     }
   }

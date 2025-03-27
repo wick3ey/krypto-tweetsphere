@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Repeat2, Share, MoreHorizontal, Calendar, Shield, Zap } from 'lucide-react';
 import { Tweet } from '@/lib/types';
@@ -24,8 +25,6 @@ const EnhancedTweetCard = ({
 }: EnhancedTweetCardProps) => {
   const [liked, setLiked] = useState(false);
   const [retweeted, setRetweeted] = useState(false);
-  const [likeCount, setLikeCount] = useState(tweet?.likes || 0);
-  const [retweetCount, setRetweetCount] = useState(tweet?.retweets || 0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isVisible, setIsVisible] = useState(!animated);
   const [isHovered, setIsHovered] = useState(false);
@@ -35,19 +34,26 @@ const EnhancedTweetCard = ({
     return null;
   }
   
-  const actualTweet = tweet.tweet ? tweet.tweet : tweet;
+  // Make sure we're working with the actual tweet data
+  const actualTweet = tweet;
   
+  // Ensure tweet has required properties
+  const likeCount = actualTweet?.likes || actualTweet?.likeCount || 0;
+  const retweetCount = actualTweet?.retweets || actualTweet?.retweetCount || 0;
+  
+  // Make sure ID is consistent
   if (!actualTweet.id && actualTweet._id) {
     actualTweet.id = actualTweet._id;
   }
   
+  // Handle userId object conversion to user if needed
   if (!actualTweet.user && actualTweet.userId) {
     if (typeof actualTweet.userId === 'object') {
       actualTweet.user = {
-        id: actualTweet.userId._id || actualTweet.userId.id,
-        username: actualTweet.userId.username,
-        displayName: actualTweet.userId.displayName || actualTweet.userId.username,
-        avatarUrl: actualTweet.userId.profileImage || actualTweet.userId.avatarUrl
+        id: actualTweet.userId._id || actualTweet.userId.id || 'unknown-id',
+        username: actualTweet.userId.username || 'unknown',
+        displayName: actualTweet.userId.displayName || actualTweet.userId.username || 'Unknown User',
+        avatarUrl: actualTweet.userId.profileImage || actualTweet.userId.avatarUrl || '/placeholder.svg'
       };
     }
   }

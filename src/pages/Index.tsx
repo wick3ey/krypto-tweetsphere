@@ -154,15 +154,61 @@ const Index = () => {
     }
     return null;
   };
+
+  // Normalize tweet data before rendering
+  const normalizeAndRenderTweet = (tweet: any) => {
+    if (!tweet) return null;
+    
+    // If tweet has nested tweet structure, normalize it
+    let normalizedTweet = tweet;
+    
+    // Handle API response format where tweet is nested in 'tweet' property
+    if (tweet.success === true && tweet.tweet) {
+      normalizedTweet = tweet.tweet;
+    }
+    
+    // Make sure ID is consistent
+    if (!normalizedTweet.id && normalizedTweet._id) {
+      normalizedTweet.id = normalizedTweet._id;
+    }
+    
+    // Skip tweets that don't have the required structure
+    if (!normalizedTweet.user && normalizedTweet.userId) {
+      // Convert userId to user if it's an object
+      if (typeof normalizedTweet.userId === 'object') {
+        normalizedTweet.user = {
+          id: normalizedTweet.userId._id || normalizedTweet.userId.id || 'unknown-id',
+          username: normalizedTweet.userId.username || 'unknown',
+          displayName: normalizedTweet.userId.displayName || normalizedTweet.userId.username || 'Unknown User',
+          avatarUrl: normalizedTweet.userId.profileImage || normalizedTweet.userId.avatarUrl || '/placeholder.svg'
+        };
+      }
+    }
+    
+    if (!normalizedTweet.user) {
+      console.warn('Tweet without user object:', normalizedTweet);
+      return null;
+    }
+    
+    return (
+      <EnhancedTweetCard
+        key={normalizedTweet.id || normalizedTweet._id || `tweet-${Math.random().toString(36).substring(2, 9)}`}
+        tweet={normalizedTweet}
+        animated={false}
+      />
+    );
+  };
   
   return (
     <div className="container max-w-5xl mx-auto py-4">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* Compose Tweet */}
-          <div className="bg-background border border-border rounded-lg p-4">
-            <ComposeDialog onSubmit={handleTweet} />
-          </div>
+          {/* Compose Tweet (only show if logged in) */}
+          {isLoggedIn && (
+            <div className="bg-background border border-border rounded-lg p-4">
+              <ComposeDialog onSubmit={handleTweet} />
+            </div>
+          )}
           
           {/* Feed Tabs */}
           <div className="flex gap-2 overflow-x-auto pb-2 bg-background border border-border rounded-lg p-2">
@@ -208,27 +254,7 @@ const Index = () => {
               </div>
             ) : (
               tweets.length > 0 ? (
-                tweets.map((tweet: Tweet) => {
-                  if (!tweet) return null;
-                  
-                  // Skip tweets that don't have the required structure
-                  if (tweet.success && tweet.tweet) {
-                    tweet = tweet.tweet;
-                  }
-                  
-                  if (!tweet.user) {
-                    console.warn('Tweet without user object:', tweet);
-                    return null;
-                  }
-                  
-                  return (
-                    <EnhancedTweetCard
-                      key={tweet.id || tweet._id}
-                      tweet={tweet}
-                      animated={false}
-                    />
-                  );
-                })
+                tweets.map((tweet: any) => normalizeAndRenderTweet(tweet))
               ) : (
                 <div className="bg-background border border-border rounded-lg p-6 text-center">
                   <p className="text-muted-foreground mb-4">Inga tweets att visa</p>
