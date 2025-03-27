@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { authService } from '@/api/authService';
 import { toast } from 'sonner';
-import { Mail, Lock, Loader2, Google } from 'lucide-react';
+import { Mail, Lock, Loader2, Chrome } from 'lucide-react';
 
 export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
   const [email, setEmail] = useState('');
@@ -123,7 +123,7 @@ export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
           onClick={handleGoogleSignIn}
           disabled={isLoading}
         >
-          <Google className="mr-2 h-4 w-4" />
+          <Chrome className="mr-2 h-4 w-4" />
           Fortsätt med Google
         </Button>
       </CardContent>
