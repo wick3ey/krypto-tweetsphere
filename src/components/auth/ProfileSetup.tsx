@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -45,7 +44,7 @@ type ProfileSetupFormValues = z.infer<typeof profileSetupSchema>;
 
 const ProfileSetup = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoadingCurrentUser, refetchCurrentUser, createProfile, syncAuthUser, getAuthEmail } = useUser();
+  const { currentUser, isLoadingCurrentUser, refetchCurrentUser, createProfile } = useUser();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -77,68 +76,25 @@ const ProfileSetup = () => {
         if (session) {
           const userId = session.user.id;
           
-          const email = getAuthEmail() || session.user.email || '';
+          const email = session.user.email || '';
           setUserEmail(email);
           
-          try {
-            const result = await syncAuthUser(userId, true);
-            
-            if (result && !result.needsProfileSetup) {
-              console.log('User already has a complete profile, redirecting to home');
-              localStorage.setItem('profile_setup_complete', 'true');
-              localStorage.removeItem('needs_profile_setup');
-              
-              if (result.user) {
-                localStorage.setItem('current_user', JSON.stringify(result.user));
-              }
-              
-              await refetchCurrentUser();
-              
-              setTimeout(() => {
-                window.location.href = '/';
-              }, 100);
-              return;
-            } else if (result && result.user) {
-              if (result.user.username && !result.user.username.startsWith('user_')) {
-                form.setValue('username', result.user.username);
-              }
-              
-              if (result.user.displayName && result.user.displayName !== 'New User') {
-                form.setValue('displayName', result.user.displayName);
-              }
-              
-              if (result.user.bio) {
-                form.setValue('bio', result.user.bio);
-              }
-              
-              if (result.user.avatarUrl) {
-                setAvatarPreview(result.user.avatarUrl);
-              }
+          // Load existing user data from currentUser
+          if (currentUser) {
+            if (currentUser.username && !currentUser.username.startsWith('user_')) {
+              form.setValue('username', currentUser.username);
             }
-          } catch (error) {
-            console.error('Error syncing user data:', error);
-            setErrorMessage('Kunde inte synkronisera användarprofil. Fortsätt med profilinställningarna manuellt.');
-            toast.error('Kunde inte synkronisera användarprofil', {
-              description: 'Fortsätt med profilinställningarna manuellt'
-            });
             
-            // Fallback to current user data we have in state
-            if (currentUser) {
-              if (currentUser.username && !currentUser.username.startsWith('user_')) {
-                form.setValue('username', currentUser.username);
-              }
-              
-              if (currentUser.displayName && currentUser.displayName !== 'New User') {
-                form.setValue('displayName', currentUser.displayName);
-              }
-              
-              if (currentUser.bio) {
-                form.setValue('bio', currentUser.bio);
-              }
-              
-              if (currentUser.avatarUrl) {
-                setAvatarPreview(currentUser.avatarUrl);
-              }
+            if (currentUser.displayName && currentUser.displayName !== 'New User') {
+              form.setValue('displayName', currentUser.displayName);
+            }
+            
+            if (currentUser.bio) {
+              form.setValue('bio', currentUser.bio);
+            }
+            
+            if (currentUser.avatarUrl) {
+              setAvatarPreview(currentUser.avatarUrl);
             }
           }
         }
@@ -152,7 +108,7 @@ const ProfileSetup = () => {
     };
     
     checkProfileStatus();
-  }, [navigate, syncAuthUser, form, currentUser, refetchCurrentUser, getAuthEmail]);
+  }, [navigate, form, currentUser, refetchCurrentUser]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

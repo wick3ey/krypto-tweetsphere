@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Calendar, MessageCircle, Shield, ArrowLeft, MoreHorizontal, Share2, EditIcon } from 'lucide-react';
@@ -14,6 +13,8 @@ import FollowButton from '@/components/profile/FollowButton';
 import ProfileCard from '@/components/profile/ProfileCard';
 import EditProfileDialog from '@/components/profile/EditProfileDialog';
 
+const DEFAULT_PROFILE_IMAGE = "/lovable-uploads/116624cf-7316-4305-8889-76c511a80aca.png";
+
 const UserProfile = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
@@ -25,9 +26,7 @@ const UserProfile = () => {
   const [activeTab, setActiveTab] = useState('tweets');
   const [showEditProfile, setShowEditProfile] = useState(false);
   
-  // Check if the logged-in user is viewing their own profile
   const isCurrentUser = currentUser?.id === profile?.id;
-  // Check if following
   const isFollowing = profile && Array.isArray(currentUser?.following) 
     ? currentUser?.following.includes(profile.id) 
     : false;
@@ -41,7 +40,6 @@ const UserProfile = () => {
         const fetchedProfile = await getUserProfile(username);
         setProfile(fetchedProfile);
         
-        // Fetch tweets for this profile
         const fetchedTweets = await getUserTweets(fetchedProfile.id);
         setTweets(fetchedTweets);
       } catch (error) {
@@ -145,7 +143,6 @@ const UserProfile = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          {/* Profile Card */}
           <div className="glass-panel overflow-hidden">
             <div className="h-32 bg-gradient-to-r from-crypto-blue/30 to-crypto-lightBlue/30">
               {profile.headerUrl && (
