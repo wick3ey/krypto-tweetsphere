@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { authService } from '@/api/authService';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { useUser } from '@/hooks/useUser';
 
 // Add TypeScript declaration for window.solana and window.phantom
 declare global {
@@ -28,6 +29,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { currentUser, refetchCurrentUser } = useUser();
   
   // Helper function to convert Uint8Array to base64 string
   const arrayToBase64 = (buffer: Uint8Array): string => {
@@ -81,6 +83,9 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         } else {
           // Just update localStorage with wallet address
           localStorage.setItem('wallet_address', address);
+          
+          // Refetch current user to make sure we have the latest data
+          refetchCurrentUser();
           
           // Let the parent component know about the connection
           if (onConnect) {
@@ -202,8 +207,8 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         console.info("New user detected, redirecting to profile setup", 
           { userId: authResult.user.id });
           
-        toast.success("Wallet connected! Let's set up your profile", {
-          description: "Complete your profile to get started",
+        toast.success("Wallet ansluten! Låt oss konfigurera din profil", {
+          description: "Slutför din profil för att komma igång",
         });
         
         // Redirect to profile setup
@@ -212,14 +217,17 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         console.info("Existing user logged in successfully", 
           { userId: authResult.user.id, username: authResult.user.username });
           
-        toast.success("Wallet connected successfully", {
-          description: `Connected to ${formatWalletAddress(address)}`,
+        // Refetch current user to make sure we have the latest data
+        refetchCurrentUser();
+          
+        toast.success("Wallet ansluten", {
+          description: `Ansluten till ${formatWalletAddress(address)}`,
         });
       }
     } catch (error: any) {
       console.error("Authentication error", { error });
-      toast.error("Authentication failed", {
-        description: error.message || "Failed to authenticate with the server. Please try again.",
+      toast.error("Authentication misslyckades", {
+        description: error.message || "Kunde inte autentisera med servern. Försök igen.",
       });
       throw error;
     }
@@ -230,7 +238,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     if (!provider) return;
     
     setIsConnecting(true);
-    console.info("Initiating wallet connection");
+    console.info("Initierar wallet-anslutning");
     
     try {
       // Request wallet connection
@@ -249,12 +257,12 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       
       if (error.code === 4001) {
         // User rejected the connection
-        toast.error("Connection cancelled", {
-          description: "You rejected the connection request.",
+        toast.error("Anslutning avbruten", {
+          description: "Du avbröt anslutningsbegäran.",
         });
       } else {
-        toast.error("Connection failed", {
-          description: error.message || "Failed to connect wallet. Please try again.",
+        toast.error("Anslutningen misslyckades", {
+          description: error.message || "Kunde inte ansluta wallet. Försök igen.",
         });
       }
     } finally {
@@ -274,8 +282,8 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       variant={isConnected ? "outline" : "default"}
     >
       <Wallet className="mr-2 h-4 w-4" />
-      {isConnecting ? "Connecting..." : 
-       isConnected ? formatWalletAddress(walletAddress) : "Connect Wallet"}
+      {isConnecting ? "Ansluter..." : 
+       isConnected ? formatWalletAddress(walletAddress) : "Anslut Wallet"}
     </Button>
   );
 };
