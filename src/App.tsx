@@ -58,13 +58,14 @@ function App() {
               if (user) {
                 localStorage.setItem('current_user', JSON.stringify(user));
                 
-                // Check if profile setup is needed - use more robust criteria
+                // More robust check for profile completeness
                 const needsSetup = !user.username || 
                                   user.username.startsWith('user_') || 
                                   !user.displayName || 
                                   user.displayName === 'New User';
                 
                 if (needsSetup) {
+                  console.log('User needs profile setup based on user data check');
                   localStorage.setItem('needs_profile_setup', 'true');
                   localStorage.removeItem('profile_setup_complete');
                   
@@ -76,6 +77,7 @@ function App() {
                   }
                 } else {
                   // Mark profile as complete - this user doesn't need setup
+                  console.log('User does NOT need profile setup based on data check');
                   localStorage.setItem('profile_setup_complete', 'true');
                   localStorage.removeItem('needs_profile_setup');
                   
@@ -109,46 +111,44 @@ function App() {
               
               toast.success('Inloggad!');
               
-              // We'll check if profile setup is needed after fetching user data
-              authService.getCurrentUser()
-                .then(user => {
-                  // Store current user data
-                  if (user) {
-                    localStorage.setItem('current_user', JSON.stringify(user));
-                    
-                    // Check if profile setup is needed - use more robust criteria
-                    const needsSetup = !user.username || 
-                                      user.username.startsWith('user_') || 
-                                      !user.displayName || 
-                                      user.displayName === 'New User';
-                    
-                    if (needsSetup) {
-                      localStorage.setItem('needs_profile_setup', 'true');
-                      localStorage.removeItem('profile_setup_complete');
+              // Delay fetching user data to prevent Supabase deadlock
+              setTimeout(() => {
+                // We'll check if profile setup is needed after fetching user data
+                authService.getCurrentUser()
+                  .then(user => {
+                    // Store current user data
+                    if (user) {
+                      localStorage.setItem('current_user', JSON.stringify(user));
                       
-                      // Only redirect if not already on setup page
-                      if (!location.pathname.includes('/setup-profile')) {
-                        setTimeout(() => {
+                      // Check if profile setup is needed with more robust criteria
+                      const hasValidProfile = authService.hasCompleteProfile(user);
+                      
+                      if (!hasValidProfile) {
+                        console.log('User needs to set up profile after sign in');
+                        localStorage.setItem('needs_profile_setup', 'true');
+                        localStorage.removeItem('profile_setup_complete');
+                        
+                        // Only redirect if not already on setup page
+                        if (!location.pathname.includes('/setup-profile')) {
                           navigate('/setup-profile', { replace: true });
-                        }, 100);
-                      }
-                    } else {
-                      // Mark profile as complete - this user doesn't need setup
-                      localStorage.setItem('profile_setup_complete', 'true');
-                      localStorage.removeItem('needs_profile_setup');
-                      
-                      // If we're on callback page, redirect to home page
-                      if (location.pathname.includes('/auth/callback')) {
-                        setTimeout(() => {
+                        }
+                      } else {
+                        console.log('User already has a valid profile after sign in');
+                        // Mark profile as complete - this user doesn't need setup
+                        localStorage.setItem('profile_setup_complete', 'true');
+                        localStorage.removeItem('needs_profile_setup');
+                        
+                        // If we're on callback page, redirect to home page
+                        if (location.pathname.includes('/auth/callback')) {
                           navigate('/', { replace: true });
-                        }, 100);
+                        }
                       }
                     }
-                  }
-                })
-                .catch(err => {
-                  console.error('Error fetching user data after sign in:', err);
-                });
+                  })
+                  .catch(err => {
+                    console.error('Error fetching user data after sign in:', err);
+                  });
+              }, 100);
             }
           } else if (event === 'SIGNED_OUT') {
             // Clear all auth data
@@ -209,12 +209,14 @@ function App() {
         // Check if profile setup is complete from localStorage first
         const profileSetupComplete = localStorage.getItem('profile_setup_complete') === 'true';
         if (profileSetupComplete) {
+          console.log('Profile setup already marked complete in localStorage');
           return;
         }
         
         // If profile setup is explicitly needed, redirect
         const needsProfileSetupFlag = localStorage.getItem('needs_profile_setup') === 'true';
         if (needsProfileSetupFlag) {
+          console.log('Profile setup explicitly needed based on localStorage flag');
           // Add a small delay to prevent redirect loop
           setTimeout(() => {
             navigate('/setup-profile', { replace: true });
@@ -228,15 +230,14 @@ function App() {
           return;
         }
 
-        // Check if profile setup is needed
-        const needsSetup = !userData.username || 
-                         userData.username.startsWith('user_') || 
-                         !userData.displayName || 
-                         userData.displayName === 'New User';
+        // Comprehensive check for profile completeness
+        const hasValidProfile = authService.hasCompleteProfile(userData);
 
-        if (needsSetup) {
+        if (!hasValidProfile) {
           // Set the flag to avoid multiple checks
+          console.log('Profile is incomplete based on user data check');
           localStorage.setItem('needs_profile_setup', 'true');
+          localStorage.removeItem('profile_setup_complete');
           
           // Add a small delay to prevent redirect loop
           setTimeout(() => {
@@ -244,6 +245,7 @@ function App() {
           }, 100);
         } else {
           // Mark profile setup as complete
+          console.log('Profile is complete based on user data check');
           localStorage.setItem('profile_setup_complete', 'true');
           localStorage.removeItem('needs_profile_setup');
         }

@@ -242,7 +242,14 @@ const ProfileSetup = () => {
       
       console.log('Sending profile data for setup:', profileData);
       
-      createProfile(profileData);
+      await new Promise<void>((resolve, reject) => {
+        try {
+          createProfile(profileData);
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
       
       toast.success('Profilinställning klar!', {
         description: 'Välkommen till F3ociety!',
@@ -253,7 +260,9 @@ const ProfileSetup = () => {
       
       await refetchCurrentUser();
       
-      window.location.href = '/';
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
     } catch (error) {
       console.error('Error setting up profile:', error);
       toast.error('Profilinställning misslyckades', {

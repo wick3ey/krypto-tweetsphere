@@ -7,11 +7,21 @@ import { useUser } from '@/hooks/useUser';
 
 const ProfileSetupPage = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoadingCurrentUser, needsProfileSetup } = useUser();
+  const { currentUser, isLoadingCurrentUser, needsProfileSetup, isValidProfile } = useUser();
   const [redirecting, setRedirecting] = useState(false);
+  const [forceCheck, setForceCheck] = useState(false);
   
   // Check if user is authenticated
   const isAuthenticated = !!localStorage.getItem('jwt_token');
+  
+  useEffect(() => {
+    // Force a re-check after component mount
+    const timer = setTimeout(() => {
+      setForceCheck(true);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
   
   useEffect(() => {
     // If user has completed setup, redirect to home page
@@ -36,9 +46,17 @@ const ProfileSetupPage = () => {
         
         // Hard redirect to home to ensure complete page refresh
         window.location.href = '/';
+      } else if (currentUser && isValidProfile && isValidProfile(currentUser)) {
+        // Double-check: if the profile is valid but needsProfileSetup still returns true
+        // This is a safety check in case our state got out of sync
+        console.log('Profile is valid despite needsProfileSetup flag, redirecting...');
+        localStorage.setItem('profile_setup_complete', 'true');
+        localStorage.removeItem('needs_profile_setup');
+        setRedirecting(true);
+        window.location.href = '/';
       }
     }
-  }, [currentUser, isLoadingCurrentUser, needsProfileSetup, navigate]);
+  }, [currentUser, isLoadingCurrentUser, needsProfileSetup, navigate, forceCheck, isValidProfile]);
   
   if (!isAuthenticated) {
     // Redirect to home page if not authenticated
@@ -61,6 +79,14 @@ const ProfileSetupPage = () => {
   // If the profile setup is complete, redirect to home
   if (currentUser && !needsProfileSetup()) {
     console.log('Profile setup is complete, redirecting...');
+    return <Navigate to="/" replace />;
+  }
+  
+  // One last check to avoid showing setup to users with complete profiles
+  if (currentUser && isValidProfile && isValidProfile(currentUser)) {
+    console.log('Final check: Profile is valid, redirecting...');
+    localStorage.setItem('profile_setup_complete', 'true');
+    localStorage.removeItem('needs_profile_setup');
     return <Navigate to="/" replace />;
   }
   

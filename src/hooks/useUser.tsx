@@ -126,30 +126,54 @@ export function useUser() {
   };
 
   const needsProfileSetup = () => {
+    console.log('Checking if profile setup is needed...');
+    
     if (localStorage.getItem('profile_setup_complete') === 'true') {
+      console.log('Profile setup complete flag is set to true');
       return false;
     }
     
     if (localStorage.getItem('needs_profile_setup') === 'true') {
+      if (currentUser) {
+        const hasValidProfile = isValidProfile(currentUser);
+        if (hasValidProfile) {
+          console.log('User has valid profile despite needs_profile_setup flag');
+          localStorage.setItem('profile_setup_complete', 'true');
+          localStorage.removeItem('needs_profile_setup');
+          return false;
+        }
+      }
+      console.log('Profile setup needed flag is set');
       return true;
     }
     
-    if (!currentUser) return false;
+    if (!currentUser) {
+      console.log('No current user, cannot determine if profile setup is needed');
+      return false;
+    }
     
-    const needsSetup = !currentUser.username || 
-           currentUser.username.startsWith('user_') || 
-           !currentUser.displayName || 
-           currentUser.displayName === 'New User';
+    const needsSetup = !isValidProfile(currentUser);
     
     if (needsSetup) {
+      console.log('User profile is incomplete, needs setup');
       localStorage.setItem('needs_profile_setup', 'true');
       localStorage.removeItem('profile_setup_complete');
     } else {
+      console.log('User has a complete profile, no setup needed');
       localStorage.setItem('profile_setup_complete', 'true');
       localStorage.removeItem('needs_profile_setup');
     }
     
     return needsSetup;
+  };
+
+  const isValidProfile = (user: User) => {
+    if (!user) return false;
+    
+    return !!user.username && 
+           !user.username.startsWith('user_') && 
+           !!user.displayName && 
+           user.displayName !== 'New User';
   };
 
   const refetchCurrentUser = async () => {
@@ -213,6 +237,7 @@ export function useUser() {
       return userService.getUserTweets(userId, options);
     },
     needsProfileSetup,
+    isValidProfile,
     updateCachedUser,
     resetProfileSetupFlag
   };

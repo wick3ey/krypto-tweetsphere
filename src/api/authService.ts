@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
@@ -24,6 +23,7 @@ export const authService = {
       }
       
       const userId = session.user.id;
+      console.log('Getting current user for ID:', userId);
       
       // Try to get from local storage first for faster access
       const cachedUser = localStorage.getItem('current_user');
@@ -32,7 +32,14 @@ export const authService = {
           const parsedUser = JSON.parse(cachedUser);
           // Verify that the cached user ID matches the session user ID
           if (parsedUser && parsedUser.id === userId) {
-            return dbUserToUser(parsedUser);
+            console.log('Using cached user data');
+            // Check if cached user data shows a complete profile
+            const user = dbUserToUser(parsedUser);
+            if (this.hasCompleteProfile(user)) {
+              localStorage.setItem('profile_setup_complete', 'true');
+              localStorage.removeItem('needs_profile_setup');
+            }
+            return user;
           }
         } catch (e) {
           // Invalid JSON in localStorage, continue to fetch from API
@@ -91,27 +98,18 @@ export const authService = {
         return dbUserToUser(createdUser);
       }
       
-      // If we have user data and the profile appears complete, mark it as such
-      const isCompleteProfile = data.username && 
-                              !data.username.startsWith('user_') && 
-                              data.display_name && 
-                              data.display_name !== 'New User';
-      
-      if (isCompleteProfile) {
-        localStorage.setItem('profile_setup_complete', 'true');
-        localStorage.removeItem('needs_profile_setup');
-      }
-      
-      // Fetch followers and following counts
-      const followersCount = data.followers ? data.followers.length : 0;
-      const followingCount = data.following ? data.following.length : 0;
-      
-      // Convert to application User type
       const user = dbUserToUser(data);
       
-      // Update followers and following counts
-      user.followers = followersCount;
-      user.following = followingCount;
+      // Determine if profile is complete and set appropriate flags
+      if (this.hasCompleteProfile(user)) {
+        localStorage.setItem('profile_setup_complete', 'true');
+        localStorage.removeItem('needs_profile_setup');
+        console.log('User has complete profile, no setup needed');
+      } else {
+        localStorage.setItem('needs_profile_setup', 'true');
+        localStorage.removeItem('profile_setup_complete');
+        console.log('User needs to complete profile setup');
+      }
       
       // Cache for faster access
       localStorage.setItem('current_user', JSON.stringify(data));
@@ -121,6 +119,26 @@ export const authService = {
       console.error('Error fetching current user:', error);
       throw error;
     }
+  },
+  
+  /**
+   * Check if a user profile is complete
+   */
+  hasCompleteProfile(user: User): boolean {
+    if (!user) return false;
+    
+    const isCompleteProfile = !!user.username && 
+                            !user.username.startsWith('user_') && 
+                            !!user.displayName && 
+                            user.displayName !== 'New User';
+    
+    console.log('Profile completeness check:', {
+      username: user.username,
+      displayName: user.displayName,
+      isComplete: isCompleteProfile
+    });
+    
+    return isCompleteProfile;
   },
   
   /**
