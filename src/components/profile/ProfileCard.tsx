@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Calendar, Copy, ExternalLink, Link, MessageCircle, Shield, User, UserPlus } from 'lucide-react';
+import { Calendar, Copy, ExternalLink, Link as LinkIcon, MessageCircle, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { User as UserType, UserProfile } from '@/lib/types';
@@ -8,6 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/hooks/useUser';
 import { toast } from 'sonner';
+import FollowButton from './FollowButton';
 
 interface ProfileCardProps {
   profile: UserType | UserProfile;
@@ -18,7 +19,7 @@ interface ProfileCardProps {
 const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) => {
   const [copied, setCopied] = useState(false);
   
-  const { currentUser, followUser, unfollowUser, isFollowingUser, isUnfollowingUser } = useUser();
+  const { currentUser } = useUser();
   
   // Check if the logged-in user follows this profile
   const isCurrentUser = currentUser?.id === profile.id;
@@ -50,21 +51,6 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
     toast.success("Wallet-adress kopierad");
     setTimeout(() => setCopied(false), 2000);
   };
-  
-  const handleFollowToggle = () => {
-    if (!profile.id) {
-      toast.error("Kan inte följa/avfölja användaren", {
-        description: "Användarprofil-ID saknas"
-      });
-      return;
-    }
-    
-    if (isFollowing) {
-      unfollowUser(profile.id);
-    } else {
-      followUser(profile.id);
-    }
-  };
 
   // Minimal version for listings
   if (minimal) {
@@ -91,15 +77,11 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
         </div>
         
         {!isCurrentUser && (
-          <Button 
-            size="sm" 
-            variant={isFollowing ? "outline" : "default"} 
-            className="rounded-full ml-2"
-            onClick={handleFollowToggle}
-            disabled={isFollowingUser || isUnfollowingUser}
-          >
-            {isFollowing ? 'Följer' : 'Följ'}
-          </Button>
+          <FollowButton 
+            userId={profile.id} 
+            initialFollowing={isFollowing} 
+            size="sm"
+          />
         )}
       </div>
     );
@@ -127,27 +109,12 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
                   <MessageCircle className="h-4 w-4 mr-1" />
                   Meddelande
                 </Button>
-                <Button 
-                  size="sm" 
-                  className={cn(
-                    "rounded-full",
-                    isFollowing && "bg-transparent text-foreground border border-input hover:bg-secondary hover:text-foreground"
-                  )}
-                  onClick={handleFollowToggle}
-                  disabled={isFollowingUser || isUnfollowingUser}
-                >
-                  {isFollowing ? (
-                    <>
-                      <User className="h-4 w-4 mr-1" />
-                      Följer
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4 mr-1" />
-                      Följ
-                    </>
-                  )}
-                </Button>
+                
+                <FollowButton 
+                  userId={profile.id} 
+                  initialFollowing={isFollowing} 
+                  size="sm"
+                />
               </>
             )}
           </div>
@@ -166,7 +133,7 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
           
           {profile.walletAddress && (
             <div className="mt-3 flex items-center text-sm text-muted-foreground bg-secondary/50 px-3 py-2 rounded-lg">
-              <Link className="h-4 w-4 mr-1 flex-shrink-0" />
+              <LinkIcon className="h-4 w-4 mr-1 flex-shrink-0" />
               <span className="font-mono">{formatWalletAddress(profile.walletAddress)}</span>
               <button 
                 className={cn(

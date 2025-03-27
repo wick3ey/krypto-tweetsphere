@@ -1,24 +1,23 @@
+
 import { useState } from 'react';
-import { Heart, MessageSquare, Repeat2, Share, MoreHorizontal, Calendar, Shield } from 'lucide-react';
+import { Calendar, MoreHorizontal, Shield } from 'lucide-react';
 import { Tweet, User } from '@/lib/types';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import TweetActions from './TweetActions';
 
 interface TweetCardProps {
   tweet: Tweet;
   className?: string;
   style?: React.CSSProperties;
   compact?: boolean;
+  onReply?: () => void;
 }
 
-const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps) => {
-  const [liked, setLiked] = useState(false);
-  const [retweeted, setRetweeted] = useState(false);
-  const [likeCount, setLikeCount] = useState<number>(0);
-  const [retweetCount, setRetweetCount] = useState<number>(0);
+const TweetCard = ({ tweet, className, style, compact = false, onReply }: TweetCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   
   if (!tweet) {
@@ -63,12 +62,6 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
     console.error("Tweet user is undefined:", actualTweet);
     return null;
   }
-  
-  // Initialize state values from tweet or use defaults
-  useState(() => {
-    setLikeCount(actualTweet.likes || actualTweet.likeCount || 0);
-    setRetweetCount(actualTweet.retweets || actualTweet.retweetCount || 0);
-  });
   
   // Handle various timestamp formats
   const tweetTimestamp = actualTweet.timestamp || actualTweet.createdAt || '';
@@ -117,27 +110,6 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
     }
   };
   
-  const formatNumber = (num: number): string => {
-    if (!num && num !== 0) return '0';
-    
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1) + 'M';
-    } else if (num >= 1000) {
-      return (num / 1000).toFixed(1) + 'K';
-    }
-    return num.toString();
-  };
-  
-  const handleLike = () => {
-    setLiked(!liked);
-    setLikeCount(prevCount => liked ? prevCount - 1 : prevCount + 1);
-  };
-  
-  const handleRetweet = () => {
-    setRetweeted(!retweeted);
-    setRetweetCount(prevCount => retweeted ? prevCount - 1 : prevCount + 1);
-  };
-  
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
   };
@@ -178,15 +150,13 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
               <span className="text-xs text-muted-foreground">{formattedDate}</span>
             </div>
             <p className="text-sm line-clamp-1">{actualTweet.content || ''}</p>
+            
+            <TweetActions 
+              tweet={actualTweet} 
+              onReply={onReply} 
+              compact={true} 
+            />
           </div>
-          
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 ml-2 text-muted-foreground hover:text-crypto-blue"
-          >
-            <MessageSquare className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     );
@@ -196,8 +166,6 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
     <div 
       className={cn(
         "glass-card p-4 overflow-hidden transition-all duration-300", 
-        liked && "border-crypto-red/20", 
-        retweeted && "border-crypto-green/20",
         className
       )}
       style={style}
@@ -281,64 +249,11 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
             </div>
           )}
           
-          <div className="mt-3 flex justify-between text-muted-foreground text-sm max-w-md">
-            <button 
-              className={cn(
-                "flex items-center space-x-1 group transition-colors",
-                "hover:text-crypto-blue"
-              )}
-            >
-              <div className="p-1.5 rounded-full group-hover:bg-crypto-blue/10 transition-colors">
-                <MessageSquare className="h-4 w-4 transition-colors" />
-              </div>
-              <span>{formatNumber(actualTweet.comments || 0)}</span>
-            </button>
-            
-            <button 
-              className={cn(
-                "flex items-center space-x-1 group transition-colors",
-                retweeted ? "text-crypto-green" : "hover:text-crypto-green"
-              )}
-              onClick={handleRetweet}
-            >
-              <div className={cn(
-                "p-1.5 rounded-full transition-colors",
-                retweeted ? "bg-crypto-green/10" : "group-hover:bg-crypto-green/10"
-              )}>
-                <Repeat2 className="h-4 w-4 transition-colors" />
-              </div>
-              <span>{formatNumber(retweetCount)}</span>
-            </button>
-            
-            <button 
-              className={cn(
-                "flex items-center space-x-1 group transition-colors",
-                liked ? "text-crypto-red" : "hover:text-crypto-red"
-              )}
-              onClick={handleLike}
-            >
-              <div className={cn(
-                "p-1.5 rounded-full transition-colors relative",
-                liked ? "bg-crypto-red/10" : "group-hover:bg-crypto-red/10"
-              )}>
-                <Heart 
-                  className={cn(
-                    "h-4 w-4 transition-transform duration-300", 
-                    liked && "scale-110 fill-crypto-red"
-                  )} 
-                />
-                {liked && (
-                  <span className="animate-ping absolute inset-0 h-full w-full rounded-full bg-crypto-red opacity-30" />
-                )}
-              </div>
-              <span>{formatNumber(likeCount)}</span>
-            </button>
-            
-            <button className="flex items-center space-x-1 group hover:text-crypto-blue transition-colors">
-              <div className="p-1.5 rounded-full group-hover:bg-crypto-blue/10 transition-colors">
-                <Share className="h-4 w-4" />
-              </div>
-            </button>
+          <div className="mt-3 max-w-md">
+            <TweetActions 
+              tweet={actualTweet} 
+              onReply={onReply} 
+            />
           </div>
           
           <div className="mt-2 md:hidden text-xs text-muted-foreground">

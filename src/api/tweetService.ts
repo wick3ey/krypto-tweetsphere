@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
@@ -236,71 +237,346 @@ export const tweetService = {
       return response.data;
     } catch (error) {
       console.error(`Error deleting tweet ${id}:`, error);
-      throw error;
+      
+      // Fallback: Still remove from local storage if API fails
+      try {
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const updatedTweets = localTweets.filter((t: Tweet) => t.id !== id);
+        localStorage.setItem('local_tweets', JSON.stringify(updatedTweets));
+        toast.success("Tweet deleted locally");
+        return { success: true, message: "Deleted locally only" };
+      } catch (localError) {
+        console.error("Could not delete locally either:", localError);
+        toast.error("Failed to delete tweet");
+        throw error;
+      }
     }
   },
   
   likeTweet: async (id: string) => {
+    if (!id) {
+      toast.error("Invalid tweet ID", { description: "Cannot like this tweet" });
+      return { success: false };
+    }
+    
     try {
-      const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
-      return response.data;
-    } catch (error) {
+      // Try to call API first
+      try {
+        const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
+        console.log("API like successful:", response.data);
+        return response.data;
+      } catch (apiError) {
+        console.log("API like failed, using local fallback:", apiError);
+        
+        // Fallback to updating the tweet locally
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        
+        if (tweetIndex >= 0) {
+          // Increment the likes count
+          localTweets[tweetIndex].likes = (localTweets[tweetIndex].likes || 0) + 1;
+          localTweets[tweetIndex].likeCount = (localTweets[tweetIndex].likeCount || 0) + 1;
+          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+        }
+        
+        return { success: true, message: "Liked locally only" };
+      }
+    } catch (error: any) {
       console.error(`Error liking tweet ${id}:`, error);
-      throw error;
+      toast.error("Failed to like tweet");
+      return { success: false, error };
     }
   },
   
   unlikeTweet: async (id: string) => {
+    if (!id) {
+      toast.error("Invalid tweet ID", { description: "Cannot unlike this tweet" });
+      return { success: false };
+    }
+    
     try {
-      const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
-      return response.data;
-    } catch (error) {
+      // Try to call API first
+      try {
+        const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/like`);
+        console.log("API unlike successful:", response.data);
+        return response.data;
+      } catch (apiError) {
+        console.log("API unlike failed, using local fallback:", apiError);
+        
+        // Fallback to updating the tweet locally
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        
+        if (tweetIndex >= 0) {
+          // Decrement the likes count, but don't go below 0
+          localTweets[tweetIndex].likes = Math.max(0, (localTweets[tweetIndex].likes || 0) - 1);
+          localTweets[tweetIndex].likeCount = Math.max(0, (localTweets[tweetIndex].likeCount || 0) - 1);
+          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+        }
+        
+        return { success: true, message: "Unliked locally only" };
+      }
+    } catch (error: any) {
       console.error(`Error unliking tweet ${id}:`, error);
-      throw error;
+      toast.error("Failed to unlike tweet");
+      return { success: false, error };
     }
   },
   
   retweet: async (id: string, comment?: string) => {
+    if (!id) {
+      toast.error("Invalid tweet ID", { description: "Cannot retweet this tweet" });
+      return { success: false };
+    }
+    
     try {
-      const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`, 
-        comment ? { comment } : undefined
-      );
-      return response.data;
-    } catch (error) {
+      // Try to call API first
+      try {
+        const payload = comment ? { comment } : {};
+        const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`, payload);
+        console.log("API retweet successful:", response.data);
+        return response.data;
+      } catch (apiError) {
+        console.log("API retweet failed, using local fallback:", apiError);
+        
+        // Fallback to updating the tweet locally
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        
+        if (tweetIndex >= 0) {
+          // Increment the retweets count
+          localTweets[tweetIndex].retweets = (localTweets[tweetIndex].retweets || 0) + 1;
+          localTweets[tweetIndex].retweetCount = (localTweets[tweetIndex].retweetCount || 0) + 1;
+          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+          
+          // Also create a local retweet if we have user data
+          const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
+          if (userData && userData.id) {
+            const originalTweet = localTweets[tweetIndex];
+            
+            // Create a retweet object
+            const retweetContent = comment || `RT @${originalTweet.user.username}: ${originalTweet.content}`;
+            const retweetId = 'local-retweet-' + Date.now();
+            
+            const retweetObj: Tweet = {
+              id: retweetId,
+              content: retweetContent,
+              user: userData,
+              timestamp: new Date().toISOString(),
+              likes: 0,
+              retweets: 0,
+              comments: 0,
+              hashtags: originalTweet.hashtags || [],
+              retweetOf: id
+            };
+            
+            // Save it to local storage
+            localTweets.unshift(retweetObj);
+            localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+          }
+        }
+        
+        return { success: true, message: "Retweeted locally only" };
+      }
+    } catch (error: any) {
       console.error(`Error retweeting tweet ${id}:`, error);
-      throw error;
+      toast.error("Failed to retweet");
+      return { success: false, error };
     }
   },
   
   unretweet: async (id: string) => {
+    if (!id) {
+      toast.error("Invalid tweet ID", { description: "Cannot unretweet this tweet" });
+      return { success: false };
+    }
+    
     try {
-      const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error un-retweeting tweet ${id}:`, error);
-      throw error;
+      // Try to call API first
+      try {
+        const response = await apiClient.delete(`https://f3oci3ty.xyz/api/tweets/${id}/retweet`);
+        console.log("API unretweet successful:", response.data);
+        return response.data;
+      } catch (apiError) {
+        console.log("API unretweet failed, using local fallback:", apiError);
+        
+        // Fallback to updating the tweet locally
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        
+        if (tweetIndex >= 0) {
+          // Decrement the retweets count, but don't go below 0
+          localTweets[tweetIndex].retweets = Math.max(0, (localTweets[tweetIndex].retweets || 0) - 1);
+          localTweets[tweetIndex].retweetCount = Math.max(0, (localTweets[tweetIndex].retweetCount || 0) - 1);
+          
+          // Also remove any local retweets of this tweet by the current user
+          const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
+          if (userData && userData.id) {
+            const updatedTweets = localTweets.filter((t: Tweet) => {
+              return !(t.retweetOf === id && t.user.id === userData.id);
+            });
+            localStorage.setItem('local_tweets', JSON.stringify(updatedTweets));
+          } else {
+            localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+          }
+        }
+        
+        return { success: true, message: "Unretweeted locally only" };
+      }
+    } catch (error: any) {
+      console.error(`Error unretweeting tweet ${id}:`, error);
+      toast.error("Failed to unretweet");
+      return { success: false, error };
     }
   },
   
   replyToTweet: async (id: string, content: string, attachments?: string[]) => {
+    if (!id || !content) {
+      toast.error("Invalid tweet or empty reply", { description: "Cannot reply to this tweet" });
+      return { success: false };
+    }
+    
     try {
-      const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/reply`, { content, attachments });
-      return response.data;
-    } catch (error) {
+      const userData = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (!userData || !userData.id) {
+        toast.error("User data missing", { description: "Please log in to reply" });
+        return { success: false, message: "Authentication required" };
+      }
+      
+      // Try to call API first
+      try {
+        const payload = { content, attachments };
+        const response = await apiClient.post(`https://f3oci3ty.xyz/api/tweets/${id}/reply`, payload);
+        console.log("API reply successful:", response.data);
+        
+        // Update the comments count on the original tweet
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        if (tweetIndex >= 0) {
+          localTweets[tweetIndex].comments = (localTweets[tweetIndex].comments || 0) + 1;
+          localTweets[tweetIndex].commentCount = (localTweets[tweetIndex].commentCount || 0) + 1;
+          localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+        }
+        
+        return response.data;
+      } catch (apiError) {
+        console.log("API reply failed, using local fallback:", apiError);
+        
+        // Fallback to creating a local reply
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const originalTweet = localTweets.find((t: Tweet) => t.id === id);
+        
+        // Create a reply object
+        const replyId = 'local-reply-' + Date.now();
+        const replyObj: Tweet = {
+          id: replyId,
+          content: content,
+          user: userData,
+          timestamp: new Date().toISOString(),
+          likes: 0,
+          retweets: 0,
+          comments: 0,
+          hashtags: content.match(/#(\w+)/g)?.map(tag => tag.substring(1)) || [],
+          replyTo: id
+        };
+        
+        // Update comments count on original tweet
+        const tweetIndex = localTweets.findIndex((t: Tweet) => t.id === id);
+        if (tweetIndex >= 0) {
+          localTweets[tweetIndex].comments = (localTweets[tweetIndex].comments || 0) + 1;
+          localTweets[tweetIndex].commentCount = (localTweets[tweetIndex].commentCount || 0) + 1;
+        }
+        
+        // Save the reply to local storage
+        localTweets.unshift(replyObj);
+        localStorage.setItem('local_tweets', JSON.stringify(localTweets));
+        
+        toast.success("Reply added locally");
+        return { success: true, tweet: replyObj, message: "Reply added locally only" };
+      }
+    } catch (error: any) {
       console.error(`Error replying to tweet ${id}:`, error);
-      throw error;
+      toast.error("Failed to post reply");
+      return { success: false, error };
     }
   },
   
   getTweetReplies: async (id: string) => {
     try {
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/tweets/${id}/replies`);
-      return Array.isArray(response.data) ? response.data : [];
+      // Try API first
+      try {
+        const response = await apiClient.get(`https://f3oci3ty.xyz/api/tweets/${id}/replies`);
+        console.log("API get replies successful:", response.data);
+        return Array.isArray(response.data) ? response.data : [];
+      } catch (apiError) {
+        console.log("API get replies failed, using local fallback:", apiError);
+        
+        // Fallback to filtering local tweets for replies
+        const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+        const replies = localTweets.filter((t: Tweet) => t.replyTo === id);
+        
+        return replies;
+      }
     } catch (error) {
       console.error(`Error fetching replies for tweet ${id}:`, error);
       return [];
     }
   },
+  
+  shareTweet: async (id: string, platform = 'default') => {
+    if (!id) {
+      toast.error("Invalid tweet ID", { description: "Cannot share this tweet" });
+      return { success: false };
+    }
+    
+    try {
+      // Get the tweet first
+      const tweet = await tweetService.getTweet(id);
+      if (!tweet) {
+        toast.error("Tweet not found");
+        return { success: false };
+      }
+      
+      // Create share URL
+      const shareUrl = `https://f3oci3ty.xyz/tweet/${id}`;
+      
+      // Handle sharing based on platform
+      switch (platform) {
+        case 'twitter':
+          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet.content)}&url=${encodeURIComponent(shareUrl)}`, '_blank');
+          break;
+        case 'facebook':
+          window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+          break;
+        case 'copy':
+          navigator.clipboard.writeText(shareUrl);
+          toast.success("Link copied to clipboard");
+          break;
+        default:
+          // Default share action using Web Share API if available
+          if (navigator.share) {
+            await navigator.share({
+              title: `Tweet by @${tweet.user.username}`,
+              text: tweet.content,
+              url: shareUrl
+            });
+          } else {
+            // Fallback if Web Share API is not available
+            navigator.clipboard.writeText(shareUrl);
+            toast.success("Link copied to clipboard");
+          }
+      }
+      
+      // Log the share action
+      console.log(`Tweet ${id} shared via ${platform}`);
+      
+      return { success: true, message: `Shared via ${platform}` };
+    } catch (error: any) {
+      console.error(`Error sharing tweet ${id}:`, error);
+      toast.error("Failed to share tweet", { description: error.message });
+      return { success: false, error };
+    }
+  }
 };
 
 // Function to normalize tweet response data
