@@ -1,7 +1,6 @@
 
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/api/authService';
@@ -16,17 +15,6 @@ import Home from '@/pages/Home';
 import Profile from '@/pages/Profile';
 import ProfileSetup from '@/components/auth/ProfileSetup';
 import NotFound from '@/pages/NotFound';
-
-// Create a client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 30 * 1000, // 30 seconds
-    },
-  },
-});
 
 function App() {
   const navigate = useNavigate();
@@ -70,7 +58,7 @@ function App() {
   }, [navigate, location]);
   
   return (
-    <QueryClientProvider client={queryClient}>
+    <>
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Home />} />
@@ -81,7 +69,7 @@ function App() {
         </Route>
       </Routes>
       <Toaster />
-    </QueryClientProvider>
+    </>
   );
 }
 
