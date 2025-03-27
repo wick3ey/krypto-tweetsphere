@@ -60,19 +60,21 @@ export const WalletConnect = () => {
       }
       
       // Connect to Phantom wallet
-      const connectResponse = await provider.connect();
-      const newWalletAddress = connectResponse.publicKey.toString();
+      const connectResult = await provider.connect();
+      const newWalletAddress = connectResult.publicKey.toString();
       
       // Store wallet address
       setWalletAddress(newWalletAddress);
       localStorage.setItem('wallet_address', newWalletAddress);
       
       // Get a nonce to sign from Supabase
-      let { data: nonceData, error: nonceError } = await supabase.rpc('get_nonce', { 
+      const { data: nonceData, error: nonceError } = await supabase.rpc('get_nonce', { 
         wallet_addr: newWalletAddress 
       });
       
-      if (nonceError) {
+      let messageToSign;
+      
+      if (nonceError || !nonceData || nonceData.length === 0) {
         console.error("Error fetching nonce:", nonceError);
         
         // Create a new nonce if none exists
@@ -85,13 +87,13 @@ export const WalletConnect = () => {
           message_text: messageText
         });
         
-        nonceData = { nonce: newNonce, message: messageText };
+        messageToSign = messageText;
+      } else {
+        messageToSign = nonceData.message;
       }
       
-      const message = nonceData.message;
-      
       // Sign the message with the wallet
-      const encodedMessage = new TextEncoder().encode(message);
+      const encodedMessage = new TextEncoder().encode(messageToSign);
       const signResult = await provider.signMessage(encodedMessage, "utf8");
       const signature = Array.from(signResult.signature)
         .map(b => b.toString(16).padStart(2, "0"))
@@ -106,7 +108,7 @@ export const WalletConnect = () => {
         body: JSON.stringify({
           walletAddress: newWalletAddress,
           signature,
-          message
+          message: messageToSign
         })
       });
       
