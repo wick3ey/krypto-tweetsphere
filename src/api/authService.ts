@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
 
+// Define response type for get_nonce function
+interface NonceResponse {
+  nonce: string;
+  message: string;
+}
+
 export const authService = {
   async getNonce(walletAddress: string) {
     try {
@@ -32,7 +38,9 @@ export const authService = {
         return { nonce, message };
       }
       
-      return { nonce: data.nonce, message: data.message };
+      // Safely typecast data to get nonce and message
+      const typedData = data as NonceResponse;
+      return { nonce: typedData.nonce, message: typedData.message };
     } catch (error) {
       console.error('Error getting nonce:', error);
       return { nonce: '', message: '' };

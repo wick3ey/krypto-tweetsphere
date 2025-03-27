@@ -12,6 +12,24 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
+// Define custom RPC types
+type RPCFunctions = {
+  follow_user: (args: { follower_id: string; followed_id: string }) => Promise<null>;
+  unfollow_user: (args: { follower_id: string; followed_id: string }) => Promise<null>;
+  get_nonce: (args: { wallet_addr: string }) => Promise<{ nonce: string; message: string }>;
+  create_nonce: (args: { wallet_addr: string; nonce_value: string; message_text: string }) => Promise<null>;
+};
+
+// Augment the SupabaseClient type with our RPC functions
+declare module '@supabase/supabase-js' {
+  interface SupabaseClient<Database> {
+    rpc<FunctionName extends keyof RPCFunctions>(
+      fn: FunctionName,
+      args?: Parameters<RPCFunctions[FunctionName]>[0]
+    ): ReturnType<SupabaseClient['rpc']>;
+  }
+}
+
 // Type-safe table accessors
 export const usersTable = () => supabase.from('users');
 export const tweetsTable = () => supabase.from('tweets');

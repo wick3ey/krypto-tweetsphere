@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -30,7 +31,7 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
   const { currentUser } = useUser();
   const queryClient = useQueryClient();
   
-  const { mutate: createTweet, isLoading: isCreatingTweet } = useMutation({
+  const { mutate: createTweet, isPending: isCreatingTweet } = useMutation({
     mutationFn: () => tweetService.createTweet(content, attachments, replyToTweetId),
     onSuccess: () => {
       toast.success('Tweet skapad!');
@@ -117,7 +118,7 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
                     />
                     <label htmlFor="image-upload">
                       <Button variant="ghost" size="icon" asChild>
-                        <Paperclip className="h-5 w-5" />
+                        <span><Paperclip className="h-5 w-5" /></span>
                       </Button>
                     </label>
                   </div>

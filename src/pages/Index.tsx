@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ const Index = () => {
   const { currentUser } = useUser();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const firstLoadRef = useRef(true);
+  const [composeDialogOpen, setComposeDialogOpen] = useState(false);
   
   // Check if user is logged in
   const isLoggedIn = !!localStorage.getItem('jwt_token');
@@ -184,7 +186,16 @@ const Index = () => {
           {/* Compose Tweet (only show if logged in) */}
           {isLoggedIn && (
             <div className="bg-background border border-border rounded-lg p-4">
-              <ComposeDialog onSubmit={handleTweet} />
+              <ComposeDialog 
+                open={composeDialogOpen} 
+                onOpenChange={setComposeDialogOpen}
+              />
+              <Button 
+                className="w-full flex items-center gap-2" 
+                onClick={() => setComposeDialogOpen(true)}
+              >
+                Skapa inlägg
+              </Button>
             </div>
           )}
           
