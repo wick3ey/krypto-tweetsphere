@@ -54,8 +54,13 @@ export const messageService = {
       const { data: sentMessages, error: sentError } = await supabase
         .from('messages')
         .select(`
-          *,
-          receiver:receiver_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
+          id,
+          content,
+          created_at,
+          read,
+          receiver_id,
+          sender_id,
+          users!messages_receiver_id_fkey(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
         `)
         .eq('sender_id', currentUserId)
         .order('created_at', { ascending: false });
@@ -66,8 +71,13 @@ export const messageService = {
       const { data: receivedMessages, error: receivedError } = await supabase
         .from('messages')
         .select(`
-          *,
-          sender:sender_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
+          id,
+          content,
+          created_at,
+          read,
+          receiver_id,
+          sender_id,
+          users!messages_sender_id_fkey(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
         `)
         .eq('receiver_id', currentUserId)
         .order('created_at', { ascending: false });
@@ -80,22 +90,37 @@ export const messageService = {
       // Lägg till skickade meddelanden
       if (sentMessages && sentMessages.length > 0) {
         sentMessages.forEach(message => {
-          if (!message.receiver) return;
+          const otherUser = message.users;
           
-          const otherUser = message.receiver;
-          const userId = otherUser?.id;
+          if (!otherUser) return;
+          
+          const userId = otherUser.id;
           
           if (!userId) return; // Skip if user id is undefined
           
           if (!conversations.has(userId)) {
             conversations.set(userId, {
               user: dbUserToUser(otherUser),
-              lastMessage: message,
+              lastMessage: {
+                id: message.id,
+                content: message.content,
+                created_at: message.created_at,
+                read: message.read,
+                receiver_id: message.receiver_id,
+                sender_id: message.sender_id
+              },
               unreadCount: 0
             });
           } else if (new Date(message.created_at) > new Date(conversations.get(userId).lastMessage.created_at)) {
             const conv = conversations.get(userId);
-            conv.lastMessage = message;
+            conv.lastMessage = {
+              id: message.id,
+              content: message.content,
+              created_at: message.created_at,
+              read: message.read,
+              receiver_id: message.receiver_id,
+              sender_id: message.sender_id
+            };
           }
         });
       }
@@ -103,23 +128,38 @@ export const messageService = {
       // Lägg till mottagna meddelanden
       if (receivedMessages && receivedMessages.length > 0) {
         receivedMessages.forEach(message => {
-          if (!message.sender) return;
+          const otherUser = message.users;
           
-          const otherUser = message.sender;
-          const userId = otherUser?.id;
+          if (!otherUser) return;
+          
+          const userId = otherUser.id;
           
           if (!userId) return; // Skip if user id is undefined
           
           if (!conversations.has(userId)) {
             conversations.set(userId, {
               user: dbUserToUser(otherUser),
-              lastMessage: message,
+              lastMessage: {
+                id: message.id,
+                content: message.content,
+                created_at: message.created_at,
+                read: message.read,
+                receiver_id: message.receiver_id,
+                sender_id: message.sender_id
+              },
               unreadCount: message.read ? 0 : 1
             });
           } else {
             const conv = conversations.get(userId);
             if (new Date(message.created_at) > new Date(conv.lastMessage.created_at)) {
-              conv.lastMessage = message;
+              conv.lastMessage = {
+                id: message.id,
+                content: message.content,
+                created_at: message.created_at,
+                read: message.read,
+                receiver_id: message.receiver_id,
+                sender_id: message.sender_id
+              };
             }
             if (!message.read) {
               conv.unreadCount += 1;

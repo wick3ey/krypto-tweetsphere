@@ -66,5 +66,5 @@ function getRandomPrice(): number {
 
 function getRandomPriceChange(): number {
   // Generate a random price change between -10% and +10%
-  return (Math.random() * 20 - 10).toFixed(2) as unknown as number;
+  return Number((Math.random() * 20 - 10).toFixed(2));
 }

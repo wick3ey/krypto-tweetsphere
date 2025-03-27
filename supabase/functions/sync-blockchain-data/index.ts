@@ -30,7 +30,7 @@ serve(async (req: Request) => {
     return new Response(JSON.stringify(blockchainData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in sync-blockchain-data function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
