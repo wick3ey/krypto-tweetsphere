@@ -3,10 +3,10 @@ import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import * as bs58 from "bs58";
 
-// Set up CORS headers with wildcard origin and REMOVE authorization header requirement
+// Set up CORS headers with wildcard origin
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'x-client-info, content-type',
+  'Access-Control-Allow-Headers': 'content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 

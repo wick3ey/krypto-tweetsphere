@@ -100,7 +100,7 @@ export const WalletConnect = () => {
         message
       });
       
-      // Verify the signature with the backend - without any authorization headers
+      // Verify the signature with the backend - explicitly only sending content-type header
       const authResponse = await fetch('https://dtrlmfwgtjrjkepvgatv.supabase.co/functions/v1/verify-wallet-signature', {
         method: 'POST',
         headers: {
