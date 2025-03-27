@@ -55,7 +55,7 @@ export const messageService = {
         .from('messages')
         .select(`
           *,
-          receiver:receiver_id(*)
+          receiver:receiver_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
         `)
         .eq('sender_id', currentUserId)
         .order('created_at', { ascending: false });
@@ -67,7 +67,7 @@ export const messageService = {
         .from('messages')
         .select(`
           *,
-          sender:sender_id(*)
+          sender:sender_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
         `)
         .eq('receiver_id', currentUserId)
         .order('created_at', { ascending: false });

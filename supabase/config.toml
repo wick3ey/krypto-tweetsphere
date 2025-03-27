@@ -41,24 +41,6 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 
-[auth.external.apple]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-
-[auth.external.github]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-
-[auth.external.google]
-enabled = false
-client_id = ""
-secret = ""
-redirect_uri = ""
-
 [functions]
 [functions.create-token-metadata]
 [functions.process-crypto-transaction]

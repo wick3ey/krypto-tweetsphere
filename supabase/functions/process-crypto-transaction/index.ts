@@ -11,7 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -65,7 +65,7 @@ serve(async (req) => {
   }
 });
 
-async function updateUserTokenBalance(supabase, transaction) {
+async function updateUserTokenBalance(supabase: any, transaction: any) {
   // Check if user already has this token
   const { data: existingToken } = await supabase
     .from('token_balances')
