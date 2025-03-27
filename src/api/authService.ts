@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
@@ -129,7 +128,11 @@ export const authService = {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
       
@@ -140,6 +143,13 @@ export const authService = {
       console.error('Google sign in error:', error);
       throw error;
     }
+  },
+  
+  /**
+   * Sign up with Google
+   */
+  async signUpWithGoogle() {
+    return this.signInWithGoogle(); // Same method for both sign in and sign up
   },
   
   /**
