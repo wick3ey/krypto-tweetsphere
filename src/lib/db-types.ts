@@ -4,7 +4,6 @@ import { User as UserType, Tweet as TweetType } from '@/lib/types';
 // Database User Type - represents the structure from Supabase
 export interface DbUser {
   id: string;
-  wallet_address: string;
   username: string;
   display_name: string;
   avatar_url?: string;
@@ -48,7 +47,6 @@ export const dbUserToUser = (dbUser: DbUser): UserType => ({
   username: dbUser.username,
   displayName: dbUser.display_name,
   avatarUrl: dbUser.avatar_url || '',
-  walletAddress: dbUser.wallet_address,
   bio: dbUser.bio || '',
   joinedDate: dbUser.joined_date,
   following: dbUser.following || [],

@@ -1,13 +1,11 @@
 
 import { useState } from 'react';
-import { Calendar, Copy, ExternalLink, Link as LinkIcon, MessageCircle, Shield } from 'lucide-react';
+import { Calendar, MessageCircle, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { User as UserType, UserProfile } from '@/lib/types';
-import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/hooks/useUser';
-import { toast } from 'sonner';
 import FollowButton from './FollowButton';
 
 interface ProfileCardProps {
@@ -17,8 +15,6 @@ interface ProfileCardProps {
 }
 
 const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) => {
-  const [copied, setCopied] = useState(false);
-  
   const { currentUser } = useUser();
   
   // Check if the logged-in user follows this profile
@@ -36,23 +32,6 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
       console.error('Error formatting join date:', error);
       return 'Datum okänt';
     }
-  };
-  
-  const formatWalletAddress = (address: string): string => {
-    if (!address) return 'Adress saknas';
-    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
-  };
-  
-  const copyToClipboard = () => {
-    if (!profile.walletAddress) {
-      toast.error("Ingen wallet-adress tillgänglig");
-      return;
-    }
-    
-    navigator.clipboard.writeText(profile.walletAddress);
-    setCopied(true);
-    toast.success("Wallet-adress kopierad");
-    setTimeout(() => setCopied(false), 2000);
   };
 
   // Minimal version for listings
@@ -133,43 +112,6 @@ const ProfileCard = ({ profile, minimal = false, className }: ProfileCardProps) 
             )}
           </div>
           <p className="text-muted-foreground">@{profile.username || "användarnamn"}</p>
-          
-          {profile.walletAddress && (
-            <div className="mt-3 flex items-center text-sm text-muted-foreground bg-secondary/50 px-3 py-2 rounded-lg">
-              <LinkIcon className="h-4 w-4 mr-1 flex-shrink-0" />
-              <span className="font-mono">{formatWalletAddress(profile.walletAddress)}</span>
-              <button 
-                className={cn(
-                  "ml-1 px-1.5 py-0.5 rounded text-xs transition-colors",
-                  copied ? "bg-green-500/10 text-green-600" : "text-crypto-blue hover:bg-crypto-blue/10"
-                )}
-                onClick={copyToClipboard}
-              >
-                {copied ? 'Kopierad!' : (
-                  <div className="flex items-center">
-                    <Copy className="h-3 w-3 mr-0.5" />
-                    Kopiera
-                  </div>
-                )}
-              </button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="ml-auto h-6 px-2" 
-                asChild
-              >
-                <a 
-                  href={`https://etherscan.io/address/${profile.walletAddress}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  <span className="text-xs">Visa</span>
-                </a>
-              </Button>
-            </div>
-          )}
           
           <p className="mt-3">{profile.bio || "Ingen biografi tillgänglig"}</p>
           

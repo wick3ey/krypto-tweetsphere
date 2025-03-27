@@ -26,27 +26,12 @@ export function useUser() {
     }
   });
 
-  const checkWalletUser = (walletAddress: string) => {
-    return useQuery({
-      queryKey: ['walletUser', walletAddress],
-      queryFn: () => userService.getUserByWalletAddress(walletAddress),
-      enabled: false,
-      retry: 1,
-      meta: {
-        onError: () => {
-          console.log('Ingen användare hittad med denna wallet-adress');
-        }
-      }
-    });
-  };
-
   const updateProfileMutation = useMutation({
     mutationFn: (profileData: Partial<User>) => userService.updateProfile(profileData),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       queryClient.invalidateQueries({ queryKey: ['userProfile', data.id] });
       queryClient.invalidateQueries({ queryKey: ['userProfile', data.username] });
-      queryClient.invalidateQueries({ queryKey: ['userProfile', data.walletAddress] });
       
       localStorage.setItem('current_user', JSON.stringify(data));
       
@@ -198,7 +183,6 @@ export function useUser() {
     getUserProfile: (identifier: string, options = {}) => {
       return userService.getUserProfile(identifier, options);
     },
-    checkWalletUser,
     updateProfile: updateProfileMutation.mutate,
     createProfile: createProfileMutation.mutate,
     isUpdatingProfile: updateProfileMutation.isPending,

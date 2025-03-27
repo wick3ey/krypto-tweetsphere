@@ -8,15 +8,11 @@ export const userService = {
     try {
       let query = supabase.from('users').select('*');
       
-      // Kontrollera om identifieraren är ett UUID (antar att UUID är 36 tecken långt)
+      // Check if the identifier is a UUID (assuming UUID is 36 characters long)
       if (identifier.length === 36) {
         query = query.eq('id', identifier);
       }
-      // Kontrollera om identifieraren liknar en wallet-adress (0x följt av minst 40 tecken)
-      else if (identifier.startsWith('0x') || identifier.length >= 42) {
-        query = query.eq('wallet_address', identifier);
-      }
-      // Annars, anta att det är ett användarnamn
+      // Otherwise, assume it's a username
       else {
         query = query.eq('username', identifier);
       }
@@ -26,7 +22,7 @@ export const userService = {
       if (error) throw error;
       if (!data) throw new Error('User not found');
       
-      // Hämta antal följare och följda
+      // Get followers and following counts
       const followersCount = data.followers ? data.followers.length : 0;
       const followingCount = data.following ? data.following.length : 0;
       
@@ -41,49 +37,21 @@ export const userService = {
     }
   },
   
-  async getUserByWalletAddress(walletAddress: string): Promise<User | null> {
-    try {
-      console.log('Söker användare med wallet-adress:', walletAddress);
-      
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('wallet_address', walletAddress)
-        .maybeSingle();
-        
-      if (error) {
-        console.error('Error fetching user by wallet address:', error);
-        throw error;
-      }
-      
-      if (!data) {
-        console.log('Ingen användare hittad med wallet-adress:', walletAddress);
-        return null;
-      }
-      
-      console.log('Användare hittad:', data.username);
-      return dbUserToUser(data);
-    } catch (error) {
-      console.error('Error in getUserByWalletAddress:', error);
-      throw error;
-    }
-  },
-  
   async uploadProfileImage(file: File, type: 'avatar' | 'header'): Promise<string> {
     try {
-      // Hämta användar-ID från lokala lagringen
+      // Get user ID from local storage
       const userId = localStorage.getItem('user_id');
       if (!userId) {
         throw new Error('User ID not found in local storage');
       }
       
-      // Generera ett unikt filnamn med timestamp för att undvika cacheproblem
+      // Generate a unique filename with timestamp to avoid cache issues
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}/${type}_${Date.now()}.${fileExt}`;
       
-      console.log(`Försöker ladda upp ${type} bild för användare ${userId}`);
+      console.log(`Trying to upload ${type} image for user ${userId}`);
       
-      // Upload till Supabase Storage
+      // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('profiles')
         .upload(fileName, file, {
@@ -96,16 +64,16 @@ export const userService = {
         throw error;
       }
       
-      console.log(`Uppladdad fil: ${data?.path}`);
+      console.log(`Uploaded file: ${data?.path}`);
       
-      // Hämta den publika URL:en
+      // Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('profiles')
         .getPublicUrl(fileName);
         
-      console.log(`Publik URL: ${publicUrlData.publicUrl}`);
+      console.log(`Public URL: ${publicUrlData.publicUrl}`);
       
-      // Uppdatera användarens profil direkt i databasen med den nya bilden
+      // Update the user's profile directly in the database with the new image
       if (type === 'avatar') {
         await supabase
           .from('users')
@@ -127,20 +95,20 @@ export const userService = {
   
   async setupProfile(profileData: Partial<User>): Promise<User> {
     try {
-      // Hämta användar-ID från sessionen
+      // Get user ID from session
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session found');
       }
       
       const userId = session.user.id;
-      console.log('Skapar/uppdaterar profil för användare:', userId);
+      console.log('Creating/updating profile for user:', userId);
       
-      // Kontrollera om användaren har laddat upp avatar eller header
+      // Check if user has uploaded avatar or header
       let avatarUrl = profileData.avatarUrl;
       let headerUrl = profileData.headerUrl;
       
-      // Hämta den nuvarande användaren från Supabase
+      // Get current user from Supabase
       const { data: userData, error: fetchError } = await supabase
         .from('users')
         .select('*')
@@ -148,24 +116,23 @@ export const userService = {
         .maybeSingle();
         
       if (fetchError) {
-        console.error('Kunde inte hämta användardata:', fetchError);
+        console.error('Could not fetch user data:', fetchError);
         throw fetchError;
       }
       
-      // Om användaren inte finns, skapa en ny
+      // If user doesn't exist, create a new one
       if (!userData) {
-        console.log('Ingen användare hittad, skapar ny användare');
+        console.log('No user found, creating new user');
         
-        // Generera ett temporärt användarnamn om inget angivits
+        // Generate temporary username if none provided
         const tempUsername = profileData.username || `user_${userId.substring(0, 8).toLowerCase()}`;
         const tempDisplayName = profileData.displayName || session.user.user_metadata?.name || 'New User';
         
-        // Skapa den nya användaren
+        // Create the new user
         const { data: newUser, error: insertError } = await supabase
           .from('users')
           .insert({
             id: userId,
-            wallet_address: profileData.walletAddress || '',
             username: tempUsername,
             display_name: tempDisplayName,
             bio: profileData.bio || '',
@@ -179,31 +146,30 @@ export const userService = {
           .single();
           
         if (insertError) {
-          console.error('Kunde inte skapa ny användare:', insertError);
+          console.error('Could not create new user:', insertError);
           throw insertError;
         }
         
-        console.log('Ny användare skapad:', newUser);
+        console.log('New user created:', newUser);
         
-        // Markera att profiluppsättningen är slutförd
+        // Mark profile setup as completed
         localStorage.setItem('profile_setup_complete', 'true');
         
         return dbUserToUser(newUser);
       }
       
-      // Förbereda data för uppdatering
+      // Prepare data for update
       const updateData = {
         username: profileData.username || userData.username,
         display_name: profileData.displayName || userData.display_name,
         bio: profileData.bio !== undefined ? profileData.bio : userData.bio,
         avatar_url: avatarUrl || userData.avatar_url,
         header_url: headerUrl || userData.header_url,
-        wallet_address: profileData.walletAddress || userData.wallet_address || '',
       };
       
-      console.log('Uppdaterar befintlig användare med:', updateData);
+      console.log('Updating existing user with:', updateData);
       
-      // Uppdatera användarprofil
+      // Update user profile
       const { data, error } = await supabase
         .from('users')
         .update(updateData)
@@ -212,16 +178,16 @@ export const userService = {
         .single();
         
       if (error) {
-        console.error('Kunde inte uppdatera användarprofil:', error);
+        console.error('Could not update user profile:', error);
         throw error;
       }
       
-      console.log('Användarprofil uppdaterad:', data);
+      console.log('User profile updated:', data);
       
-      // Markera att profiluppsättningen är slutförd
+      // Mark profile setup as completed
       localStorage.setItem('profile_setup_complete', 'true');
       
-      // Uppdatera avataren i Auth-metadatan för konsistens
+      // Update avatar in Auth metadata for consistency
       if (avatarUrl) {
         try {
           await supabase.auth.updateUser({
@@ -230,18 +196,18 @@ export const userService = {
             }
           });
         } catch (metaError) {
-          console.error('Kunde inte uppdatera auth metadata:', metaError);
-          // Detta är inte ett kritiskt fel, så vi fortsätter
+          console.error('Could not update auth metadata:', metaError);
+          // This is not a critical error, so we continue
         }
       }
       
-      // Uppdatera cache för currentUser
+      // Update cache for currentUser
       if (typeof window !== 'undefined') {
         const converted = dbUserToUser(data);
         localStorage.setItem('current_user', JSON.stringify(converted));
       }
       
-      // Konvertera till applikationens User-typ och returnera
+      // Convert to application User type and return
       return dbUserToUser(data);
     } catch (error) {
       console.error('Error setting up profile:', error);

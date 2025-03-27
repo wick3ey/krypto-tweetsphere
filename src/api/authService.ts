@@ -63,7 +63,6 @@ export const authService = {
           username: `user_${user.id.substring(0, 8)}`,
           display_name: user.user_metadata?.name || user.user_metadata?.full_name || 'New User',
           avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
-          wallet_address: user.user_metadata?.wallet_address || '',
           bio: '',
           joined_date: new Date().toISOString(),
           following: [],
@@ -232,7 +231,6 @@ export const authService = {
    */
   clearAuthData() {
     localStorage.removeItem('current_user');
-    localStorage.removeItem('wallet_address');
     localStorage.removeItem('jwt_token');
   }
 };
