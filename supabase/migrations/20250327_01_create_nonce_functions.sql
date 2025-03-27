@@ -42,3 +42,4 @@ BEGIN
   WHERE id = tweet_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+

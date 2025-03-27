@@ -41,10 +41,6 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 
-[auth.phone]
-enable_signup = true
-enable_confirmations = true
-
 [auth.external.apple]
 enabled = false
 client_id = ""

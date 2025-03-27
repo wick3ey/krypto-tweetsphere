@@ -24,6 +24,9 @@ type RPCFunctions = {
   unfollow_user: (args: { follower_id: string; followed_id: string }) => void;
   get_nonce: (args: { wallet_addr: string }) => { nonce: string; message: string };
   create_nonce: (args: { wallet_addr: string; nonce_value: string; message_text: string }) => void;
+  increment_comment_count: (args: { tweet_id: string }) => void;
+  get_unread_messages_count: (args: { user_id: string }) => number;
+  get_unread_notifications_count: (args: { user_id: string }) => number;
 };
 
 // Augment the SupabaseClient type with our RPC functions

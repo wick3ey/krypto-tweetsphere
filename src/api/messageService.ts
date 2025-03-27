@@ -55,7 +55,7 @@ export const messageService = {
         .from('messages')
         .select(`
           *,
-          receiver:receiver_id(id, wallet_address, username, display_name, avatar_url, bio, joined_date, following, followers, verified, header_url)
+          receiver:receiver_id(*)
         `)
         .eq('sender_id', currentUserId)
         .order('created_at', { ascending: false });
@@ -67,7 +67,7 @@ export const messageService = {
         .from('messages')
         .select(`
           *,
-          sender:sender_id(id, wallet_address, username, display_name, avatar_url, bio, joined_date, following, followers, verified, header_url)
+          sender:sender_id(*)
         `)
         .eq('receiver_id', currentUserId)
         .order('created_at', { ascending: false });
@@ -83,7 +83,7 @@ export const messageService = {
           if (!message.receiver) return;
           
           const otherUser = message.receiver;
-          const userId = otherUser.id;
+          const userId = otherUser?.id;
           
           if (!userId) return; // Skip if user id is undefined
           
@@ -106,7 +106,7 @@ export const messageService = {
           if (!message.sender) return;
           
           const otherUser = message.sender;
-          const userId = otherUser.id;
+          const userId = otherUser?.id;
           
           if (!userId) return; // Skip if user id is undefined
           

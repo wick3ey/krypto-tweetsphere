@@ -1,21 +1,18 @@
 
 // Denna edge-funktion skulle hantera kryptovalutatransaktioner
-// (Implementeras senare när det behövs)
 
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.23.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Skapa en Supabase-klient
-// @ts-ignore
-const supabaseClient = createClient(
-  Deno.env.get("SUPABASE_URL") || "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
-);
+// Skapa en Supabase-klient med miljövariabler
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
 interface TransactionRequest {
   type: "transfer" | "buy" | "sell" | "swap";
