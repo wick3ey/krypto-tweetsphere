@@ -1,6 +1,6 @@
 
 import apiClient from './apiClient';
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 export const tweetService = {
   getFeed: async () => {
@@ -39,39 +39,33 @@ export const tweetService = {
   createTweet: async (content: string, attachments?: string[]) => {
     const token = localStorage.getItem('jwt_token');
     if (!token) {
-      toast({
-        title: "Authentication required",
-        description: "Please connect your wallet to post tweets",
-        variant: "destructive",
+      toast.error("Authentication required", {
+        description: "Please connect your wallet to post tweets"
       });
       throw new Error('Authentication required');
     }
     
     try {
+      console.log('Creating tweet with content:', content);
       const response = await apiClient.post('https://f3oci3ty.xyz/api/tweets', { content, attachments });
+      console.log('Tweet created successfully:', response.data);
       return response.data.data || response.data;
     } catch (error: any) {
       console.error('Error creating tweet:', error);
       
       if (error.response) {
         if (error.response.status === 401) {
-          toast({
-            title: "Session expired",
-            description: "Your session has expired. Please reconnect your wallet.",
-            variant: "destructive",
+          toast.error("Session expired", {
+            description: "Your session has expired. Please reconnect your wallet."
           });
         } else {
-          toast({
-            title: "Error",
-            description: error.response.data?.message || "Failed to create tweet. Please try again.",
-            variant: "destructive",
+          toast.error("Error", {
+            description: error.response.data?.message || "Failed to create tweet. Please try again."
           });
         }
       } else {
-        toast({
-          title: "Network error",
-          description: "Could not connect to the server. Please check your connection.",
-          variant: "destructive",
+        toast.error("Network error", {
+          description: "Could not connect to the server. Please check your connection."
         });
       }
       

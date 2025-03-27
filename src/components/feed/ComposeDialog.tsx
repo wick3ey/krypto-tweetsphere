@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AtSign, Image, FileText, Smile, X, Pencil } from 'lucide-react';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useQuery } from '@tanstack/react-query';
 import { authService } from '@/api/authService';
@@ -52,13 +52,14 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
       setContent('');
       setIsOpen(false);
       
-      toast({
-        title: "Inlägget publicerat!",
+      toast.success("Inlägget publicerat!", {
         description: "Ditt inlägg har publicerats framgångsrikt.",
       });
     } catch (error) {
       console.error("Error submitting tweet:", error);
-      // The error toast is now handled in tweetService
+      toast.error("Kunde inte publicera inlägg", {
+        description: "Ett fel uppstod. Försök igen senare.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -69,10 +70,8 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
   
   const handleTriggerClick = () => {
     if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
+      toast.error("Authentication required", {
         description: "Please connect your wallet to post tweets",
-        variant: "destructive",
       });
       return;
     }

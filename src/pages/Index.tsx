@@ -48,6 +48,9 @@ const Index = () => {
     },
     onError: (error: any) => {
       console.error("Error creating tweet:", error);
+      toast.error("Error creating tweet", {
+        description: error.message || "Could not create tweet. Please try again."
+      });
     },
   });
   
