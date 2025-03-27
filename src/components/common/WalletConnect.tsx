@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { LogOut, Wallet } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { PhantomIcon } from '@/components/icons/PhantomIcon';
@@ -30,11 +31,16 @@ export const WalletConnect = () => {
 
   // Checks if Phantom is available
   const getProvider = () => {
-    if (window.phantom?.solana) {
-      return window.phantom.solana;
-    } else if (window.solana) {
-      return window.solana;
+    if ('phantom' in window) {
+      const provider = window.phantom?.solana;
+
+      if (provider?.isPhantom) {
+        return provider;
+      }
     }
+    
+    // If Phantom is not found, redirect to Phantom website
+    window.open('https://phantom.app/', '_blank');
     return null;
   };
 
@@ -92,8 +98,13 @@ export const WalletConnect = () => {
       }
       
       // Sign the message with the wallet
+      // Convert string message to UTF-8 encoded Uint8Array as required by Phantom
       const encodedMessage = new TextEncoder().encode(messageToSign);
+      
+      // Use the proper signMessage method with the correct encoding parameter
       const signResult = await provider.signMessage(encodedMessage, "utf8");
+      
+      // Convert signature to hex string
       const signature = Array.from(signResult.signature)
         .map(b => b.toString(16).padStart(2, "0"))
         .join("");
