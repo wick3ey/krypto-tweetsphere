@@ -87,21 +87,29 @@ export const userService = {
 
   async setupProfile(profileData: Partial<User>): Promise<User> {
     try {
-      const newProfile = {
-        id: profileData.id,
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      const userId = session.user.id;
+      
+      // Instead of inserting, we should update the existing user record
+      // that was created during Google sign-up
+      const updates = {
         username: profileData.username,
         display_name: profileData.displayName,
         bio: profileData.bio || '',
         avatar_url: profileData.avatarUrl,
         header_url: profileData.headerUrl || '',
-        joined_date: new Date().toISOString(),
-        following: [],
-        followers: []
+        updated_at: new Date()
       };
 
       const { data, error } = await supabase
         .from('users')
-        .insert(newProfile)
+        .update(updates)
+        .eq('id', userId)
         .select()
         .single();
 

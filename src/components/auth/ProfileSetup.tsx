@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -254,7 +255,12 @@ const ProfileSetup = () => {
         bio: data.bio || '',
         avatarUrl,
         headerUrl,
+        // Add the current user's ID to ensure we're updating the correct record
+        id: currentUser?.id
       };
+      
+      // Log the profile data we're sending
+      console.log('Sending profile data for setup:', profileData);
       
       // Send to API - using the createProfile mutation
       createProfile(profileData);

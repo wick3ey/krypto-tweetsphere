@@ -26,6 +26,15 @@ const ProfileSetupPage = () => {
       
       return () => clearTimeout(timer);
     }
+
+    // Log debugging information to help diagnose issues
+    if (currentUser) {
+      console.log('ProfileSetupPage - Current user:', {
+        id: currentUser.id,
+        username: currentUser.username,
+        needsSetup: needsProfileSetup()
+      });
+    }
   }, [currentUser, isLoadingCurrentUser, needsProfileSetup, navigate]);
   
   if (!isAuthenticated) {
