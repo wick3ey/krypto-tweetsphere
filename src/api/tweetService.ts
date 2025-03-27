@@ -1,4 +1,3 @@
-
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
@@ -139,7 +138,7 @@ export const tweetService = {
         }
         
         // Ensure timestamp is valid
-        if (!newTweet.timestamp || typeof newTweet.timestamp !== 'string') {
+        if (!newTweet.timestamp || typeof newTweet.timestamp !== 'string' || isNaN(new Date(newTweet.timestamp).getTime())) {
           console.warn('Tweet has invalid timestamp, setting to current time');
           newTweet.timestamp = new Date().toISOString();
         }
@@ -290,7 +289,7 @@ function saveLocalTweet(tweet: Tweet) {
   const exists = localTweets.some((t: Tweet) => t.id === tweet.id);
   
   // Ensure timestamp is valid before saving
-  if (!tweet.timestamp || typeof tweet.timestamp !== 'string') {
+  if (!tweet.timestamp || typeof tweet.timestamp !== 'string' || isNaN(new Date(tweet.timestamp).getTime())) {
     console.warn('Tweet has invalid timestamp before saving, fixing it');
     tweet.timestamp = new Date().toISOString();
   }

@@ -25,13 +25,13 @@ const EnhancedTweetCard = ({
 }: EnhancedTweetCardProps) => {
   const [liked, setLiked] = useState(false);
   const [retweeted, setRetweeted] = useState(false);
-  const [likeCount, setLikeCount] = useState(tweet.likes);
-  const [retweetCount, setRetweetCount] = useState(tweet.retweets);
+  const [likeCount, setLikeCount] = useState(tweet?.likes || 0);
+  const [retweetCount, setRetweetCount] = useState(tweet?.retweets || 0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isVisible, setIsVisible] = useState(!animated);
   const [isHovered, setIsHovered] = useState(false);
   
-  // Add null check to ensure tweet and tweet.user exist
+  // Enhanced null checks to ensure tweet and tweet.user exist
   if (!tweet || !tweet.user) {
     console.error("Tweet or tweet.user is undefined:", tweet);
     return null;
@@ -47,15 +47,24 @@ const EnhancedTweetCard = ({
     }
   }, [animated]);
 
-  // Safe date formatting with error handling
+  // Safe date formatting with improved error handling
   const getFormattedDate = () => {
     try {
+      // First ensure we have a valid timestamp string
+      if (!tweet.timestamp || typeof tweet.timestamp !== 'string') {
+        console.warn("Invalid or missing timestamp in tweet:", tweet);
+        return "recently";
+      }
+      
+      // Try to create a date from the timestamp
       const date = new Date(tweet.timestamp);
+      
       // Check if date is valid before formatting
       if (isNaN(date.getTime())) {
         console.warn("Invalid timestamp in tweet:", tweet.timestamp);
         return "recently";
       }
+      
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
       console.error("Error formatting date:", error, tweet.timestamp);
@@ -66,6 +75,8 @@ const EnhancedTweetCard = ({
   const formattedDate = getFormattedDate();
   
   const formatNumber = (num: number): string => {
+    if (!num && num !== 0) return '0';
+    
     if (num >= 1000000) {
       return (num / 1000000).toFixed(1) + 'M';
     } else if (num >= 1000) {
@@ -88,18 +99,35 @@ const EnhancedTweetCard = ({
     setIsExpanded(!isExpanded);
   };
 
-  // Safe timestamp for display
+  // Safe timestamp for display with improved error handling
   const safeTimestamp = () => {
     try {
-      const date = new Date(tweet.timestamp);
-      if (isNaN(date.getTime())) {
+      // First ensure we have a valid timestamp string
+      if (!tweet.timestamp || typeof tweet.timestamp !== 'string') {
+        console.warn("Invalid or missing timestamp for display:", tweet);
         return new Date().toLocaleString(); // Fallback to current time
       }
+      
+      const date = new Date(tweet.timestamp);
+      
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid timestamp for display:", tweet.timestamp);
+        return new Date().toLocaleString(); // Fallback to current time
+      }
+      
       return date.toLocaleString();
     } catch (error) {
-      console.error("Error formatting timestamp:", error);
+      console.error("Error formatting timestamp for display:", error);
       return new Date().toLocaleString(); // Fallback to current time
     }
+  };
+
+  // Ensure we have a valid user object
+  const user = tweet.user || {
+    username: 'unknown',
+    displayName: 'Unknown User',
+    avatarUrl: '/placeholder.svg',
+    verified: false
   };
 
   if (compact) {
@@ -119,15 +147,15 @@ const EnhancedTweetCard = ({
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="flex items-center">
-          <Link to={`/profile/${tweet.user.username}`} className="flex-shrink-0">
+          <Link to={`/profile/${user.username}`} className="flex-shrink-0">
             <div className={cn(
               "h-8 w-8 rounded-full overflow-hidden border border-border/50",
               "transition-transform duration-300",
               isHovered && "scale-110"
             )}>
               <img
-                src={tweet.user.avatarUrl}
-                alt={tweet.user.displayName}
+                src={user.avatarUrl || '/placeholder.svg'}
+                alt={user.displayName || 'User'}
                 className="h-full w-full object-cover"
               />
             </div>
@@ -135,13 +163,13 @@ const EnhancedTweetCard = ({
           
           <div className="ml-2 flex-1 min-w-0">
             <div className="flex items-center">
-              <Link to={`/profile/${tweet.user.username}`} className="font-medium text-sm truncate">
-                {tweet.user.displayName}
+              <Link to={`/profile/${user.username}`} className="font-medium text-sm truncate">
+                {user.displayName || 'Unknown User'}
               </Link>
               <span className="mx-1 text-muted-foreground">·</span>
               <span className="text-xs text-muted-foreground">{formattedDate}</span>
             </div>
-            <p className="text-sm line-clamp-1">{tweet.content}</p>
+            <p className="text-sm line-clamp-1">{tweet.content || ''}</p>
           </div>
           
           <Button 
@@ -174,15 +202,15 @@ const EnhancedTweetCard = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex space-x-3">
-        <Link to={`/profile/${tweet.user.username}`} className="flex-shrink-0">
+        <Link to={`/profile/${user.username}`} className="flex-shrink-0">
           <div className={cn(
             "h-10 w-10 rounded-full overflow-hidden border border-border/50",
             "transition-transform duration-300",
             isHovered && "scale-110"
           )}>
             <img
-              src={tweet.user.avatarUrl}
-              alt={tweet.user.displayName}
+              src={user.avatarUrl || '/placeholder.svg'}
+              alt={user.displayName || 'User'}
               className="h-full w-full object-cover"
             />
           </div>
@@ -191,10 +219,10 @@ const EnhancedTweetCard = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center overflow-hidden">
-              <Link to={`/profile/${tweet.user.username}`} className="font-semibold hover:underline truncate">
-                {tweet.user.displayName}
+              <Link to={`/profile/${user.username}`} className="font-semibold hover:underline truncate">
+                {user.displayName || 'Unknown User'}
               </Link>
-              {tweet.user.verified && (
+              {user.verified && (
                 <Badge variant="outline" className="ml-1 h-5 px-1 text-xs text-crypto-blue border-crypto-blue/30">
                   <Shield className="h-3 w-3 mr-0.5" />
                   <span className="hidden xxs:inline">Verified</span>
@@ -202,13 +230,13 @@ const EnhancedTweetCard = ({
               )}
               <span className="mx-1 text-muted-foreground flex-shrink-0">·</span>
               <span className="text-muted-foreground text-sm truncate hover:underline cursor-pointer flex-shrink-0">
-                @{tweet.user.username}
+                @{user.username || 'unknown'}
               </span>
             </div>
             
             <div className="flex items-center">
               <span className="text-xs text-muted-foreground hidden md:inline-block">
-                <time dateTime={tweet.timestamp} title={safeTimestamp()}>
+                <time dateTime={tweet.timestamp || ''} title={safeTimestamp()}>
                   {formattedDate}
                 </time>
               </span>
@@ -222,10 +250,10 @@ const EnhancedTweetCard = ({
             "mt-1 text-balance transition-all duration-300",
             isExpanded ? "line-clamp-none" : "line-clamp-3"
           )}>
-            {tweet.content}
+            {tweet.content || ''}
           </p>
           
-          {tweet.content.length > 150 && !isExpanded && (
+          {(tweet.content?.length || 0) > 150 && !isExpanded && (
             <button 
               className="text-xs text-crypto-blue hover:underline mt-1"
               onClick={toggleExpand}
@@ -271,7 +299,7 @@ const EnhancedTweetCard = ({
               <div className="p-1.5 rounded-full group-hover:bg-crypto-blue/10 transition-colors">
                 <MessageSquare className="h-4 w-4 transition-colors" />
               </div>
-              <span>{formatNumber(tweet.comments)}</span>
+              <span>{formatNumber(tweet.comments || 0)}</span>
             </button>
             
             <button 
@@ -323,7 +351,7 @@ const EnhancedTweetCard = ({
           
           <div className="mt-2 md:hidden text-xs text-muted-foreground">
             <Calendar className="h-3 w-3 inline-block align-text-bottom mr-1" />
-            <time dateTime={tweet.timestamp}>
+            <time dateTime={tweet.timestamp || ''}>
               {safeTimestamp()}
             </time>
           </div>
