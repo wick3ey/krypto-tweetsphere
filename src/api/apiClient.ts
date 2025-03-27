@@ -82,7 +82,7 @@ apiClient.interceptors.response.use(
         
         // Try to disconnect from Phantom if it's available
         const provider = window.phantom?.solana;
-        if (provider && provider.isConnected) {
+        if (provider) {
           try {
             provider.disconnect();
           } catch (walletError) {
