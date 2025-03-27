@@ -97,17 +97,28 @@ serve(async (req) => {
                          existingUser.display_name === 'New User';
       
       // Om användaren har en autogenererad profil men det finns nya uppgifter i auth, uppdatera
+      const updateData: any = {};
+      
+      // Uppdatera email om det behövs
+      if (authUser.email && (!existingUser.email || existingUser.email !== authUser.email)) {
+        updateData.email = authUser.email;
+      }
+      
+      // Uppdatera displayName om användaren har en autogenererad profil och det finns nya uppgifter
       if (needsProfileSetup && (authUser.user_metadata?.name || authUser.user_metadata?.full_name)) {
+        updateData.display_name = authUser.user_metadata?.name || authUser.user_metadata?.full_name || existingUser.display_name;
+      }
+      
+      // Uppdatera avatar om användaren har en autogenererad profil och det finns nya uppgifter
+      if (needsProfileSetup && (authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture)) {
+        updateData.avatar_url = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || existingUser.avatar_url;
+      }
+      
+      // Bara genomför uppdateringen om det finns något att uppdatera
+      if (Object.keys(updateData).length > 0) {
         const { data: updatedUser, error: updateError } = await adminClient
           .from('users')
-          .update({
-            display_name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || existingUser.display_name,
-            avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || existingUser.avatar_url,
-            // Uppdatera inte username om det redan är satt till något annat än autogenererat
-            username: existingUser.username && !existingUser.username.startsWith('user_') 
-              ? existingUser.username 
-              : existingUser.username
-          })
+          .update(updateData)
           .eq('id', authUser.id)
           .select()
           .single();
@@ -133,6 +144,7 @@ serve(async (req) => {
         .insert([
           {
             id: authUser.id,
+            email: authUser.email,
             username: `user_${authUser.id.substring(0, 8)}`,
             display_name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'New User',
             avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',

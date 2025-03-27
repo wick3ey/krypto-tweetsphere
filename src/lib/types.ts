@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   username: string;
@@ -6,14 +5,11 @@ export interface User {
   avatarUrl: string;
   bio: string;
   joinedDate: string;
-  following: number | string[];
-  followers: number | string[];
+  following: string[];
+  followers: string[];
   verified: boolean;
-  headerUrl?: string;
-  website?: string;
-  twitterHandle?: string;
-  _id?: string;
-  profileImage?: string;
+  email?: string;
+  walletAddress?: string;
 }
 
 export interface Tweet {

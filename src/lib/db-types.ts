@@ -13,6 +13,8 @@ export interface DbUser {
   verified: boolean;
   following: string[];
   followers: string[];
+  email?: string;
+  wallet_address?: string;
 }
 
 // Database Tweet Type - represents the structure from Supabase
@@ -51,6 +53,8 @@ export const dbUserToUser = (dbUser: DbUser): UserType => ({
   following: dbUser.following || [],
   followers: dbUser.followers || [],
   verified: dbUser.verified || false,
+  email: dbUser.email,
+  walletAddress: dbUser.wallet_address,
 });
 
 export const dbTweetToTweet = (dbTweet: DbTweet, user: UserType): TweetType => ({
