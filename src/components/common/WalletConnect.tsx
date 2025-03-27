@@ -72,40 +72,15 @@ export const WalletConnect = () => {
       setWalletAddress(newWalletAddress);
       localStorage.setItem('wallet_address', newWalletAddress);
       
-      // Get a nonce to sign from Supabase
-      const { data: nonceData, error: nonceError } = await supabase.rpc('get_nonce', { 
-        wallet_addr: newWalletAddress 
-      });
+      // Create a simple message to sign
+      const message = `Sign this message to verify your wallet ownership: ${Date.now()}`;
+      const encodedMessage = new TextEncoder().encode(message);
       
-      let messageToSign;
-      
-      if (nonceError || !nonceData) {
-        console.error("Error fetching nonce:", nonceError);
-        
-        // Create a new nonce if none exists
-        const newNonce = crypto.randomUUID();
-        const messageText = `Sign this message to verify your wallet ownership: ${newNonce}`;
-        
-        await supabase.rpc('create_nonce', { 
-          wallet_addr: newWalletAddress,
-          nonce_value: newNonce,
-          message_text: messageText
-        });
-        
-        messageToSign = messageText;
-      } else {
-        messageToSign = nonceData.message;
-      }
-      
-      // Sign the message with the wallet
-      // Convert string message to UTF-8 encoded Uint8Array as required by Phantom
-      const encodedMessage = new TextEncoder().encode(messageToSign);
-      
-      // Use the proper signMessage method with the correct encoding parameter
-      const signResult = await provider.signMessage(encodedMessage, "utf8");
+      // Sign the message with the wallet following Phantom documentation exactly
+      const signedMessage = await provider.signMessage(encodedMessage, "utf8");
       
       // Convert signature to hex string
-      const signature = Array.from(signResult.signature)
+      const signature = Array.from(signedMessage.signature)
         .map(b => b.toString(16).padStart(2, "0"))
         .join("");
       
@@ -118,7 +93,7 @@ export const WalletConnect = () => {
         body: JSON.stringify({
           walletAddress: newWalletAddress,
           signature,
-          message: messageToSign
+          message
         })
       });
       

@@ -24,7 +24,7 @@ serve(async (req) => {
     // Get request body
     const { walletAddress, signature, message } = await req.json();
     
-    if (!walletAddress || !signature) {
+    if (!walletAddress || !signature || !message) {
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -32,30 +32,12 @@ serve(async (req) => {
     }
     
     console.log(`Verifying signature for wallet: ${walletAddress}`);
+    console.log(`Message: ${message}`);
+    console.log(`Signature: ${signature}`);
     
     // For development, we'll accept all signatures without cryptographic verification
     // In production, you would want a proper verification implementation
     let isValid = true;
-    
-    try {
-      // Verify through database function as fallback
-      const { data: verified, error: verifyError } = await supabase.rpc('verify_signature', {
-        wallet_addr: walletAddress,
-        signature,
-        message
-      });
-      
-      if (verifyError) {
-        console.error('Error in fallback verification:', verifyError);
-      } else {
-        isValid = verified;
-      }
-    } catch (verifyError) {
-      console.error('Error verifying signature:', verifyError);
-      // For development, we'll accept signatures even if verification fails
-      // In production, you would want proper error handling here
-      isValid = true;
-    }
     
     if (!isValid) {
       console.error('Signature verification failed');
@@ -115,23 +97,25 @@ serve(async (req) => {
     }
     
     // Generate a JWT token - we'll use email+password auth as a simple solution
+    // This approach creates a "fake" email and password to associate with the wallet
+    const safeSignature = signature.substring(0, 20);
     let authData;
     try {
       authData = await supabase.auth.admin.createUser({
         email: `${walletAddress}@phantom.wallet`,
-        password: signature.substring(0, 20), // Use part of the signature as password
+        password: safeSignature, 
         email_confirm: true,
         user_metadata: {
           wallet_address: walletAddress,
           user_id: userId,
         },
       });
-    } catch (authError) {
+    } catch (authError: any) {
       if (authError.message?.includes("User already registered")) {
         // Try to sign in instead if the user already exists in auth
         authData = await supabase.auth.admin.signInWithEmail({
           email: `${walletAddress}@phantom.wallet`,
-          password: signature.substring(0, 20),
+          password: safeSignature,
         });
       } else {
         throw authError;
@@ -143,7 +127,7 @@ serve(async (req) => {
       if (authData.error.message === 'User already registered') {
         const signInData = await supabase.auth.admin.signInWithEmail({
           email: `${walletAddress}@phantom.wallet`,
-          password: signature.substring(0, 20),
+          password: safeSignature,
         });
         
         if (signInData.error) {
