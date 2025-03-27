@@ -1,7 +1,6 @@
-
 import { useState } from 'react';
 import { Heart, MessageSquare, Repeat2, Share, MoreHorizontal, Calendar, Shield } from 'lucide-react';
-import { Tweet } from '@/lib/types';
+import { Tweet, User } from '@/lib/types';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -18,8 +17,8 @@ interface TweetCardProps {
 const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps) => {
   const [liked, setLiked] = useState(false);
   const [retweeted, setRetweeted] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
-  const [retweetCount, setRetweetCount] = useState(0);
+  const [likeCount, setLikeCount] = useState<number>(0);
+  const [retweetCount, setRetweetCount] = useState<number>(0);
   const [isExpanded, setIsExpanded] = useState(false);
   
   if (!tweet) {
@@ -31,53 +30,66 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
   const actualTweet = tweet;
   
   // Make sure ID is consistent
-  if (!actualTweet.id && actualTweet._id) {
-    actualTweet.id = actualTweet._id;
-  }
+  const tweetId = actualTweet.id || actualTweet._id || '';
   
-  // Handle userId object conversion to user if needed
-  if (!actualTweet.user && actualTweet.userId) {
+  // Create a normalized user object from the tweet data
+  let tweetUser: User | null = null;
+  
+  if (actualTweet.user) {
+    // If user object already exists, use it
+    tweetUser = actualTweet.user;
+  } else if (actualTweet.userId) {
+    // If userId is an object, convert it to user
     if (typeof actualTweet.userId === 'object') {
-      actualTweet.user = {
-        id: actualTweet.userId._id || actualTweet.userId.id || 'unknown-id',
-        username: actualTweet.userId.username || 'unknown',
-        displayName: actualTweet.userId.displayName || actualTweet.userId.username || 'Unknown User',
-        avatarUrl: actualTweet.userId.profileImage || actualTweet.userId.avatarUrl || '/placeholder.svg'
+      const userIdObj = actualTweet.userId as any;
+      // Create a partial user that meets the minimum requirements
+      tweetUser = {
+        id: userIdObj._id || userIdObj.id || 'unknown-id',
+        username: userIdObj.username || 'unknown',
+        displayName: userIdObj.displayName || userIdObj.username || 'Unknown User',
+        avatarUrl: userIdObj.profileImage || userIdObj.avatarUrl || '/placeholder.svg',
+        // Add required User properties with defaults
+        walletAddress: userIdObj.walletAddress || '',
+        bio: userIdObj.bio || '',
+        joinedDate: userIdObj.joinedDate || new Date().toISOString(),
+        following: userIdObj.following || 0,
+        followers: userIdObj.followers || 0,
+        verified: userIdObj.verified || false
       };
     }
   }
   
-  if (!actualTweet.user) {
+  if (!tweetUser) {
     console.error("Tweet user is undefined:", actualTweet);
     return null;
   }
   
+  // Initialize state values from tweet or use defaults
   useState(() => {
-    setLikeCount(actualTweet?.likes || actualTweet?.likeCount || 0);
-    setRetweetCount(actualTweet?.retweets || actualTweet?.retweetCount || 0);
+    setLikeCount(actualTweet.likes || actualTweet.likeCount || 0);
+    setRetweetCount(actualTweet.retweets || actualTweet.retweetCount || 0);
   });
   
-  if (!actualTweet.timestamp && actualTweet.createdAt) {
-    actualTweet.timestamp = actualTweet.createdAt;
-  }
+  // Handle various timestamp formats
+  const tweetTimestamp = actualTweet.timestamp || actualTweet.createdAt || '';
 
   const getFormattedDate = () => {
     try {
-      if (!actualTweet.timestamp || typeof actualTweet.timestamp !== 'string') {
+      if (!tweetTimestamp || typeof tweetTimestamp !== 'string') {
         console.warn("Invalid or missing timestamp in tweet:", actualTweet);
         return "recently";
       }
       
-      const date = new Date(actualTweet.timestamp);
+      const date = new Date(tweetTimestamp);
       
       if (isNaN(date.getTime())) {
-        console.warn("Invalid timestamp in tweet:", actualTweet.timestamp);
+        console.warn("Invalid timestamp in tweet:", tweetTimestamp);
         return "recently";
       }
       
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
-      console.error("Error formatting date:", error, actualTweet.timestamp);
+      console.error("Error formatting date:", error, tweetTimestamp);
       return "recently";
     }
   };
@@ -86,15 +98,15 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
   
   const safeTimestamp = () => {
     try {
-      if (!actualTweet.timestamp || typeof actualTweet.timestamp !== 'string') {
+      if (!tweetTimestamp || typeof tweetTimestamp !== 'string') {
         console.warn("Invalid or missing timestamp for display:", actualTweet);
         return new Date().toLocaleString(); // Fallback to current time
       }
       
-      const date = new Date(actualTweet.timestamp);
+      const date = new Date(tweetTimestamp);
       
       if (isNaN(date.getTime())) {
-        console.warn("Invalid timestamp for display:", actualTweet.timestamp);
+        console.warn("Invalid timestamp for display:", tweetTimestamp);
         return new Date().toLocaleString(); // Fallback to current time
       }
       
@@ -130,11 +142,16 @@ const TweetCard = ({ tweet, className, style, compact = false }: TweetCardProps)
     setIsExpanded(!isExpanded);
   };
 
-  const user = actualTweet.user || {
+  const user = tweetUser || {
     username: 'unknown',
     displayName: 'Unknown User',
     avatarUrl: '/placeholder.svg',
-    verified: false
+    verified: false,
+    walletAddress: '',
+    bio: '',
+    joinedDate: new Date().toISOString(),
+    following: 0,
+    followers: 0
   };
 
   if (compact) {

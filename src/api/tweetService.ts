@@ -1,3 +1,4 @@
+
 import apiClient from './apiClient';
 import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
@@ -316,12 +317,7 @@ function normalizeTweet(item: any): Tweet | null {
     id: item.id || item._id || `tweet-${Math.random().toString(36).substring(2, 9)}`,
     content: item.content || '',
     timestamp: ensureValidTimestamp(item.timestamp || item.createdAt),
-    user: normalizeUser(item.user || item.userId) || {
-      id: 'unknown',
-      username: 'unknown',
-      displayName: 'Unknown User',
-      avatarUrl: '/placeholder.svg'
-    },
+    user: normalizeUser(item.user || item.userId) || createDefaultUser(),
     likes: typeof item.likes === 'number' ? item.likes : (item.likeCount || 0),
     retweets: typeof item.retweets === 'number' ? item.retweets : (item.retweetCount || 0),
     comments: typeof item.comments === 'number' ? item.comments : (item.commentCount || 0),
@@ -329,6 +325,22 @@ function normalizeTweet(item: any): Tweet | null {
   };
   
   return tweet;
+}
+
+// Create a default user when no user data is available
+function createDefaultUser(): User {
+  return {
+    id: 'unknown-id',
+    username: 'unknown',
+    displayName: 'Unknown User',
+    avatarUrl: '/placeholder.svg',
+    walletAddress: '',
+    bio: '',
+    joinedDate: new Date().toISOString(),
+    following: 0,
+    followers: 0,
+    verified: false
+  };
 }
 
 // Function to normalize a user object
@@ -345,6 +357,10 @@ function normalizeUser(userData: any): User | null {
     displayName: userData.displayName || userData.username || 'Unknown User',
     avatarUrl: userData.avatarUrl || userData.profileImage || '/placeholder.svg',
     bio: userData.bio || '',
+    walletAddress: userData.walletAddress || '',
+    joinedDate: userData.joinedDate || new Date().toISOString(),
+    following: userData.following || 0,
+    followers: userData.followers || 0,
     verified: userData.verified || false
   };
 }

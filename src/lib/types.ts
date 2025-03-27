@@ -9,6 +9,8 @@ export interface User {
   following: number;
   followers: number;
   verified: boolean;
+  _id?: string;
+  profileImage?: string;
 }
 
 export interface Tweet {
@@ -22,6 +24,12 @@ export interface Tweet {
   attachments?: string[];
   mentions?: string[];
   hashtags?: string[];
+  _id?: string;
+  userId?: User | string;
+  likeCount?: number;
+  retweetCount?: number;
+  commentCount?: number;
+  createdAt?: string;
 }
 
 export interface Transaction {
@@ -60,7 +68,6 @@ export interface UserProfile extends User {
   totalBalance: number;
 }
 
-// Add our new types for explore data
 export interface TrendingTopic {
   tag: string;
   description: string;
