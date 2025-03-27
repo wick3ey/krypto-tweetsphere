@@ -30,6 +30,8 @@ export interface Tweet {
   retweetCount?: number;
   commentCount?: number;
   createdAt?: string;
+  retweetOf?: string;
+  replyTo?: string;
 }
 
 export interface Transaction {

@@ -11,7 +11,7 @@ interface FollowButtonProps {
   userId: string;
   initialFollowing?: boolean;
   className?: string;
-  variant?: 'default' | 'outline' | 'subtle';
+  variant?: 'default' | 'outline' | 'secondary'; // Changed from 'subtle' to valid variants
   size?: 'default' | 'sm' | 'lg';
   onSuccess?: (isFollowing: boolean) => void;
 }
@@ -78,7 +78,7 @@ const FollowButton = ({
   if (isFollowing) {
     return (
       <Button
-        variant={variant === 'default' ? 'outline' : variant}
+        variant={variant === 'default' ? 'outline' : variant} // Changed - now only using valid variants
         size={size}
         className={cn(
           "transition-all rounded-full", 
@@ -108,7 +108,7 @@ const FollowButton = ({
   
   return (
     <Button
-      variant={variant}
+      variant={variant} // Now using valid variants
       size={size}
       className={cn("rounded-full", className)}
       onClick={handleFollowClick}
