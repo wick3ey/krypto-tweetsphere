@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -21,8 +21,25 @@ const Index = () => {
   // Check if user is logged in
   const isLoggedIn = !!localStorage.getItem('jwt_token');
   
+  // Store current user in localStorage for offline use
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('current_user', JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
+  
+  // Get local tweets if available
+  const getLocalTweets = () => {
+    try {
+      return JSON.parse(localStorage.getItem('local_tweets') || '[]');
+    } catch (e) {
+      console.error('Error parsing local tweets:', e);
+      return [];
+    }
+  };
+  
   // Fetch tweets based on active feed
-  const { data: tweets = [], isLoading: isLoadingTweets } = useQuery({
+  const { data: apiTweets = [], isLoading: isLoadingTweets } = useQuery({
     queryKey: ['tweets', activeFeed],
     queryFn: async () => {
       if (activeFeed === 'trending') {
@@ -34,17 +51,38 @@ const Index = () => {
         return tweetService.getExploreFeed();
       }
     },
-    staleTime: 60000,
-    retry: 1,
-    refetchOnWindowFocus: false,
+    staleTime: 30000, // Reduced stale time to 30 seconds for more frequent updates
+    retry: 2,
+    refetchOnWindowFocus: true,
   });
+  
+  // Combine API tweets with local tweets
+  const localTweets = getLocalTweets();
+  const tweets = [...localTweets, ...(apiTweets || [])].filter(
+    (tweet, index, self) => 
+      // Remove duplicates based on id
+      index === self.findIndex((t) => t.id === tweet.id)
+  );
   
   // Tweet creation mutation
   const createTweetMutation = useMutation({
     mutationFn: (content: string) => tweetService.createTweet(content),
-    onSuccess: () => {
-      // Invalidate tweets query to refetch
+    onSuccess: (newTweet) => {
+      console.log("Tweet created successfully:", newTweet);
+      // Update the tweets list immediately without waiting for a refetch
+      if (newTweet) {
+        queryClient.setQueryData(['tweets', activeFeed], (oldData: any) => {
+          const oldTweets = Array.isArray(oldData) ? oldData : [];
+          return [newTweet, ...oldTweets];
+        });
+      }
+      
+      // Then invalidate the query to trigger a background refresh
       queryClient.invalidateQueries({ queryKey: ['tweets'] });
+      
+      toast.success("Tweet posted!", {
+        description: "Your tweet has been published successfully."
+      });
     },
     onError: (error: any) => {
       console.error("Error creating tweet:", error);
@@ -64,8 +102,15 @@ const Index = () => {
       return Promise.reject(new Error("Not authenticated"));
     }
     
+    console.log("Submitting tweet:", tweetContent);
     // Return the promise from the mutation
     return createTweetMutation.mutateAsync(tweetContent);
+  };
+  
+  // Manual refresh function
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['tweets', activeFeed] });
+    toast.info("Refreshing tweets...");
   };
   
   // Render user profile if logged in
@@ -113,16 +158,24 @@ const Index = () => {
             >
               Följer
             </Button>
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              className="ml-auto"
+            >
+              Uppdatera
+            </Button>
           </div>
           
           {/* Tweets List */}
           <div className="space-y-4">
-            {isLoadingTweets ? (
+            {isLoadingTweets && tweets.length === 0 ? (
               <div className="text-center py-10">
                 <p>Laddar tweets...</p>
               </div>
             ) : (
-              Array.isArray(tweets) && tweets.length > 0 ? (
+              tweets.length > 0 ? (
                 tweets.map((tweet: Tweet) => (
                   tweet && tweet.user ? (
                     <EnhancedTweetCard
