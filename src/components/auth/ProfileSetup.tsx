@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -57,6 +58,7 @@ const ProfileSetup = () => {
   const [setupCompleted, setSetupCompleted] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const form = useForm<ProfileSetupFormValues>({
     resolver: zodResolver(profileSetupSchema),
@@ -115,6 +117,7 @@ const ProfileSetup = () => {
             }
           } catch (error) {
             console.error('Error syncing user data:', error);
+            setErrorMessage('Kunde inte synkronisera användarprofil. Fortsätt med profilinställningarna manuellt.');
             toast.error('Kunde inte synkronisera användarprofil', {
               description: 'Fortsätt med profilinställningarna manuellt'
             });
@@ -144,7 +147,7 @@ const ProfileSetup = () => {
       } catch (error) {
         console.error('Error checking profile status:', error);
         setDataLoaded(true);
-        setErrorState('Ett fel uppstod vid kontroll av din profil');
+        setErrorMessage('Ett fel uppstod vid kontroll av din profil');
       }
     };
     
@@ -385,6 +388,13 @@ const ProfileSetup = () => {
                 <p className="text-muted-foreground mt-2">Välj hur du vill visas på F3ociety</p>
               </div>
               
+              {errorMessage && (
+                <div className="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 mb-4">
+                  <p className="font-bold">Observera</p>
+                  <p>{errorMessage}</p>
+                </div>
+              )}
+              
               {userEmail && (
                 <div className="flex items-center gap-2 p-3 bg-muted rounded-md mb-4">
                   <Mail className="h-5 w-5 text-muted-foreground" />
@@ -471,7 +481,15 @@ const ProfileSetup = () => {
                         type="file"
                         accept="image/*"
                         className="absolute inset-0 opacity-0 cursor-pointer"
-                        onChange={handleAvatarChange}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            setAvatarFile(file);
+                            
+                            const previewUrl = URL.createObjectURL(file);
+                            setAvatarPreview(previewUrl);
+                          }
+                        }}
                       />
                     </div>
                     <div>
@@ -507,7 +525,15 @@ const ProfileSetup = () => {
                       type="file"
                       accept="image/*"
                       className="absolute inset-0 opacity-0 cursor-pointer"
-                      onChange={handleHeaderChange}
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const file = e.target.files[0];
+                          setHeaderFile(file);
+                          
+                          const previewUrl = URL.createObjectURL(file);
+                          setHeaderPreview(previewUrl);
+                        }
+                      }}
                     />
                   </div>
                   {headerFile && (

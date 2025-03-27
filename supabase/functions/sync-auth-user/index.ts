@@ -24,14 +24,35 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables');
+      console.error('Missing Supabase environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error', success: false }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     // Create a Supabase client with service role key
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get user info from request
-    const { userId, forceSync } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.error('Error parsing request body:', error);
+      return new Response(
+        JSON.stringify({ error: 'Invalid request format', success: false }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const { userId, forceSync } = body;
 
     if (!userId) {
       return new Response(
@@ -47,7 +68,10 @@ serve(async (req) => {
     let authUser;
     try {
       const { data, error } = await adminClient.auth.admin.getUserById(userId);
-      if (error) throw error;
+      if (error) {
+        console.error('Failed to get auth user:', error.message);
+        throw error;
+      }
       authUser = data.user;
     } catch (error) {
       console.error('Error getting auth user:', error);
@@ -76,14 +100,28 @@ serve(async (req) => {
     const userEmail = authUser.email || authUser.user_metadata?.email || '';
 
     // Check if user already exists in users table
-    const { data: existingUser, error: getUserError } = await adminClient
-      .from('users')
-      .select('*')
-      .eq('id', authUser.id)
-      .maybeSingle();
-
-    if (getUserError && getUserError.code !== 'PGRST116') {
-      throw getUserError;
+    let existingUser;
+    try {
+      const { data, error } = await adminClient
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+        
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+      
+      existingUser = data;
+    } catch (error) {
+      console.error('Error checking for existing user:', error);
+      return new Response(
+        JSON.stringify({ error: `Database error: ${error.message}`, success: false }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
 
     let userRecord;
@@ -114,21 +152,26 @@ serve(async (req) => {
       
       // Only update if there's something to update
       if (Object.keys(updateData).length > 0) {
-        const { data: updatedUser, error: updateError } = await adminClient
-          .from('users')
-          .update(updateData)
-          .eq('id', authUser.id)
-          .select()
-          .single();
+        try {
+          const { data: updatedUser, error: updateError } = await adminClient
+            .from('users')
+            .update(updateData)
+            .eq('id', authUser.id)
+            .select()
+            .single();
+            
+          if (updateError) throw updateError;
+          userRecord = updatedUser;
           
-        if (updateError) throw updateError;
-        userRecord = updatedUser;
-        
-        // Check if update made the profile complete
-        needsProfileSetup = !userRecord.username || 
-                          userRecord.username.startsWith('user_') || 
-                          !userRecord.display_name || 
-                          userRecord.display_name === 'New User';
+          // Check if update made the profile complete
+          needsProfileSetup = !userRecord.username || 
+                            userRecord.username.startsWith('user_') || 
+                            !userRecord.display_name || 
+                            userRecord.display_name === 'New User';
+        } catch (updateError) {
+          console.error('Error updating user:', updateError);
+          userRecord = existingUser;
+        }
       } else {
         userRecord = existingUser;
       }
@@ -141,26 +184,26 @@ serve(async (req) => {
       needsProfileSetup = true;
 
       try {
-        const { data: newUser, error: createError } = await adminClient
+        const newUser = {
+          id: authUser.id,
+          username: `user_${authUser.id.substring(0, 8)}`,
+          display_name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'New User',
+          avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',
+          bio: '',
+          joined_date: new Date().toISOString(),
+          following: [],
+          followers: [],
+          verified: false
+        };
+        
+        const { data: createdUser, error: createError } = await adminClient
           .from('users')
-          .insert([
-            {
-              id: authUser.id,
-              username: `user_${authUser.id.substring(0, 8)}`,
-              display_name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'New User',
-              avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',
-              bio: '',
-              joined_date: new Date().toISOString(),
-              following: [],
-              followers: [],
-              verified: false
-            }
-          ])
+          .insert([newUser])
           .select()
           .single();
 
         if (createError) throw createError;
-        userRecord = newUser;
+        userRecord = createdUser;
         
         // Add email to userRecord for the client
         userRecord.auth_email = userEmail;
@@ -176,17 +219,31 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true, 
-        user: userRecord, 
-        needsProfileSetup,
-        authUser: {
-          id: authUser.id,
-          email: authUser.email,
-          providerId: authUser.app_metadata?.provider
+    // Check and transform the user record for safety
+    if (!userRecord || typeof userRecord !== 'object') {
+      console.error('Invalid user record', userRecord);
+      return new Response(
+        JSON.stringify({ error: 'Invalid user record obtained', success: false }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
-      }),
+      );
+    }
+
+    const safeResponse = {
+      success: true, 
+      user: userRecord, 
+      needsProfileSetup,
+      authUser: {
+        id: authUser.id,
+        email: authUser.email,
+        providerId: authUser.app_metadata?.provider
+      }
+    };
+
+    return new Response(
+      JSON.stringify(safeResponse),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

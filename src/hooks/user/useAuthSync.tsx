@@ -6,8 +6,11 @@ import { toast } from 'sonner';
 export function useAuthSync() {
   const syncAuthUser = async (userId: string, forceSync = true) => {
     try {
+      // Add a random query parameter to prevent caching
+      const cacheBypass = new Date().getTime();
+      
       const response = await supabase.functions.invoke('sync-auth-user', {
-        body: { userId, forceSync }
+        body: { userId, forceSync, cacheBypass }
       });
       
       // Check if response is null or undefined (network error)
