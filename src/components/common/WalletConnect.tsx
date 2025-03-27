@@ -43,18 +43,22 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     return window.btoa(binary);
   };
   
-  // Get Phantom provider - improved to correctly detect the wallet
+  // Get Phantom provider using the recommended method
   const getProvider = () => {
-    // Check if window.solana exists and is Phantom
-    if (window.solana?.isPhantom) {
-      console.log("Detected Phantom wallet via window.solana");
-      return window.solana;
+    // Check if phantom is in window
+    if ('phantom' in window) {
+      const provider = window.phantom?.solana;
+      
+      if (provider?.isPhantom) {
+        console.log("Detected Phantom wallet via window.phantom.solana");
+        return provider;
+      }
     }
     
-    // Check if window.phantom.solana exists
-    if (window.phantom?.solana?.isPhantom) {
-      console.log("Detected Phantom wallet via window.phantom.solana");
-      return window.phantom.solana;
+    // Fallback to legacy detection via window.solana
+    if ('solana' in window && window.solana?.isPhantom) {
+      console.log("Detected Phantom wallet via window.solana");
+      return window.solana;
     }
     
     // Check if Phantom is present in the injected providers

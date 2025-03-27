@@ -67,7 +67,7 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
     }
   };
 
-  // Check if user is authenticated - but don't require it for posting
+  // Check if user is authenticated
   const isAuthenticated = !!localStorage.getItem('jwt_token');
   
   const handleTriggerClick = () => {
