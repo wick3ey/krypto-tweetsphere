@@ -1,4 +1,3 @@
-
 import { useQuery } from '@tanstack/react-query';
 import PnLChart from '@/components/dashboard/PnLChart';
 import AnimatedCard from '@/components/common/AnimatedCard';
@@ -14,12 +13,10 @@ const Dashboard = () => {
   const [pnlPeriod, setPnlPeriod] = useState('7d');
   const [isRendered, setIsRendered] = useState(false);
   
-  // Ensure component is fully rendered
   useEffect(() => {
     setIsRendered(true);
   }, []);
   
-  // Fetch user's token balances
   const { data: tokens = [], isLoading: isLoadingTokens, refetch: refetchTokens } = useQuery({
     queryKey: ['tokens'],
     queryFn: () => cryptoService.getTokenBalances(),
@@ -27,7 +24,6 @@ const Dashboard = () => {
     retry: 3,
   });
   
-  // Fetch user's PnL data
   const { data: pnlData = [], isLoading: isLoadingPnL, refetch: refetchPnL } = useQuery({
     queryKey: ['pnl', pnlPeriod],
     queryFn: () => cryptoService.getPnL(pnlPeriod),
@@ -35,7 +31,6 @@ const Dashboard = () => {
     retry: 3,
   });
   
-  // Fetch user's transaction history
   const { data: transactions = [], isLoading: isLoadingTransactions, refetch: refetchTransactions } = useQuery({
     queryKey: ['transactions'],
     queryFn: () => cryptoService.getTransactions(),
@@ -43,7 +38,6 @@ const Dashboard = () => {
     retry: 3,
   });
   
-  // Fetch supported tokens prices for market overview
   const { data: supportedTokens = [], isLoading: isLoadingSupportedTokens } = useQuery({
     queryKey: ['supportedTokens'],
     queryFn: () => cryptoService.getSupportedTokens(),
@@ -51,10 +45,8 @@ const Dashboard = () => {
     retry: 3,
   });
   
-  // Calculate total balance and portfolio changes
   const totalBalance = tokens && tokens.length > 0 ? tokens.reduce((sum, token) => sum + (token.valueUSD || 0), 0) : 0;
   
-  // Use last pnlData item to get portfolio change - with null checks
   const portfolioChange = pnlData && pnlData.length > 0 
     ? pnlData[pnlData.length - 1]?.change || 0 
     : 0;
@@ -65,7 +57,6 @@ const Dashboard = () => {
     
   const isPositive = portfolioChange >= 0;
   
-  // Find top performer token - with null checks
   const topPerformer = tokens && tokens.length > 0 
     ? tokens.reduce((prev, current) => 
         ((prev?.change24h || 0) > (current?.change24h || 0)) ? prev : current
@@ -226,12 +217,12 @@ const Dashboard = () => {
                     <span>{token.symbol}</span>
                   </div>
                   <div className="flex items-center">
-                    <span className="font-mono">${token.price.toLocaleString()}</span>
+                    <span className="font-mono">${token.price?.toLocaleString() || '0.00'}</span>
                     <span className={cn(
                       "ml-2 text-sm",
-                      token.priceChange24h >= 0 ? "text-crypto-green" : "text-crypto-red"
+                      (token.priceChange24h || 0) >= 0 ? "text-crypto-green" : "text-crypto-red"
                     )}>
-                      {token.priceChange24h >= 0 ? "+" : ""}{token.priceChange24h}%
+                      {(token.priceChange24h || 0) >= 0 ? "+" : ""}{token.priceChange24h || 0}%
                     </span>
                   </div>
                 </div>

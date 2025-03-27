@@ -11,6 +11,7 @@ const corsHeaders = {
 };
 
 // Skapa en Supabase-klient
+// @ts-ignore
 const supabaseClient = createClient(
   Deno.env.get("SUPABASE_URL") || "",
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
@@ -26,7 +27,7 @@ interface TransactionRequest {
 }
 
 serve(async (req) => {
-  // Hantera CORS-preflight-begäranden
+  // Hantera CORS-preflight-begärandan
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

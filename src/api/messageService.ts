@@ -53,7 +53,7 @@ export const messageService = {
       // Hämta alla konversationer där användaren är avsändare eller mottagare
       const { data: sentMessages, error: sentError } = await supabase
         .from('messages')
-        .select('*, receiver:receiver_id(*)')
+        .select('*, receiver:receiver_id(*)') // Specify the column relationship explicitly
         .eq('sender_id', currentUserId)
         .order('created_at', { ascending: false });
         
@@ -61,7 +61,7 @@ export const messageService = {
       
       const { data: receivedMessages, error: receivedError } = await supabase
         .from('messages')
-        .select('*, sender:sender_id(*)')
+        .select('*, sender:sender_id(*)') // Specify the column relationship explicitly
         .eq('receiver_id', currentUserId)
         .order('created_at', { ascending: false });
         
@@ -71,43 +71,51 @@ export const messageService = {
       const conversations = new Map();
       
       // Lägg till skickade meddelanden
-      sentMessages.forEach(message => {
-        const otherUser = message.receiver;
-        const userId = otherUser.id;
-        
-        if (!conversations.has(userId)) {
-          conversations.set(userId, {
-            user: dbUserToUser(otherUser),
-            lastMessage: message,
-            unreadCount: 0
-          });
-        } else if (new Date(message.created_at) > new Date(conversations.get(userId).lastMessage.created_at)) {
-          const conv = conversations.get(userId);
-          conv.lastMessage = message;
-        }
-      });
-      
-      // Lägg till mottagna meddelanden
-      receivedMessages.forEach(message => {
-        const otherUser = message.sender;
-        const userId = otherUser.id;
-        
-        if (!conversations.has(userId)) {
-          conversations.set(userId, {
-            user: dbUserToUser(otherUser),
-            lastMessage: message,
-            unreadCount: message.read ? 0 : 1
-          });
-        } else {
-          const conv = conversations.get(userId);
-          if (new Date(message.created_at) > new Date(conv.lastMessage.created_at)) {
+      if (sentMessages && sentMessages.length > 0) {
+        sentMessages.forEach(message => {
+          if (!message.receiver) return; // Skip if receiver is undefined
+          
+          const otherUser = message.receiver;
+          const userId = otherUser.id;
+          
+          if (!conversations.has(userId)) {
+            conversations.set(userId, {
+              user: dbUserToUser(otherUser),
+              lastMessage: message,
+              unreadCount: 0
+            });
+          } else if (new Date(message.created_at) > new Date(conversations.get(userId).lastMessage.created_at)) {
+            const conv = conversations.get(userId);
             conv.lastMessage = message;
           }
-          if (!message.read) {
-            conv.unreadCount += 1;
+        });
+      }
+      
+      // Lägg till mottagna meddelanden
+      if (receivedMessages && receivedMessages.length > 0) {
+        receivedMessages.forEach(message => {
+          if (!message.sender) return; // Skip if sender is undefined
+          
+          const otherUser = message.sender;
+          const userId = otherUser.id;
+          
+          if (!conversations.has(userId)) {
+            conversations.set(userId, {
+              user: dbUserToUser(otherUser),
+              lastMessage: message,
+              unreadCount: message.read ? 0 : 1
+            });
+          } else {
+            const conv = conversations.get(userId);
+            if (new Date(message.created_at) > new Date(conv.lastMessage.created_at)) {
+              conv.lastMessage = message;
+            }
+            if (!message.read) {
+              conv.unreadCount += 1;
+            }
           }
-        }
-      });
+        });
+      }
       
       return Array.from(conversations.values());
     } catch (error) {
@@ -157,8 +165,9 @@ export const messageService = {
       
       // Markera alla meddelanden som lästa om de är till användaren
       const unreadIds = data
-        .filter(msg => msg.receiver_id === currentUserId && !msg.read)
-        .map(msg => msg.id);
+        ? data.filter(msg => msg.receiver_id === currentUserId && !msg.read)
+            .map(msg => msg.id)
+        : [];
         
       if (unreadIds.length > 0) {
         await supabase

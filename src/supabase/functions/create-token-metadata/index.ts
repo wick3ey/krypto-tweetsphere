@@ -1,5 +1,5 @@
 
-// Denna edge-funktion skulle hämta och lagra token-metadata
+// Denna edge-funktion skulle skapa metadata för tokens
 // (Implementeras senare när det behövs)
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
@@ -11,6 +11,7 @@ const corsHeaders = {
 
 interface TokenRequest {
   symbol: string;
+  network?: string;
 }
 
 serve(async (req) => {
@@ -20,34 +21,27 @@ serve(async (req) => {
   }
 
   try {
-    const { symbol } = await req.json() as TokenRequest;
+    const { symbol, network = "ethereum" } = await req.json() as TokenRequest;
 
     if (!symbol) {
-      throw new Error("Symbol krävs");
+      throw new Error("Token symbol krävs");
     }
 
-    console.log(`Fetching metadata for token: ${symbol}`);
+    console.log(`Creating metadata for token: ${symbol} on network: ${network}`);
 
-    // Här skulle vi anropa CoinGecko eller liknande API för att hämta token-metadata
-    // För nu, returnera simulerad data
-    
-    const tokenMetadata = {
-      symbol,
+    // Simulera att vi hämtar metadata från ett externt API
+    const mockTokenData = {
+      symbol: symbol.toUpperCase(),
       name: getTokenName(symbol),
       logo: `https://cryptologos.cc/logos/${symbol.toLowerCase()}-${symbol.toLowerCase()}-logo.png`,
-      description: `${getTokenName(symbol)} är en kryptovaluta.`,
-      website: `https://${symbol.toLowerCase()}.org`,
-      twitter: `https://twitter.com/${symbol.toLowerCase()}`,
-      marketData: {
-        currentPrice: getRandomPrice(symbol),
-        marketCap: Math.random() * 1000000000,
-        volume24h: Math.random() * 100000000,
-        priceChange24h: (Math.random() * 10) - 5,
-        priceChangePercentage24h: (Math.random() * 20) - 10
-      }
+      decimals: 18,
+      address: `0x${generateRandomHex(40)}`,
+      network,
+      price: Math.random() * 1000,
+      priceChange24h: (Math.random() * 20) - 10, // Between -10% and 10%
     };
 
-    return new Response(JSON.stringify(tokenMetadata), {
+    return new Response(JSON.stringify(mockTokenData), {
       headers: { "Content-Type": "application/json", ...corsHeaders },
       status: 200,
     });
@@ -61,40 +55,31 @@ serve(async (req) => {
   }
 });
 
-// Hjälpfunktioner
+// Helper functions
 function getTokenName(symbol: string): string {
-  const names: Record<string, string> = {
-    'BTC': 'Bitcoin',
-    'ETH': 'Ethereum',
-    'SOL': 'Solana',
-    'USDC': 'USD Coin',
-    'USDT': 'Tether',
-    'ADA': 'Cardano',
-    'DOT': 'Polkadot',
-    'XRP': 'Ripple',
-    'DOGE': 'Dogecoin',
-    'SHIB': 'Shiba Inu'
+  const tokenNames: Record<string, string> = {
+    "BTC": "Bitcoin",
+    "ETH": "Ethereum",
+    "SOL": "Solana",
+    "MATIC": "Polygon",
+    "ADA": "Cardano",
+    "DOT": "Polkadot",
+    "AVAX": "Avalanche",
+    "LINK": "Chainlink",
+    "UNI": "Uniswap",
+    "AAVE": "Aave"
   };
   
-  return names[symbol] || `${symbol} Token`;
+  return tokenNames[symbol.toUpperCase()] || `${symbol.toUpperCase()} Token`;
 }
 
-function getRandomPrice(symbol: string): number {
-  const basePrices: Record<string, number> = {
-    'BTC': 58000,
-    'ETH': 3500,
-    'SOL': 140,
-    'USDC': 1,
-    'USDT': 1,
-    'ADA': 1.5,
-    'DOT': 20,
-    'XRP': 0.8,
-    'DOGE': 0.15,
-    'SHIB': 0.00003
-  };
+function generateRandomHex(length: number): string {
+  const characters = '0123456789abcdef';
+  let result = '';
   
-  const basePrice = basePrices[symbol] || 10;
-  const variation = basePrice * 0.05; // 5% variation
+  for (let i = 0; i < length; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
   
-  return basePrice + (Math.random() * variation * 2) - variation;
+  return result;
 }
