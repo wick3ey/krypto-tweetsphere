@@ -21,5 +21,8 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://dtrlmfwgtjrjkepvgatv.supabase.co'),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmxtZndndGpyamtlcHZnYXR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMwNDM3NjUsImV4cCI6MjA1ODYxOTc2NX0.6nB2HwLdPQynPYowwoHVF17wG8G85sGXcu79AsOJe9g'),
     },
+    server: {
+      port: 8080
+    }
   };
 });

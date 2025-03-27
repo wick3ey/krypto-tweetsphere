@@ -5,6 +5,7 @@ import { authService } from '@/api/authService';
 import { toast } from 'sonner';
 import { User } from '@/lib/types';
 
+// Use a named export with a consistent return type for better HMR compatibility
 export function useUser() {
   const queryClient = useQueryClient();
   
@@ -21,16 +22,6 @@ export function useUser() {
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });
-
-  // Get a specific user profile by ID, wallet address, or username
-  const getUserProfile = (identifier: string, options = {}) => {
-    return useQuery({
-      queryKey: ['userProfile', identifier],
-      queryFn: () => userService.getUserProfile(identifier, options),
-      staleTime: 2 * 60 * 1000, // 2 minutes
-      ...options
-    });
-  };
 
   // Update user profile
   const updateProfileMutation = useMutation({
@@ -80,6 +71,16 @@ export function useUser() {
       });
     }
   });
+
+  // Define a consistent shape for getUserProfile function 
+  const getUserProfile = (identifier: string, options = {}) => {
+    return useQuery({
+      queryKey: ['userProfile', identifier],
+      queryFn: () => userService.getUserProfile(identifier, options),
+      staleTime: 2 * 60 * 1000, // 2 minutes
+      ...options
+    });
+  };
 
   // Get user followers with pagination
   const getUserFollowers = (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
