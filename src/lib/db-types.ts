@@ -11,7 +11,7 @@ export interface DbUser {
   header_url?: string;
   bio?: string;
   joined_date: string;
-  last_seen: string;
+  last_seen?: string; // Make last_seen optional to fix type errors
   verified: boolean;
   following: string[];
   followers: string[];

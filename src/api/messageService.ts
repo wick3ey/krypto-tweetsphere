@@ -60,7 +60,7 @@ export const messageService = {
           read,
           receiver_id,
           sender_id,
-          users!messages_receiver_id_fkey(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
+          users:receiver_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
         `)
         .eq('sender_id', currentUserId)
         .order('created_at', { ascending: false });
@@ -77,7 +77,7 @@ export const messageService = {
           read,
           receiver_id,
           sender_id,
-          users!messages_sender_id_fkey(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
+          users:sender_id(id, username, display_name, wallet_address, avatar_url, bio, joined_date, following, followers, verified)
         `)
         .eq('receiver_id', currentUserId)
         .order('created_at', { ascending: false });
