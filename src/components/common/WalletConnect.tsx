@@ -60,15 +60,15 @@ export const WalletConnect = () => {
       }
       
       // Connect to Phantom wallet
-      const response = await provider.connect();
-      const newWalletAddress = response.publicKey.toString();
+      const connectResponse = await provider.connect();
+      const newWalletAddress = connectResponse.publicKey.toString();
       
       // Store wallet address
       setWalletAddress(newWalletAddress);
       localStorage.setItem('wallet_address', newWalletAddress);
       
       // Get a nonce to sign from Supabase
-      const { data: nonceData, error: nonceError } = await supabase.rpc('get_nonce', { 
+      let { data: nonceData, error: nonceError } = await supabase.rpc('get_nonce', { 
         wallet_addr: newWalletAddress 
       });
       
@@ -98,7 +98,7 @@ export const WalletConnect = () => {
         .join("");
       
       // Verify the signature with the backend
-      const response = await fetch('https://dtrlmfwgtjrjkepvgatv.supabase.co/functions/v1/verify-wallet-signature', {
+      const authResponse = await fetch('https://dtrlmfwgtjrjkepvgatv.supabase.co/functions/v1/verify-wallet-signature', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -110,9 +110,9 @@ export const WalletConnect = () => {
         })
       });
       
-      const data = await response.json();
+      const data = await authResponse.json();
       
-      if (!response.ok) {
+      if (!authResponse.ok) {
         throw new Error(data.error || 'Authentication failed');
       }
       
