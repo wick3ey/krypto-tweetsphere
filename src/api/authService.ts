@@ -12,6 +12,11 @@ export const authService = {
   },
   
   /**
+   * Transform database user to User type
+   */
+  dbUserToUser,
+  
+  /**
    * Get current user data from Supabase
    */
   async getCurrentUser(): Promise<User> {
@@ -61,41 +66,69 @@ export const authService = {
       }
       
       if (!data) {
-        console.log('User data not found in database, attempting to create profile...');
+        console.log('User data not found in database, syncing with auth...');
         
-        // Try to create a profile for the user
-        const { user } = session;
-        const newUser = {
-          id: user.id,
-          username: `user_${user.id.substring(0, 8)}`,
-          display_name: user.user_metadata?.name || user.user_metadata?.full_name || 'New User',
-          avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
-          bio: '',
-          joined_date: new Date().toISOString(),
-          following: [],
-          followers: [],
-          verified: false
-        };
-        
-        const { data: createdUser, error: createError } = await supabase
-          .from('users')
-          .insert([newUser])
-          .select()
-          .single();
+        // Try to sync the user via our edge function
+        try {
+          const response = await supabase.functions.invoke('sync-auth-user', {
+            body: { userId }
+          });
           
-        if (createError) {
-          console.error('Error creating user profile:', createError);
-          throw createError;
+          if (!response.data.success) {
+            throw new Error(`Failed to sync user: ${response.data.error}`);
+          }
+          
+          // Cache the synced user
+          localStorage.setItem('current_user', JSON.stringify(response.data.user));
+          
+          // Update flags based on if profile is complete
+          if (response.data.needsProfileSetup) {
+            localStorage.setItem('needs_profile_setup', 'true');
+            localStorage.removeItem('profile_setup_complete');
+          } else {
+            localStorage.setItem('profile_setup_complete', 'true');
+            localStorage.removeItem('needs_profile_setup');
+          }
+          
+          return dbUserToUser(response.data.user);
+        } catch (syncError) {
+          console.error('Error syncing user with auth:', syncError);
+          
+          // Fallback to creating a basic user if sync fails
+          // Try to create a profile for the user
+          const { user } = session;
+          const newUser = {
+            id: user.id,
+            username: `user_${user.id.substring(0, 8)}`,
+            display_name: user.user_metadata?.name || user.user_metadata?.full_name || 'New User',
+            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+            bio: '',
+            joined_date: new Date().toISOString(),
+            following: [],
+            followers: [],
+            verified: false
+          };
+          
+          const { data: createdUser, error: createError } = await supabase
+            .from('users')
+            .insert([newUser])
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error('Error creating user profile:', createError);
+            throw createError;
+          }
+          
+          // Mark that user needs to complete profile setup
+          localStorage.setItem('needs_profile_setup', 'true');
+          localStorage.removeItem('profile_setup_complete');
+          
+          // Cache the newly created user
+          localStorage.setItem('current_user', JSON.stringify(createdUser));
+          
+          return dbUserToUser(createdUser);
         }
-        
-        // Mark that user needs to complete profile setup
-        localStorage.setItem('needs_profile_setup', 'true');
-        localStorage.removeItem('profile_setup_complete');
-        
-        // Cache the newly created user
-        localStorage.setItem('current_user', JSON.stringify(createdUser));
-        
-        return dbUserToUser(createdUser);
       }
       
       const user = dbUserToUser(data);

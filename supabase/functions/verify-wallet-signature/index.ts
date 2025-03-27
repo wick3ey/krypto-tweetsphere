@@ -105,6 +105,11 @@ serve(async (req) => {
             console.error('Error updating existing user with wallet:', updateError);
           } else {
             user = updatedUser;
+            // Check if the existing user already has a complete profile
+            needsProfileSetup = !user.username || 
+                              user.username.startsWith('user_') || 
+                              !user.display_name || 
+                              user.display_name === 'New User';
           }
         }
         
@@ -151,6 +156,12 @@ serve(async (req) => {
             );
           }
         }
+      } else {
+        // If user exists, check if profile setup is needed
+        needsProfileSetup = !user.username || 
+                          user.username.startsWith('user_') || 
+                          !user.display_name || 
+                          user.display_name === 'New User';
       }
 
       // Create a JWT token for authentication with custom domain
