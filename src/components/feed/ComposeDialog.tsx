@@ -48,7 +48,7 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
     setIsSubmitting(true);
     
     try {
-      console.log("Submitting tweet with content:", content);
+      console.log("ComposeDialog: Submitting tweet with content:", content);
       await onSubmit(content);
       setContent('');
       setIsOpen(false);
@@ -57,7 +57,7 @@ const ComposeDialog = ({ onSubmit }: ComposeDialogProps) => {
         description: "Ditt inlägg har publicerats framgångsrikt.",
       });
     } catch (error) {
-      console.error("Error submitting tweet:", error);
+      console.error("ComposeDialog: Error submitting tweet:", error);
       toast.error("Kunde inte publicera inlägg", {
         description: "Ett fel uppstod. Försök igen senare.",
       });

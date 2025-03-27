@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -11,12 +11,14 @@ import { tweetService } from '@/api/tweetService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useUser } from '@/hooks/useUser';
 import ProfileCard from '@/components/profile/ProfileCard';
+import { RefreshCw } from 'lucide-react';
 
 const Index = () => {
   const [activeFeed, setActiveFeed] = useState('trending'); // trending, latest, following
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const { currentUser } = useUser();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Check if user is logged in
   const isLoggedIn = !!localStorage.getItem('jwt_token');
@@ -25,23 +27,27 @@ const Index = () => {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('current_user', JSON.stringify(currentUser));
+      console.log('Current user stored in localStorage:', currentUser);
     }
   }, [currentUser]);
   
-  // Get local tweets if available
-  const getLocalTweets = () => {
+  // Get local tweets for initialization and fallback
+  const getLocalTweets = useCallback(() => {
     try {
-      return JSON.parse(localStorage.getItem('local_tweets') || '[]');
+      const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
+      console.log('Local tweets from storage:', localTweets);
+      return localTweets;
     } catch (e) {
       console.error('Error parsing local tweets:', e);
       return [];
     }
-  };
+  }, []);
   
   // Fetch tweets based on active feed
-  const { data: apiTweets = [], isLoading: isLoadingTweets } = useQuery({
+  const { data: apiTweets = [], isLoading: isLoadingTweets, refetch } = useQuery({
     queryKey: ['tweets', activeFeed],
     queryFn: async () => {
+      console.log(`Fetching ${activeFeed} feed...`);
       if (activeFeed === 'trending') {
         return tweetService.getExploreFeed();
       } else if (activeFeed === 'following') {
@@ -51,38 +57,34 @@ const Index = () => {
         return tweetService.getExploreFeed();
       }
     },
-    staleTime: 30000, // Reduced stale time to 30 seconds for more frequent updates
+    staleTime: 30000, // 30 seconds
     retry: 2,
     refetchOnWindowFocus: true,
+    // Initialize with local tweets while waiting for API
+    placeholderData: getLocalTweets, 
   });
   
-  // Combine API tweets with local tweets
-  const localTweets = getLocalTweets();
-  const tweets = [...localTweets, ...(apiTweets || [])].filter(
-    (tweet, index, self) => 
-      // Remove duplicates based on id
-      index === self.findIndex((t) => t.id === tweet.id)
-  );
+  // Make sure we have tweets, either from API or local storage
+  const tweets = apiTweets.length > 0 ? apiTweets : getLocalTweets();
+  console.log('Combined tweets to display:', tweets);
   
   // Tweet creation mutation
   const createTweetMutation = useMutation({
     mutationFn: (content: string) => tweetService.createTweet(content),
     onSuccess: (newTweet) => {
       console.log("Tweet created successfully:", newTweet);
+      
       // Update the tweets list immediately without waiting for a refetch
       if (newTweet) {
         queryClient.setQueryData(['tweets', activeFeed], (oldData: any) => {
           const oldTweets = Array.isArray(oldData) ? oldData : [];
+          console.log('Adding new tweet to existing tweets:', newTweet);
           return [newTweet, ...oldTweets];
         });
       }
       
       // Then invalidate the query to trigger a background refresh
       queryClient.invalidateQueries({ queryKey: ['tweets'] });
-      
-      toast.success("Tweet posted!", {
-        description: "Your tweet has been published successfully."
-      });
     },
     onError: (error: any) => {
       console.error("Error creating tweet:", error);
@@ -102,15 +104,24 @@ const Index = () => {
       return Promise.reject(new Error("Not authenticated"));
     }
     
-    console.log("Submitting tweet:", tweetContent);
+    console.log("Index: Submitting tweet:", tweetContent);
     // Return the promise from the mutation
     return createTweetMutation.mutateAsync(tweetContent);
   };
   
   // Manual refresh function
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['tweets', activeFeed] });
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
     toast.info("Refreshing tweets...");
+    try {
+      await refetch();
+      toast.success("Tweets refreshed");
+    } catch (error) {
+      console.error('Error refreshing tweets:', error);
+      toast.error("Failed to refresh tweets");
+    } finally {
+      setIsRefreshing(false);
+    }
   };
   
   // Render user profile if logged in
@@ -162,8 +173,10 @@ const Index = () => {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
-              className="ml-auto"
+              className="ml-auto flex items-center gap-1"
+              disabled={isRefreshing}
             >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               Uppdatera
             </Button>
           </div>
@@ -171,7 +184,7 @@ const Index = () => {
           {/* Tweets List */}
           <div className="space-y-4">
             {isLoadingTweets && tweets.length === 0 ? (
-              <div className="text-center py-10">
+              <div className="text-center py-10 bg-background border border-border rounded-lg">
                 <p>Laddar tweets...</p>
               </div>
             ) : (
@@ -190,8 +203,10 @@ const Index = () => {
                   <p className="text-muted-foreground mb-4">Inga tweets att visa</p>
                   <Button 
                     variant="outline" 
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['tweets', activeFeed] })}
+                    onClick={handleRefresh}
+                    className="flex items-center gap-1"
                   >
+                    <RefreshCw className="h-4 w-4" />
                     Uppdatera
                   </Button>
                 </div>
