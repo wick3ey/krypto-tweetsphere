@@ -181,7 +181,7 @@ serve(async (req) => {
       }
     }
     
-    if (authData.error) {
+    if (authData?.error) {
       console.error('Auth data error:', authData.error);
       return new Response(
         JSON.stringify({ error: 'Authentication failed', details: authData.error.message }),
