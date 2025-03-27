@@ -76,36 +76,81 @@ serve(async (req) => {
       if (!user) {
         needsProfileSetup = true;
         
-        // Create a new user
-        const { data: newUser, error: createUserError } = await supabase
+        // Check if there's any existing user with an empty wallet address that we can update
+        // This helps prevent conflicts with users created via Google OAuth
+        const { data: existingEmptyWalletUser, error: emptyWalletError } = await supabase
           .from('users')
-          .insert([
-            {
-              wallet_address: walletAddress,
-              username: `user_${walletAddress.substring(0, 8)}`,
-              display_name: `User ${walletAddress.substring(0, 8)}`,
-              bio: '',
-              joined_date: new Date().toISOString(),
-              following: [],
-              followers: [],
-              verified: false
-            }
-          ])
-          .select()
-          .single();
-
-        if (createUserError) {
-          console.error('Error creating new user:', createUserError);
-          return new Response(
-            JSON.stringify({ error: 'Could not create user' }),
-            {
-              status: 500,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            }
-          );
+          .select('*')
+          .is('wallet_address', null)
+          .or('wallet_address.eq.""')
+          .limit(1)
+          .maybeSingle();
+        
+        if (emptyWalletError) {
+          console.error('Error checking for empty wallet users:', emptyWalletError);
         }
+        
+        if (existingEmptyWalletUser) {
+          // Update the existing user with the wallet address
+          const { data: updatedUser, error: updateError } = await supabase
+            .from('users')
+            .update({
+              wallet_address: walletAddress
+            })
+            .eq('id', existingEmptyWalletUser.id)
+            .select()
+            .single();
+            
+          if (updateError) {
+            console.error('Error updating existing user with wallet:', updateError);
+          } else {
+            user = updatedUser;
+          }
+        }
+        
+        // If we couldn't find or update an existing user, create a new one
+        if (!user) {
+          try {
+            const { data: newUser, error: createUserError } = await supabase
+              .from('users')
+              .insert([
+                {
+                  wallet_address: walletAddress,
+                  username: `user_${walletAddress.substring(0, 8)}`,
+                  display_name: `User ${walletAddress.substring(0, 8)}`,
+                  bio: '',
+                  joined_date: new Date().toISOString(),
+                  following: [],
+                  followers: [],
+                  verified: false
+                }
+              ])
+              .select()
+              .single();
 
-        user = newUser;
+            if (createUserError) {
+              console.error('Error creating new user:', createUserError);
+              return new Response(
+                JSON.stringify({ error: 'Could not create user' }),
+                {
+                  status: 500,
+                  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                }
+              );
+            }
+
+            user = newUser;
+          } catch (createError) {
+            console.error('Error in user creation:', createError);
+            return new Response(
+              JSON.stringify({ error: 'Failed to create user account' }),
+              {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              }
+            );
+          }
+        }
       }
 
       // Create a JWT token for authentication with custom domain

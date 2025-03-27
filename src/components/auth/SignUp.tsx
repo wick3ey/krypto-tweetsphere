@@ -64,8 +64,25 @@ export const SignUp = ({ onToggleForm }: { onToggleForm: () => void }) => {
     try {
       setGoogleLoading(true);
       toast.info('Omdirigerar till Google...');
+      
+      // Get current URL to determine environment
+      const isLocalhost = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1';
+      
+      const redirectTo = isLocalhost
+        ? `${window.location.origin}/auth/callback` // Use local origin for development
+        : 'https://f3oci3ty.xyz/auth/callback'; // Use production domain for live site
+      
+      console.log('Signing up with Google, redirectTo:', redirectTo);
+      
       await authService.signUpWithGoogle();
-      // Redirects to Google, no need to handle navigation
+      
+      // Google redirection happens here, no need to handle navigation
+      // But we'll set a timeout to reset the button state if redirection doesn't happen
+      setTimeout(() => {
+        setGoogleLoading(false);
+      }, 5000); // 5 seconds timeout
+      
     } catch (error: any) {
       console.error('Google-registreringsfel:', error);
       toast.error('Kunde inte registrera med Google', {

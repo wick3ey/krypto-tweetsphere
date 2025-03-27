@@ -21,6 +21,7 @@ function App() {
   const location = useLocation();
   const [sessionChecked, setSessionChecked] = useState(false);
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Skip profile setup check on auth callback and setup pages
   const skipProfileCheck = location.pathname.includes('/auth/callback') || 
@@ -41,6 +42,8 @@ function App() {
     // Start auth initialization
     const initializeAuth = async () => {
       try {
+        setIsLoading(true);
+        
         // Check for existing session first
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -53,11 +56,17 @@ function App() {
           authService.getCurrentUser()
             .then(user => {
               // Store current user data
-              localStorage.setItem('current_user', JSON.stringify(user));
+              if (user) {
+                localStorage.setItem('current_user', JSON.stringify(user));
+              }
+              setIsLoading(false);
             })
             .catch(err => {
               console.error('Error fetching user data during initialization:', err);
+              setIsLoading(false);
             });
+        } else {
+          setIsLoading(false);
         }
         
         // Now set up the auth state listener for future changes
@@ -96,6 +105,7 @@ function App() {
         console.error('Error initializing auth:', error);
         setSessionChecked(true);
         setAuthInitialized(true);
+        setIsLoading(false);
       }
     };
     
@@ -166,6 +176,30 @@ function App() {
 
     checkProfileSetup();
   }, [authInitialized, navigate, skipProfileCheck]);
+  
+  // Custom auth callback handling for when /auth/callback is loaded
+  useEffect(() => {
+    const handleAuthCallback = async () => {
+      if (location.pathname.includes('/auth/callback')) {
+        try {
+          // The auth state listener should handle the session automatically,
+          // but we'll add a timeout to redirect if it doesn't happen quickly
+          const timeoutId = setTimeout(() => {
+            console.log('Auth callback timeout reached, redirecting to home');
+            navigate('/', { replace: true });
+          }, 8000); // 8 seconds timeout
+          
+          return () => clearTimeout(timeoutId);
+        } catch (error) {
+          console.error('Error during auth callback:', error);
+          toast.error('Inloggning misslyckades');
+          navigate('/', { replace: true });
+        }
+      }
+    };
+    
+    handleAuthCallback();
+  }, [location.pathname, navigate]);
   
   return (
     <>

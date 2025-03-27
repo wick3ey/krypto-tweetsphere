@@ -55,8 +55,29 @@ export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
     try {
       setGoogleLoading(true);
       toast.info('Omdirigerar till Google...');
-      await authService.signInWithGoogle();
+      
+      // Get current URL to determine environment
+      const isLocalhost = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1';
+      
+      const redirectTo = isLocalhost
+        ? `${window.location.origin}/auth/callback` // Use local origin for development
+        : 'https://f3oci3ty.xyz/auth/callback'; // Use production domain for live site
+      
+      console.log('Signing in with Google, redirectTo:', redirectTo);
+      
+      const { data, error } = await authService.signInWithGoogle();
+      
+      if (error) {
+        throw error;
+      }
+      
       // Google redirection happens here, no need to handle navigation
+      // But we'll set a timeout to reset the button state if redirection doesn't happen
+      setTimeout(() => {
+        setGoogleLoading(false);
+      }, 5000); // 5 seconds timeout
+      
     } catch (error: any) {
       console.error('Google-inloggningsfel:', error);
       toast.error('Kunde inte logga in med Google', {
