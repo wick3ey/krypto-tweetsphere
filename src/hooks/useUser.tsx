@@ -21,12 +21,14 @@ export function useUser() {
     enabled: !!localStorage.getItem('jwt_token'),
     staleTime: 5 * 60 * 1000, // 5 minuter
     retry: 1,
-    onError: (error: any) => {
-      console.error('Error fetching current user:', error);
-      // Om vi inte kan hämta användaren, men har en token, kanske vi behöver skapa profilen
-      if (localStorage.getItem('jwt_token') && localStorage.getItem('wallet_address')) {
-        // Logga problemet för debugging
-        console.log('Token finns men kunde inte hämta användaren - kan behöva profiluppsättning');
+    meta: {
+      onError: (error: any) => {
+        console.error('Error fetching current user:', error);
+        // Om vi inte kan hämta användaren, men har en token, kanske vi behöver skapa profilen
+        if (localStorage.getItem('jwt_token') && localStorage.getItem('wallet_address')) {
+          // Logga problemet för debugging
+          console.log('Token finns men kunde inte hämta användaren - kan behöva profiluppsättning');
+        }
       }
     }
   });
@@ -38,9 +40,11 @@ export function useUser() {
       queryFn: () => userService.getUserByWalletAddress(walletAddress),
       enabled: false, // Körs bara manuellt
       retry: 1,
-      onError: () => {
-        // Om vi får ett fel här så finns troligen ingen användare med denna adress
-        console.log('Ingen användare hittad med denna wallet-adress');
+      meta: {
+        onError: () => {
+          // Om vi får ett fel här så finns troligen ingen användare med denna adress
+          console.log('Ingen användare hittad med denna wallet-adress');
+        }
       }
     });
   };
