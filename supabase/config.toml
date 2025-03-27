@@ -62,3 +62,8 @@ enabled = false
 client_id = ""
 secret = ""
 redirect_uri = ""
+
+[functions]
+[functions.create-token-metadata]
+[functions.process-crypto-transaction]
+[functions.sync-blockchain-data]

@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Tweet } from '@/lib/types';
-import { dbTweetToTweet } from '@/lib/db-types';
+import { dbTweetToTweet, dbUserToUser } from '@/lib/db-types';
 import { mockTweets } from '@/lib/mockData';
 import { toast } from 'sonner';
 
@@ -29,7 +29,11 @@ export const tweetService = {
       }
       
       // Convert database tweets to application tweets
-      const tweets = data?.map(dbTweetToTweet) || [];
+      const tweets = data?.map(item => {
+        if (!item.user) return null; // Skip if no user data
+        return dbTweetToTweet(item, dbUserToUser(item.user));
+      }).filter(Boolean) || [];
+      
       console.log(`Fetched ${tweets.length} tweets for user feed`);
       
       return tweets;
@@ -46,7 +50,7 @@ export const tweetService = {
       
       const { data, error } = await supabase
         .from('tweets')
-        .select('*, users:user_id(*)')
+        .select('*, user:user_id(*)')
         .order('created_at', { ascending: false })
         .limit(50);
         
@@ -63,7 +67,11 @@ export const tweetService = {
       }
       
       // Convert database tweets to application tweets
-      const tweets = data.map(dbTweetToTweet);
+      const tweets = data.map(item => {
+        if (!item.user) return null; // Skip if no user data
+        return dbTweetToTweet(item, dbUserToUser(item.user));
+      }).filter(Boolean);
+      
       return tweets;
     } catch (error) {
       console.error('Error in getExploreFeed:', error);
@@ -72,7 +80,7 @@ export const tweetService = {
   },
 
   // Create a new tweet
-  createTweet: async (content: string) => {
+  createTweet: async (content: string, attachments = []) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -88,7 +96,8 @@ export const tweetService = {
         content,
         user_id: session.user.id,
         hashtags,
-        mentions
+        mentions,
+        attachments
       };
       
       const { data, error } = await supabase
@@ -101,7 +110,11 @@ export const tweetService = {
         throw error;
       }
       
-      return dbTweetToTweet(data);
+      if (!data.user) {
+        throw new Error('Kunde inte hämta användardata');
+      }
+      
+      return dbTweetToTweet(data, dbUserToUser(data.user));
     } catch (error: any) {
       console.error('Error creating tweet:', error);
       toast.error('Kunde inte skapa inlägg', { 
@@ -124,7 +137,11 @@ export const tweetService = {
         throw error;
       }
       
-      return dbTweetToTweet(data);
+      if (!data.user) {
+        throw new Error('Kunde inte hämta användardata');
+      }
+      
+      return dbTweetToTweet(data, dbUserToUser(data.user));
     } catch (error) {
       console.error(`Error fetching tweet with ID ${tweetId}:`, error);
       throw error;
@@ -176,8 +193,19 @@ export const tweetService = {
         throw error;
       }
       
-      // Update comment count on the tweet
-      await supabase.rpc('increment_comment_count', { tweet_id: tweetId });
+      // Update comment count on the tweet manually since RPC function isn't available
+      const { data: tweetData } = await supabase
+        .from('tweets')
+        .select('comment_count')
+        .eq('id', tweetId)
+        .single();
+      
+      const currentCount = tweetData?.comment_count || 0;
+      
+      await supabase
+        .from('tweets')
+        .update({ comment_count: currentCount + 1 })
+        .eq('id', tweetId);
       
       return data;
     } catch (error: any) {
@@ -321,10 +349,73 @@ export const tweetService = {
         if (updateError) throw updateError;
       }
       
-      return dbTweetToTweet(data);
+      if (!data.user) {
+        throw new Error('Kunde inte hämta användardata');
+      }
+      
+      return dbTweetToTweet(data, dbUserToUser(data.user));
     } catch (error: any) {
       console.error('Error retweeting:', error);
       toast.error('Kunde inte dela inlägg', { 
+        description: error.message || 'Ett fel uppstod' 
+      });
+      throw error;
+    }
+  },
+  
+  // Unretweet a tweet
+  unretweet: async (tweetId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('Du måste vara inloggad för att ta bort en delning');
+      }
+      
+      const userId = session.user.id;
+      
+      // Find and delete user's retweet of this tweet
+      const { data: userRetweet, error: findError } = await supabase
+        .from('tweets')
+        .select('id')
+        .eq('retweet_of', tweetId)
+        .eq('user_id', userId)
+        .maybeSingle();
+        
+      if (findError) throw findError;
+      
+      if (userRetweet) {
+        const { error: deleteError } = await supabase
+          .from('tweets')
+          .delete()
+          .eq('id', userRetweet.id);
+          
+        if (deleteError) throw deleteError;
+      }
+      
+      // Update the original tweet's retweet array
+      const { data: originalTweet, error: fetchError } = await supabase
+        .from('tweets')
+        .select('retweets')
+        .eq('id', tweetId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      const retweets = originalTweet.retweets || [];
+      const updatedRetweets = retweets.filter((id: string) => id !== userId);
+      
+      const { error: updateError } = await supabase
+        .from('tweets')
+        .update({ retweets: updatedRetweets })
+        .eq('id', tweetId);
+        
+      if (updateError) throw updateError;
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error unretweeting:', error);
+      toast.error('Kunde inte ta bort delning', { 
         description: error.message || 'Ett fel uppstod' 
       });
       throw error;
@@ -370,6 +461,41 @@ export const tweetService = {
       throw error;
     }
   },
+  
+  // Share a tweet (to external platform)
+  shareTweet: async (tweetId: string, platform: string) => {
+    try {
+      // This is a client-side function that just handles sharing to platforms
+      // In a real app, this might track share analytics
+      console.log(`Sharing tweet ${tweetId} to ${platform}`);
+      
+      // Get the tweet to share
+      const tweet = await tweetService.getTweet(tweetId);
+      const shareText = `Check out this tweet: "${tweet.content.substring(0, 100)}${tweet.content.length > 100 ? '...' : ''}"`;
+      
+      // Handle sharing based on platform
+      switch(platform) {
+        case 'twitter':
+          window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`);
+          break;
+        case 'facebook':
+          window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`);
+          break;
+        case 'copy':
+          navigator.clipboard.writeText(window.location.href);
+          toast.success('Länk kopierad till urklipp');
+          break;
+        default:
+          break;
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error sharing tweet:', error);
+      toast.error('Kunde inte dela inlägg');
+      return { success: false };
+    }
+  },
 
   // Search for tweets
   searchTweets: async (query: string) => {
@@ -413,7 +539,10 @@ export const tweetService = {
         return true;
       });
       
-      return uniqueResults.map(dbTweetToTweet);
+      // Map to proper Tweet objects
+      return uniqueResults.filter(item => item.user).map(item => {
+        return dbTweetToTweet(item, dbUserToUser(item.user));
+      });
     } catch (error) {
       console.error('Error searching tweets:', error);
       return [];

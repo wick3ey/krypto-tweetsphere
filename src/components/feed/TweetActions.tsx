@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Heart, MessageSquare, Repeat2, Share, FileCheck, Copy } from 'lucide-react';
 import { Tweet } from '@/lib/types';
@@ -34,11 +33,9 @@ const TweetActions = ({ tweet, onReply, compact, className }: TweetActionsProps)
   const { currentUser } = useUser();
   
   useEffect(() => {
-    // Update counts if tweet prop changes
     setLikeCount(tweet.likes || tweet.likeCount || 0);
     setRetweetCount(tweet.retweets || tweet.retweetCount || 0);
     
-    // Check if user has already liked/retweeted this tweet
     if (currentUser && tweet.likedBy && Array.isArray(tweet.likedBy)) {
       setLiked(tweet.likedBy.includes(currentUser.id));
     }
@@ -72,19 +69,16 @@ const TweetActions = ({ tweet, onReply, compact, className }: TweetActionsProps)
     try {
       setIsLiking(true);
       
-      // Optimistically update UI
       const newLiked = !liked;
       setLiked(newLiked);
       setLikeCount(prevCount => newLiked ? prevCount + 1 : Math.max(0, prevCount - 1));
       
-      // Call API
       if (newLiked) {
         await tweetService.likeTweet(tweet.id);
       } else {
         await tweetService.unlikeTweet(tweet.id);
       }
     } catch (error) {
-      // Revert on error
       console.error("Error toggling like:", error);
       setLiked(!liked);
       setLikeCount(prevCount => liked ? prevCount + 1 : Math.max(0, prevCount - 1));
@@ -107,12 +101,10 @@ const TweetActions = ({ tweet, onReply, compact, className }: TweetActionsProps)
     try {
       setIsRetweeting(true);
       
-      // Optimistically update UI
       const newRetweeted = !retweeted;
       setRetweeted(newRetweeted);
       setRetweetCount(prevCount => newRetweeted ? prevCount + 1 : Math.max(0, prevCount - 1));
       
-      // Call API
       if (newRetweeted) {
         await tweetService.retweet(tweet.id);
         toast.success("Tweet delad med dina följare");
@@ -121,7 +113,6 @@ const TweetActions = ({ tweet, onReply, compact, className }: TweetActionsProps)
         toast.success("Retweet borttagen");
       }
     } catch (error) {
-      // Revert on error
       console.error("Error toggling retweet:", error);
       setRetweeted(!retweeted);
       setRetweetCount(prevCount => retweeted ? prevCount + 1 : Math.max(0, prevCount - 1));

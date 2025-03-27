@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { useUser } from '@/hooks/useUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -36,7 +35,7 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
   
   const { mutate: createTweet, isPending: isCreatingTweet } = useMutation({
     mutationFn: () => {
-      return tweetService.createTweet(content, uploadedAttachments);
+      return tweetService.createTweet(content);
     },
     onSuccess: () => {
       toast.success('Tweet skapad!');
@@ -65,7 +64,6 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
       const files = Array.from(e.target.files);
       setAttachments([...attachments, ...files]);
       
-      // Upload files to Supabase storage
       setUploading(true);
       try {
         const uploadedUrls: string[] = [];
@@ -83,7 +81,6 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
             throw error;
           }
           
-          // Get public URL for the file
           const { data: publicUrlData } = supabase.storage
             .from('tweets')
             .getPublicUrl(filePath);
@@ -107,7 +104,6 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
       const newAttachments = [...attachments];
       const newUploadedAttachments = [...uploadedAttachments];
       
-      // Extract file path from URL to delete from storage
       if (uploadedAttachments[index]) {
         const url = uploadedAttachments[index];
         const path = url.split('tweets/')[1];

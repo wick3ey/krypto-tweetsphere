@@ -32,3 +32,13 @@ BEGIN
     created_at = now();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Add increment_comment_count function if it doesn't exist
+CREATE OR REPLACE FUNCTION public.increment_comment_count(tweet_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE public.tweets
+  SET comment_count = COALESCE(comment_count, 0) + 1
+  WHERE id = tweet_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
