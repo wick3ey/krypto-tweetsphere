@@ -7,24 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { PhantomIcon } from '@/components/icons/PhantomIcon';
 import { useUser } from '@/hooks/useUser';
 
-// Add Phantom provider interface as a global type
-declare global {
-  interface Window {
-    phantom?: {
-      solana?: PhantomProvider;
-    };
-    solana?: PhantomProvider;
-  }
-}
-
-// Define PhantomProvider interface
-interface PhantomProvider {
-  isPhantom: boolean;
-  connect: (opts?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toString: () => string } }>;
-  disconnect: () => Promise<void>;
-  signMessage: (message: Uint8Array, encoding: string) => Promise<{ signature: Uint8Array }>;
-}
-
 export const WalletConnect = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);

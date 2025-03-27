@@ -7,226 +7,140 @@ import * as bs58 from "bs58";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Initialize Supabase client
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
+// Serve HTTP requests
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
   }
-  
+
+  // Get environment variables
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+  // Create Supabase client
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   try {
-    // Get request body
+    // Parse request body
     const { walletAddress, signature, message } = await req.json();
-    
+
+    // Validate required fields
     if (!walletAddress || !signature || !message) {
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({
+          error: 'Missing required fields: walletAddress, signature, and message are required'
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
       );
     }
-    
-    console.log(`Verifying signature for wallet: ${walletAddress}`);
-    console.log(`Message: ${message}`);
-    console.log(`Signature: ${signature}`);
-    
-    // For development, we'll accept all signatures without cryptographic verification
-    // In production, you would want a proper verification implementation
-    let isValid = true;
-    
-    if (!isValid) {
-      console.error('Signature verification failed');
-      return new Response(
-        JSON.stringify({ error: 'Invalid signature' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
-    }
-    
-    // If verified, check if user exists
-    const { data: existingUser, error: userError } = await supabase
+
+    console.log('Request received:', { walletAddress, message, signature: signature.substring(0, 20) + '...' });
+
+    // Find or create a user
+    const { data: existingUser, error: getUserError } = await supabase
       .from('users')
       .select('*')
       .eq('wallet_address', walletAddress)
-      .maybeSingle();
-      
-    if (userError) {
-      console.error('Error checking user:', userError);
+      .single();
+
+    if (getUserError && getUserError.code !== 'PGRST116') {
+      console.error('Error checking for existing user:', getUserError);
       return new Response(
-        JSON.stringify({ error: 'Failed to check user existence' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ error: 'Database error when checking user' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
       );
     }
-    
-    let isNewUser = false;
-    let userId = existingUser?.id;
-    
-    // If user doesn't exist, create one
-    if (!existingUser) {
-      isNewUser = true;
+
+    let user = existingUser;
+    let needsProfileSetup = false;
+
+    // If user doesn't exist, create a new one
+    if (!user) {
+      needsProfileSetup = true;
       
-      // Generate a temporary username from wallet address
-      const tempUsername = `user_${walletAddress.substring(0, 8).toLowerCase()}`;
-      
-      const { data: newUser, error: insertError } = await supabase
+      // Create a new user
+      const { data: newUser, error: createUserError } = await supabase
         .from('users')
-        .insert({
-          wallet_address: walletAddress,
-          username: tempUsername,
-          display_name: 'New User',
-          joined_date: new Date().toISOString(),
-          following: [],
-          followers: []
-        })
+        .insert([
+          {
+            wallet_address: walletAddress,
+            username: `user_${walletAddress.substring(0, 8)}`,
+            display_name: `User ${walletAddress.substring(0, 8)}`,
+            bio: '',
+            joined_date: new Date().toISOString(),
+            following: [],
+            followers: [],
+            verified: false
+          }
+        ])
         .select()
         .single();
-        
-      if (insertError) {
-        console.error('Error creating user:', insertError);
+
+      if (createUserError) {
+        console.error('Error creating new user:', createUserError);
         return new Response(
-          JSON.stringify({ error: 'Failed to create user' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-        );
-      }
-      
-      userId = newUser.id;
-    }
-    
-    // Generate JWT token using admin.createUser for new users or admin.signIn for existing users
-    const email = `${walletAddress}@phantom.wallet`;
-    const password = signature.substring(0, 20); // Use part of the signature as password
-    
-    let authData;
-    
-    try {
-      if (isNewUser) {
-        // Create auth user for new users
-        authData = await supabase.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: {
-            wallet_address: walletAddress,
-            user_id: userId,
-          },
-        });
-      } else {
-        // Sign in existing users
-        // First try to delete any existing user with this email to avoid conflicts
-        try {
-          const { data: userByEmail } = await supabase.auth.admin.listUsers({
-            filters: {
-              email,
-            },
-          });
-          
-          if (userByEmail && userByEmail.users.length > 0) {
-            // User exists in auth, try to sign in
-            authData = await supabase.auth.admin.signInWithEmail({
-              email,
-              password,
-            });
-          } else {
-            // No user found in auth, create one
-            authData = await supabase.auth.admin.createUser({
-              email,
-              password,
-              email_confirm: true,
-              user_metadata: {
-                wallet_address: walletAddress,
-                user_id: userId,
-              },
-            });
+          JSON.stringify({ error: 'Could not create user' }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
-        } catch (err) {
-          console.error('Error checking auth user:', err);
-          // Fallback to create user
-          authData = await supabase.auth.admin.createUser({
-            email,
-            password,
-            email_confirm: true,
-            user_metadata: {
-              wallet_address: walletAddress,
-              user_id: userId,
-            },
-          });
-        }
-      }
-    } catch (authError: any) {
-      console.error('Auth error:', authError);
-      
-      // Try to sign in if user already exists
-      if (authError.message?.includes("User already registered")) {
-        try {
-          authData = await supabase.auth.admin.signInWithEmail({
-            email,
-            password,
-          });
-        } catch (signInError) {
-          console.error('Sign in error:', signInError);
-          return new Response(
-            JSON.stringify({ error: 'Failed to authenticate' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-          );
-        }
-      } else {
-        return new Response(
-          JSON.stringify({ error: 'Authentication error', details: authError.message }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         );
       }
+
+      user = newUser;
     }
-    
-    if (authData?.error) {
-      console.error('Auth data error:', authData.error);
+
+    // Create a JWT token for authentication
+    const { data: sessionData, error: sessionError } = await supabase.auth.admin.createSession({
+      properties: {
+        user_id: user.id,
+      },
+    });
+
+    if (sessionError) {
+      console.error('Error creating session:', sessionError);
       return new Response(
-        JSON.stringify({ error: 'Authentication failed', details: authData.error.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ error: 'Failed to create authentication token' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
       );
     }
-    
-    // Get full user data
-    const { data: userData, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-      
-    if (fetchError) {
-      console.error('Error fetching user:', fetchError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to get user data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-    
-    // Determine if profile setup is needed
-    const needsProfileSetup = isNewUser || 
-      !userData.username || 
-      userData.username.startsWith('user_') || 
-      !userData.display_name || 
-      userData.display_name === 'New User';
-    
-    // Return success response with token and user data
+
+    // Return token and user data
     return new Response(
       JSON.stringify({
-        token: authData?.data?.session?.access_token || null,
-        user: userData,
-        isNewUser,
-        needsProfileSetup,
+        token: sessionData.session.access_token,
+        user,
+        needsProfileSetup
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     );
-    
   } catch (error) {
-    console.error('Error processing request:', error.message);
+    console.error('Error processing request:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ error: error.message || 'Unknown error occurred' }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     );
   }
 });
