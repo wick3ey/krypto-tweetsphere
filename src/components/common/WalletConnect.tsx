@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// Add TypeScript declaration for window.solana and window.phantom
+// Lägg till TypeScript-deklaration för window.solana och window.phantom
 declare global {
   interface Window {
     solana?: any;
@@ -40,11 +40,11 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
   const [walletAddress, setWalletAddress] = useState<string>('');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { currentUser, refetchCurrentUser } = useUser();
+  const { currentUser, refetchCurrentUser, checkWalletUser } = useUser();
   
-  // Helper function to convert Uint8Array to base64 string
+  // Hjälpfunktion för att konvertera Uint8Array till base64-sträng
   const arrayToBase64 = (buffer: Uint8Array): string => {
-    // Improved base64 conversion method that's more compatible across browsers
+    // Förbättrad base64-konverteringsmetod som är mer kompatibel mellan webbläsare
     let binary = '';
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
@@ -54,103 +54,110 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     return window.btoa(binary);
   };
   
-  // Get Phantom provider using the recommended method
+  // Hämta Phantom-provider med den rekommenderade metoden
   const getProvider = () => {
-    // Check if phantom is in window using the recommended approach
-    if ('phantom' in window) {
-      const provider = window.phantom?.solana;
-      
-      if (provider?.isPhantom) {
-        console.log("Detected Phantom wallet via window.phantom.solana");
-        return provider;
-      }
-    }
-    
-    // Fallback to legacy detection via window.solana
-    if ('solana' in window && window.solana?.isPhantom) {
-      console.log("Detected Phantom wallet via window.solana");
-      return window.solana;
-    }
-    
-    // Check if Phantom is present in the injected providers
-    // This is a more thorough check
-    if (typeof window !== 'undefined') {
-      const providers = window.ethereum?.providers;
-      if (providers) {
-        const phantomProvider = providers.find((p: any) => p.isPhantom);
-        if (phantomProvider) {
-          console.log("Detected Phantom wallet via ethereum providers");
-          return phantomProvider;
+    try {
+      // Kontrollera om phantom finns i fönstret enligt rekommenderad metod
+      if ('phantom' in window) {
+        const provider = window.phantom?.solana;
+        
+        if (provider?.isPhantom) {
+          console.log("Detected Phantom wallet via window.phantom.solana");
+          return provider;
         }
       }
+      
+      // Fallback till legacy-detektering via window.solana
+      if ('solana' in window && window.solana?.isPhantom) {
+        console.log("Detected Phantom wallet via window.solana");
+        return window.solana;
+      }
+      
+      // Kontrollera om Phantom finns bland de injicerade providerna
+      if (typeof window !== 'undefined') {
+        const providers = window.ethereum?.providers;
+        if (providers) {
+          const phantomProvider = providers.find((p: any) => p.isPhantom);
+          if (phantomProvider) {
+            console.log("Detected Phantom wallet via ethereum providers");
+            return phantomProvider;
+          }
+        }
+      }
+      
+      console.log("No Phantom wallet detected, redirecting to install page");
+      // Phantom är inte installerad, omdirigera till Phantom-webbplatsen
+      window.open('https://phantom.app/', '_blank');
+      toast.error("Phantom plånbok saknas", {
+        description: "Du behöver installera Phantom plånbok för att fortsätta.",
+      });
+      return null;
+    } catch (error) {
+      console.error("Error getting provider:", error);
+      toast.error("Kunde inte ansluta till Phantom", {
+        description: "Ett fel uppstod vid anslutning till Phantom plånbok.",
+      });
+      return null;
     }
-    
-    console.log("No Phantom wallet detected, redirecting to install page");
-    // Phantom is not installed, redirect to Phantom website
-    window.open('https://phantom.app/', '_blank');
-    toast.error("Phantom plånbok saknas", {
-      description: "Du behöver installera Phantom plånbok för att fortsätta.",
-    });
-    return null;
   };
 
-  // The component will NOT eagerly connect on mount anymore
-  // This is to ensure users have to explicitly connect their wallet each time
+  // Komponenten kommer INTE längre att ansluta automatiskt vid montering
+  // Detta är för att säkerställa att användare explicit måste ansluta sin plånbok varje gång
   useEffect(() => {
     console.debug("WalletConnect component mounted, automatic connection disabled");
     
-    // Clear any existing auth data on component mount
+    // Rensa befintlig auth-data vid komponentmontering
     authService.clearAuthData();
     
-    // Setup account change handler
+    // Konfigurera kontoändringshanterare
     const setupAccountChangeListener = () => {
       const provider = getProvider();
       if (!provider) return;
       
       provider.on('accountChanged', (publicKey: any) => {
         if (publicKey) {
-          // User switched to a connected account
+          // Användaren bytte till ett anslutet konto
           const newAddress = publicKey.toString();
           console.info("Switched wallet account", { newAddress });
           
-          // This will require re-authentication
+          // Detta kräver återautentisering
           setIsConnected(false);
           setWalletAddress('');
           authService.clearAuthData();
           
-          // Invalidate any cached user data
+          // Ogiltigförklara cachad användardata
           queryClient.invalidateQueries({ queryKey: ['currentUser'] });
           
-          // Prompt user to reconnect with the new account
+          // Uppmana användaren att återansluta med det nya kontot
           toast.info("Plånbok ändrad", {
             description: "Du behöver ansluta igen med ditt nya konto.",
           });
           
-          // Trigger connection with the new account
+          // Utlös anslutning med det nya kontot
           handleConnect();
         } else {
-          // User switched to an account that isn't connected to the app
+          // Användaren bytte till ett konto som inte är anslutet till appen
           setIsConnected(false);
           setWalletAddress('');
           authService.clearAuthData();
         }
       });
       
-      // Listen for disconnect events
+      // Lyssna efter frånkopplingshändelser
       provider.on('disconnect', () => {
         console.info("Wallet disconnected");
         setIsConnected(false);
         setWalletAddress('');
         authService.clearAuthData();
         
-        // Invalidate any cached user data
+        // Ogiltigförklara cachad användardata
         queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       });
     };
     
     setupAccountChangeListener();
     
-    // Cleanup when component unmounts
+    // Städa upp när komponenten avmonteras
     return () => {
       const provider = getProvider();
       if (provider) {
@@ -161,36 +168,123 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     };
   }, [queryClient]);
   
+  // Kontrollera om användare med denna wallet-adress finns
+  const checkUserExistsAndRedirect = async (address: string) => {
+    try {
+      console.log("Kontrollerar om användare finns för wallet:", address);
+      
+      // Hämta användare från Supabase
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', address)
+        .maybeSingle();
+      
+      if (userError) {
+        console.error("Error fetching user:", userError);
+        throw userError;
+      }
+      
+      // Om användaren inte finns eller saknar korrekt profildata
+      if (!userData || 
+          !userData.username || 
+          userData.username.startsWith('user_') || 
+          !userData.display_name || 
+          userData.display_name === 'New User') {
+        
+        console.log("Användare behöver konfigurera profil:", 
+          userData ? `${userData.username} (${userData.id})` : "Ingen användare hittad");
+          
+        toast.info("Profilkonfiguration behövs", {
+          description: "Slutför din profil för att fortsätta.",
+        });
+        
+        // Omdirigera till profilkonfiguration
+        navigate('/setup-profile');
+        return false;
+      }
+      
+      console.log("Befintlig användare inloggad:", userData.username);
+      
+      // Uppdatera lokalt lagrad användardata
+      const user = dbUserToUser(userData);
+      localStorage.setItem('current_user', JSON.stringify(user));
+      
+      // Ladda om aktuell användardata
+      refetchCurrentUser();
+      
+      return true;
+    } catch (error) {
+      console.error("Error checking user existence:", error);
+      return false;
+    }
+  };
+  
   const verifyWalletConnection = async (provider: any, address: string) => {
     try {
-      // Get nonce and authentication message from the server
+      // Hämta engångsnummer och autentiseringsmeddelande från servern
       console.debug("Requesting authentication nonce", { address });
-      const authData = await authService.getNonce(address);
+      
+      let authData: { nonce: string, message: string };
+      
+      try {
+        // Försök hämta från Supabase
+        const { data, error } = await supabase.rpc('get_nonce', {
+          wallet_addr: address
+        });
+        
+        if (error || !data) {
+          console.log("Kunde inte hämta nonce från Supabase:", error);
+          
+          // Skapa ett nytt engångsnummer lokalt som fallback
+          const nonce = Math.floor(Math.random() * 1000000).toString();
+          const message = `Sign this message to verify your wallet ownership: ${nonce}`;
+          
+          // Försök lagra i Supabase
+          await supabase.rpc('create_nonce', {
+            wallet_addr: address,
+            nonce_value: nonce,
+            message_text: message
+          });
+          
+          authData = { nonce, message };
+        } else {
+          authData = data as { nonce: string, message: string };
+        }
+      } catch (nonceError) {
+        console.error("Error getting nonce:", nonceError);
+        
+        // Skapa ett nytt engångsnummer lokalt som sista fallback
+        const nonce = Math.floor(Math.random() * 1000000).toString();
+        const message = `Sign this message to verify your wallet ownership: ${nonce}`;
+        
+        authData = { nonce, message };
+      }
       
       if (!authData || !authData.nonce || !authData.message) {
-        const errorMsg = "Failed to get valid authentication data from server";
-        console.error(errorMsg, { authData });
+        const errorMsg = "Failed to get valid authentication data";
+        console.error(errorMsg);
         throw new Error(errorMsg);
       }
       
       const { message } = authData;
       console.debug("Received authentication message", { message });
       
-      // Create a signature using the message from the server
+      // Skapa en signatur med meddelandet från servern
       const encodedMessage = new TextEncoder().encode(message);
       
-      // Sign the message with the explicit message format
+      // Signera meddelandet med det explicita meddelandeformatet
       console.debug("Requesting user to sign message", { message });
       const signedMessage = await provider.signMessage(encodedMessage, "utf8");
       
-      // Log the signature bytes for debugging
+      // Logga signaturbytesen för felsökning
       console.debug("Signature bytes received", { 
         signatureBytes: signedMessage.signature,
         signatureLength: signedMessage.signature.length,
         signatureType: typeof signedMessage.signature
       });
       
-      // Convert the signature buffer to a base64 string for sending to the server
+      // Konvertera signaturbufferten till en base64-sträng för att skicka till servern
       const signature = arrayToBase64(signedMessage.signature);
       
       console.info("Message signed successfully", { 
@@ -198,20 +292,60 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
         signatureLength: signature.length
       });
       
-      // Verify signature with the server and get JWT token
+      // Verifiera signatur med servern och få JWT-token
       console.debug("Verifying signature with server");
-      const authResult = await authService.verifySignature(address, signature, message);
-      console.info("Signature verified successfully", 
-        { userId: authResult.user.id, needsProfileSetup: authResult.needsProfileSetup });
       
-      // Invalidate any cached user data
+      let authResult;
+      try {
+        // Försök verifiera genom Supabase Edge Function
+        authResult = await authService.verifySignature(address, signature, message);
+      } catch (verifyError) {
+        console.error("Signature verification through API failed:", verifyError);
+        
+        // Fallback till direkt Supabase-anrop för utveckling
+        const { data: isVerified, error: verifyRpcError } = await supabase.rpc('verify_signature', {
+          wallet_addr: address,
+          signature,
+          message
+        });
+        
+        if (verifyRpcError || !isVerified) {
+          console.error("Direct verification also failed:", verifyRpcError);
+          throw new Error("Could not verify wallet signature");
+        }
+        
+        // Om verifieringen lyckades men API anropet misslyckades, 
+        // skapa en lokal autentisering
+        console.log("Using local authentication fallback");
+        
+        // Lagra wallet-adress
+        localStorage.setItem('wallet_address', address);
+        localStorage.setItem('jwt_token', 'local_dev_token');
+        
+        // Kontrollera om användaren behöver skapa profil
+        const userExists = await checkUserExistsAndRedirect(address);
+        
+        if (!userExists) {
+          // Användaren behöver konfigurera profil
+          navigate('/setup-profile');
+        }
+        
+        return;
+      }
+      
+      console.info("Signature verified successfully", { 
+        userId: authResult.user.id, 
+        needsProfileSetup: authResult.needsProfileSetup 
+      });
+      
+      // Ogiltigförklara cachad användardata
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       
       if (onConnect) {
         onConnect(address);
       }
       
-      // Check if this is a new user who needs to complete profile setup
+      // Kontrollera om detta är en ny användare som behöver slutföra profilkonfiguration
       if (authResult.needsProfileSetup) {
         console.info("Profile setup needed, redirecting to profile setup", 
           { userId: authResult.user.id });
@@ -220,13 +354,13 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
           description: "Slutför din profil för att komma igång",
         });
         
-        // Redirect to profile setup
+        // Omdirigera till profilkonfiguration
         navigate('/setup-profile');
       } else {
         console.info("Existing user logged in successfully", 
           { userId: authResult.user.id, username: authResult.user.username });
           
-        // Refetch current user to make sure we have the latest data
+        // Ladda om aktuell användare för att säkerställa att vi har senaste data
         refetchCurrentUser();
           
         toast.success("Wallet ansluten", {
@@ -257,7 +391,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     console.info("Initiating wallet connection");
     
     try {
-      // Request wallet connection
+      // Begär wallet-anslutning
       console.debug("Requesting connection to wallet");
       const resp = await provider.connect();
       const address = resp.publicKey.toString();
@@ -266,21 +400,21 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       setWalletAddress(address);
       setIsConnected(true);
       
-      // Verify with the server to get a JWT token
+      // Verifiera med servern för att få en JWT-token
       await verifyWalletConnection(provider, address);
     } catch (error: any) {
       console.error("Wallet connection error", { error });
       setIsConnected(false);
       setWalletAddress('');
       
-      // Check for specific error codes
+      // Kontrollera efter specifika felkoder
       if (error.code === 4001) {
-        // User rejected the connection
+        // Användaren avvisade anslutningen
         toast.info("Anslutning avbruten", {
           description: "Du avbröt anslutningsbegäran.",
         });
       } else if (error.message?.includes("rejected")) {
-        // Alternative way to detect user rejections
+        // Alternativt sätt att upptäcka användaravvisningar
         toast.info("Anslutning avbruten", {
           description: "Du avbröt anslutningsbegäran.",
         });
@@ -298,25 +432,25 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     try {
       const provider = getProvider();
       if (provider) {
-        // Disconnect from Phantom
+        // Koppla från Phantom
         await provider.disconnect();
       }
       
-      // Logout from Supabase
+      // Logga ut från Supabase
       await authService.logout();
       
-      // Reset state
+      // Återställ state
       setIsConnected(false);
       setWalletAddress('');
       
-      // Invalidate user queries
+      // Ogiltigförklara användarfrågor
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       
       toast.success("Wallet bortkopplad", {
         description: "Du har loggat ut från din plånbok.",
       });
       
-      // Redirect to home page
+      // Omdirigera till startsidan
       navigate('/');
     } catch (error) {
       console.error("Error disconnecting wallet:", error);
@@ -330,7 +464,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
   };
 
-  // Show different UI based on connection state
+  // Visa olika UI baserat på anslutningsstatus
   if (isConnected) {
     return (
       <DropdownMenu>

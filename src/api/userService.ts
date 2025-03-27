@@ -9,15 +9,15 @@ export const userService = {
     try {
       let query = supabase.from('users').select('*');
       
-      // Check if identifier is a UUID (assuming UUIDs are 36 chars long)
+      // Kontrollera om identifieraren är ett UUID (antar att UUID är 36 tecken långt)
       if (identifier.length === 36) {
         query = query.eq('id', identifier);
       }
-      // Check if identifier looks like a wallet address (0x followed by at least 40 chars)
+      // Kontrollera om identifieraren liknar en wallet-adress (0x följt av minst 40 tecken)
       else if (identifier.startsWith('0x') || identifier.length >= 42) {
         query = query.eq('wallet_address', identifier);
       }
-      // Otherwise, assume it's a username
+      // Annars, anta att det är ett användarnamn
       else {
         query = query.eq('username', identifier);
       }
@@ -27,7 +27,7 @@ export const userService = {
       if (error) throw error;
       if (!data) throw new Error('User not found');
       
-      // Get follower and following counts
+      // Hämta antal följare och följda
       const followersCount = data.followers ? data.followers.length : 0;
       const followingCount = data.following ? data.following.length : 0;
       
@@ -42,22 +42,51 @@ export const userService = {
     }
   },
   
+  // Ny funktion för att hämta användare via wallet-adress
+  async getUserByWalletAddress(walletAddress: string): Promise<User | null> {
+    try {
+      console.log('Söker användare med wallet-adress:', walletAddress);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('wallet_address', walletAddress)
+        .maybeSingle();
+        
+      if (error) {
+        console.error('Error fetching user by wallet address:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.log('Ingen användare hittad med wallet-adress:', walletAddress);
+        return null;
+      }
+      
+      console.log('Användare hittad:', data.username);
+      return dbUserToUser(data);
+    } catch (error) {
+      console.error('Error in getUserByWalletAddress:', error);
+      throw error;
+    }
+  },
+  
   async uploadProfileImage(file: File, type: 'avatar' | 'header'): Promise<string> {
     try {
       const currentUser = await authService.getCurrentUser();
       
-      // Generate a unique file name
+      // Generera ett unikt filnamn
       const fileExt = file.name.split('.').pop();
       const fileName = `${type}_${currentUser.id}_${Date.now()}.${fileExt}`;
       
-      // Upload to Supabase Storage
+      // Upload till Supabase Storage
       const { data, error } = await supabase.storage
         .from('profiles')
         .upload(fileName, file);
         
       if (error) throw error;
       
-      // Get the public URL
+      // Hämta den publika URL:en
       const { data: publicUrlData } = supabase.storage
         .from('profiles')
         .getPublicUrl(fileName);
@@ -74,30 +103,70 @@ export const userService = {
       const walletAddress = localStorage.getItem('wallet_address');
       if (!walletAddress) throw new Error('No wallet address found');
       
-      // Check if user has uploaded avatar or header
+      console.log('Skapar/uppdaterar profil för wallet:', walletAddress);
+      
+      // Kontrollera om användaren har laddat upp avatar eller header
       let avatarUrl = profileData.avatarUrl;
       let headerUrl = profileData.headerUrl;
       
-      // Get the current user from Supabase
+      // Hämta den nuvarande användaren från Supabase
       const { data: userData, error: fetchError } = await supabase
         .from('users')
         .select('*')
         .eq('wallet_address', walletAddress)
         .maybeSingle();
         
-      if (fetchError) throw fetchError;
-      if (!userData) throw new Error('User not found');
+      if (fetchError) {
+        console.error('Kunde inte hämta användardata:', fetchError);
+        throw fetchError;
+      }
       
-      // Prepare data for update
+      // Om användaren inte finns, skapa en ny
+      if (!userData) {
+        console.log('Ingen användare hittad, skapar ny användare');
+        
+        // Generera ett temporärt användarnamn om inget angivits
+        const tempUsername = profileData.username || `user_${walletAddress.substring(0, 8).toLowerCase()}`;
+        const tempDisplayName = profileData.displayName || 'New User';
+        
+        // Skapa den nya användaren
+        const { data: newUser, error: insertError } = await supabase
+          .from('users')
+          .insert({
+            wallet_address: walletAddress,
+            username: tempUsername,
+            display_name: tempDisplayName,
+            bio: profileData.bio || '',
+            avatar_url: avatarUrl || '',
+            header_url: headerUrl || '',
+            joined_date: new Date().toISOString(),
+            following: [],
+            followers: []
+          })
+          .select()
+          .single();
+          
+        if (insertError) {
+          console.error('Kunde inte skapa ny användare:', insertError);
+          throw insertError;
+        }
+        
+        console.log('Ny användare skapad:', newUser);
+        return dbUserToUser(newUser);
+      }
+      
+      // Förbereda data för uppdatering
       const updateData = {
-        username: profileData.username,
-        display_name: profileData.displayName,
-        bio: profileData.bio || userData.bio,
+        username: profileData.username || userData.username,
+        display_name: profileData.displayName || userData.display_name,
+        bio: profileData.bio !== undefined ? profileData.bio : userData.bio,
         avatar_url: avatarUrl || userData.avatar_url,
         header_url: headerUrl || userData.header_url,
       };
       
-      // Update user profile
+      console.log('Uppdaterar befintlig användare med:', updateData);
+      
+      // Uppdatera användarprofil
       const { data, error } = await supabase
         .from('users')
         .update(updateData)
@@ -105,9 +174,14 @@ export const userService = {
         .select()
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error('Kunde inte uppdatera användarprofil:', error);
+        throw error;
+      }
       
-      // Convert to application User type and return
+      console.log('Användarprofil uppdaterad:', data);
+      
+      // Konvertera till applikationens User-typ och returnera
       return dbUserToUser(data);
     } catch (error) {
       console.error('Error setting up profile:', error);

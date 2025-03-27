@@ -2,45 +2,79 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '@/api/authService';
+import { useUser } from '@/hooks/useUser';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useProfileSetup = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [needsSetup, setNeedsSetup] = useState(false);
   const navigate = useNavigate();
+  const { currentUser, needsProfileSetup } = useUser();
 
   useEffect(() => {
     const checkProfileSetup = async () => {
       try {
-        // Only check if user is logged in
+        // Kontrollera bara om användaren är inloggad
         if (authService.isLoggedIn()) {
           try {
-            const user = await authService.getCurrentUser();
-            
-            // If user doesn't have a username, display name, or has default values, they need to complete setup
-            const setupNeeded = !user.username || 
-                              user.username.startsWith('user_') || 
-                              !user.displayName || 
-                              user.displayName === 'New User';
-            
-            setNeedsSetup(setupNeeded);
-            
-            // Only navigate if we're not already on the setup page and setup is needed
-            if (setupNeeded && !window.location.pathname.includes('/setup-profile')) {
-              toast.info('Profilinställning krävs', {
-                description: 'Slutför din profil för att fortsätta.',
-              });
-              navigate('/setup-profile');
+            // Om vi redan har currentUser, använd det
+            if (currentUser) {
+              // Kontrollera om användaren behöver slutföra uppsättning
+              const setupNeeded = needsProfileSetup();
+              setNeedsSetup(setupNeeded);
+              
+              // Navigera bara om vi inte redan är på uppsättningssidan och uppsättning behövs
+              if (setupNeeded && !window.location.pathname.includes('/setup-profile')) {
+                toast.info('Profilinställning krävs', {
+                  description: 'Slutför din profil för att fortsätta.',
+                });
+                navigate('/setup-profile');
+              }
+            } else {
+              // Hämta wallet-adress från localStorage
+              const walletAddress = localStorage.getItem('wallet_address');
+              
+              if (walletAddress) {
+                // Kontrollera om användaren finns i databasen
+                const { data, error } = await supabase
+                  .from('users')
+                  .select('*')
+                  .eq('wallet_address', walletAddress)
+                  .maybeSingle();
+                
+                if (error) throw error;
+                
+                // Om användaren inte finns eller behöver uppsättning
+                const setupNeeded = !data || 
+                                  !data.username || 
+                                  data.username.startsWith('user_') || 
+                                  !data.display_name || 
+                                  data.display_name === 'New User';
+                
+                setNeedsSetup(setupNeeded);
+                
+                if (setupNeeded && !window.location.pathname.includes('/setup-profile')) {
+                  toast.info('Profilinställning krävs', {
+                    description: 'Slutför din profil för att fortsätta.',
+                  });
+                  navigate('/setup-profile');
+                }
+              } else {
+                // Om vi inte har en wallet-adress så är användaren inte riktigt inloggad
+                authService.clearAuthData();
+                navigate('/');
+              }
             }
           } catch (error) {
             console.error('Error fetching current user:', error);
-            // If we can't get the user, assume they need to set up their profile
+            // Om vi inte kan hämta användaren, anta att de behöver konfigurera sin profil
             setNeedsSetup(true);
             
-            // Clear potentially corrupted auth data
+            // Rensa potentiellt korrupt auth-data
             authService.clearAuthData();
             
-            // Redirect to home to reconnect wallet
+            // Omdirigera till hem för att återansluta wallet
             navigate('/');
           }
         }
@@ -52,7 +86,7 @@ export const useProfileSetup = () => {
     };
 
     checkProfileSetup();
-  }, [navigate]);
+  }, [navigate, currentUser, needsProfileSetup]);
 
   return { isLoading, needsSetup };
 };
