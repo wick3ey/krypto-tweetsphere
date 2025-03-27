@@ -31,9 +31,21 @@ export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
       navigate('/');
     } catch (error: any) {
       console.error('Inloggningsfel:', error);
-      toast.error('Kunde inte logga in', {
-        description: error.message || 'Kontrollera dina uppgifter och försök igen'
-      });
+      
+      // Visa användaranpassade felmeddelanden baserat på felkod
+      if (error.message.includes('Invalid login credentials')) {
+        toast.error('Fel e-post eller lösenord', {
+          description: 'Kontrollera dina uppgifter och försök igen'
+        });
+      } else if (error.message.includes('Email not confirmed')) {
+        toast.error('E-post inte bekräftad', {
+          description: 'Vänligen bekräfta din e-post innan du loggar in'
+        });
+      } else {
+        toast.error('Kunde inte logga in', {
+          description: error.message || 'Kontrollera dina uppgifter och försök igen'
+        });
+      }
     } finally {
       setIsLoading(false);
     }

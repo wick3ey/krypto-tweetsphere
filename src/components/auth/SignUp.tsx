@@ -44,9 +44,17 @@ export const SignUp = ({ onToggleForm }: { onToggleForm: () => void }) => {
       onToggleForm(); // Switch to sign in form
     } catch (error: any) {
       console.error('Registreringsfel:', error);
-      toast.error('Kunde inte skapa konto', {
-        description: error.message || 'Försök igen med en annan e-postadress'
-      });
+      
+      // Visa användaranpassade felmeddelanden baserat på felkod
+      if (error.message.includes('User already registered')) {
+        toast.error('Användaren finns redan', {
+          description: 'Denna e-post är redan registrerad, försök att logga in istället'
+        });
+      } else {
+        toast.error('Kunde inte skapa konto', {
+          description: error.message || 'Försök igen med en annan e-postadress'
+        });
+      }
     } finally {
       setIsLoading(false);
     }

@@ -28,19 +28,65 @@ export const authService = {
       // Try to get from local storage first for faster access
       const cachedUser = localStorage.getItem('current_user');
       if (cachedUser) {
-        const parsedUser = JSON.parse(cachedUser);
-        return dbUserToUser(parsedUser);
+        try {
+          const parsedUser = JSON.parse(cachedUser);
+          // Verify that the cached user ID matches the session user ID
+          if (parsedUser && parsedUser.id === userId) {
+            return dbUserToUser(parsedUser);
+          }
+        } catch (e) {
+          // Invalid JSON in localStorage, continue to fetch from API
+          console.error('Invalid cached user data:', e);
+        }
       }
       
-      // Fetch from Supabase if not cached
+      // Fetch from Supabase
+      console.log('Fetching user from Supabase with ID:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
         
-      if (error) throw error;
-      if (!data) throw new Error('User not found');
+      if (error) {
+        console.error('Error fetching user data:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.log('User data not found in database, attempting to create profile...');
+        
+        // Try to create a profile for the user
+        const { user } = session;
+        const newUser = {
+          id: user.id,
+          username: `user_${user.id.substring(0, 8)}`,
+          display_name: user.user_metadata?.name || user.user_metadata?.full_name || 'New User',
+          avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+          wallet_address: user.user_metadata?.wallet_address || '',
+          bio: '',
+          joined_date: new Date().toISOString(),
+          following: [],
+          followers: [],
+          verified: false
+        };
+        
+        const { data: createdUser, error: createError } = await supabase
+          .from('users')
+          .insert([newUser])
+          .select()
+          .single();
+          
+        if (createError) {
+          console.error('Error creating user profile:', createError);
+          throw createError;
+        }
+        
+        // Cache the newly created user
+        localStorage.setItem('current_user', JSON.stringify(createdUser));
+        
+        return dbUserToUser(createdUser);
+      }
       
       // Fetch followers and following counts
       const followersCount = data.followers ? data.followers.length : 0;
@@ -131,8 +177,8 @@ export const authService = {
                          window.location.hostname === '127.0.0.1';
       
       const redirectTo = isLocalhost
-        ? window.location.origin // Use local origin for development
-        : 'https://f3oci3ty.xyz'; // Use production domain for live site
+        ? `${window.location.origin}/auth/callback` // Use local origin for development
+        : 'https://f3oci3ty.xyz/auth/callback'; // Use production domain for live site
       
       console.log('Signing in with Google, redirectTo:', redirectTo);
       
@@ -186,5 +232,7 @@ export const authService = {
    */
   clearAuthData() {
     localStorage.removeItem('current_user');
+    localStorage.removeItem('wallet_address');
+    localStorage.removeItem('jwt_token');
   }
 };

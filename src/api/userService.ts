@@ -73,24 +73,40 @@ export const userService = {
   
   async uploadProfileImage(file: File, type: 'avatar' | 'header'): Promise<string> {
     try {
-      const currentUser = await authService.getCurrentUser();
+      // Hämta användar-ID från lokala lagringen
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        throw new Error('User ID not found in local storage');
+      }
       
       // Generera ett unikt filnamn
       const fileExt = file.name.split('.').pop();
-      const fileName = `${type}_${currentUser.id}_${Date.now()}.${fileExt}`;
+      const fileName = `${userId}/${type}_${Date.now()}.${fileExt}`;
+      
+      console.log(`Försöker ladda upp ${type} bild för användare ${userId}`);
       
       // Upload till Supabase Storage
       const { data, error } = await supabase.storage
         .from('profiles')
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
         
-      if (error) throw error;
+      if (error) {
+        console.error(`Error uploading ${type} image:`, error);
+        throw error;
+      }
+      
+      console.log(`Uppladdad fil: ${data?.path}`);
       
       // Hämta den publika URL:en
       const { data: publicUrlData } = supabase.storage
         .from('profiles')
         .getPublicUrl(fileName);
         
+      console.log(`Publik URL: ${publicUrlData.publicUrl}`);
+      
       return publicUrlData.publicUrl;
     } catch (error) {
       console.error('Error uploading profile image:', error);
@@ -100,10 +116,14 @@ export const userService = {
   
   async setupProfile(profileData: Partial<User>): Promise<User> {
     try {
-      const walletAddress = localStorage.getItem('wallet_address');
-      if (!walletAddress) throw new Error('No wallet address found');
+      // Hämta användar-ID från sessionen
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session found');
+      }
       
-      console.log('Skapar/uppdaterar profil för wallet:', walletAddress);
+      const userId = session.user.id;
+      console.log('Skapar/uppdaterar profil för användare:', userId);
       
       // Kontrollera om användaren har laddat upp avatar eller header
       let avatarUrl = profileData.avatarUrl;
@@ -113,7 +133,7 @@ export const userService = {
       const { data: userData, error: fetchError } = await supabase
         .from('users')
         .select('*')
-        .eq('wallet_address', walletAddress)
+        .eq('id', userId)
         .maybeSingle();
         
       if (fetchError) {
@@ -126,18 +146,19 @@ export const userService = {
         console.log('Ingen användare hittad, skapar ny användare');
         
         // Generera ett temporärt användarnamn om inget angivits
-        const tempUsername = profileData.username || `user_${walletAddress.substring(0, 8).toLowerCase()}`;
-        const tempDisplayName = profileData.displayName || 'New User';
+        const tempUsername = profileData.username || `user_${userId.substring(0, 8).toLowerCase()}`;
+        const tempDisplayName = profileData.displayName || session.user.user_metadata?.name || 'New User';
         
         // Skapa den nya användaren
         const { data: newUser, error: insertError } = await supabase
           .from('users')
           .insert({
-            wallet_address: walletAddress,
+            id: userId,
+            wallet_address: profileData.walletAddress || '',
             username: tempUsername,
             display_name: tempDisplayName,
             bio: profileData.bio || '',
-            avatar_url: avatarUrl || '',
+            avatar_url: avatarUrl || session.user.user_metadata?.avatar_url || '',
             header_url: headerUrl || '',
             joined_date: new Date().toISOString(),
             following: [],
@@ -162,6 +183,7 @@ export const userService = {
         bio: profileData.bio !== undefined ? profileData.bio : userData.bio,
         avatar_url: avatarUrl || userData.avatar_url,
         header_url: headerUrl || userData.header_url,
+        wallet_address: profileData.walletAddress || userData.wallet_address || '',
       };
       
       console.log('Uppdaterar befintlig användare med:', updateData);
@@ -170,7 +192,7 @@ export const userService = {
       const { data, error } = await supabase
         .from('users')
         .update(updateData)
-        .eq('id', userData.id)
+        .eq('id', userId)
         .select()
         .single();
         

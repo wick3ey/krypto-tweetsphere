@@ -15,8 +15,9 @@ export const useProfileSetup = () => {
   useEffect(() => {
     const checkProfileSetup = async () => {
       try {
-        // Kontrollera bara om användaren är inloggad
-        if (authService.isLoggedIn()) {
+        // Kontrollera om användaren är inloggad
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
           try {
             // Om vi redan har currentUser, använd det
             if (currentUser) {
@@ -32,15 +33,15 @@ export const useProfileSetup = () => {
                 navigate('/setup-profile');
               }
             } else {
-              // Hämta wallet-adress från localStorage
-              const walletAddress = localStorage.getItem('wallet_address');
+              // Hämta användar-ID från sessionen
+              const userId = session.user.id;
               
-              if (walletAddress) {
+              if (userId) {
                 // Kontrollera om användaren finns i databasen
                 const { data, error } = await supabase
                   .from('users')
                   .select('*')
-                  .eq('wallet_address', walletAddress)
+                  .eq('id', userId)
                   .maybeSingle();
                 
                 if (error) throw error;
@@ -60,23 +61,16 @@ export const useProfileSetup = () => {
                   });
                   navigate('/setup-profile');
                 }
-              } else {
-                // Om vi inte har en wallet-adress så är användaren inte riktigt inloggad
-                authService.clearAuthData();
-                navigate('/');
               }
             }
           } catch (error) {
             console.error('Error fetching current user:', error);
             // Om vi inte kan hämta användaren, anta att de behöver konfigurera sin profil
             setNeedsSetup(true);
-            
-            // Rensa potentiellt korrupt auth-data
-            authService.clearAuthData();
-            
-            // Omdirigera till hem för att återansluta wallet
-            navigate('/');
           }
+        } else {
+          // Användaren är inte inloggad
+          setNeedsSetup(false);
         }
       } catch (error) {
         console.error('Error checking profile setup:', error);
