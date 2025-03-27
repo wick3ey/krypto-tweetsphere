@@ -58,6 +58,25 @@ function App() {
               // Store current user data
               if (user) {
                 localStorage.setItem('current_user', JSON.stringify(user));
+                
+                // Check if profile setup is needed
+                const needsSetup = !user.username || 
+                                  user.username.startsWith('user_') || 
+                                  !user.displayName || 
+                                  user.displayName === 'New User';
+                
+                if (needsSetup) {
+                  localStorage.removeItem('profile_setup_complete');
+                  
+                  // Om vi inte redan är på inställningssidan, dirigera dit
+                  if (!location.pathname.includes('/setup-profile')) {
+                    setTimeout(() => {
+                      navigate('/setup-profile', { replace: true });
+                    }, 100);
+                  }
+                } else {
+                  localStorage.setItem('profile_setup_complete', 'true');
+                }
               }
               setIsLoading(false);
             })
@@ -81,8 +100,17 @@ function App() {
               
               toast.success('Inloggad!');
               
-              // If we're on the callback page, redirect home
-              if (location.pathname.includes('/auth/callback')) {
+              // Om användaren nyss registrerade sig (från localStorage-flagga)
+              if (localStorage.getItem('needs_profile_setup') === 'true') {
+                localStorage.removeItem('needs_profile_setup');
+                
+                // Kort timeout innan omdirigering för att säkerställa att data finns
+                setTimeout(() => {
+                  navigate('/setup-profile', { replace: true });
+                }, 100);
+              }
+              // Om vi är på callback-sidan, omdirigera till startsidan
+              else if (location.pathname.includes('/auth/callback')) {
                 navigate('/', { replace: true });
               }
             }
@@ -127,46 +155,46 @@ function App() {
     };
   }, [navigate, location.pathname]);
 
-  // If user is authenticated but not on setup-profile page, check if profile setup is needed
+  // Om användaren är autentiserad men inte på setup-profile-sidan, kolla om profilinställning behövs
   useEffect(() => {
-    // Skip if auth is not initialized or on specific pages
+    // Hoppa över om autentisering inte är initialiserad eller på specifika sidor
     if (!authInitialized || skipProfileCheck) {
       return;
     }
 
     const checkProfileSetup = async () => {
       try {
-        // Check if user is logged in
+        // Kolla om användaren är inloggad
         const isAuthenticated = !!localStorage.getItem('jwt_token');
         if (!isAuthenticated) {
           return;
         }
 
-        // Check if profile setup has been completed
+        // Kolla om profilinställning har slutförts
         const profileSetupComplete = localStorage.getItem('profile_setup_complete') === 'true';
         if (profileSetupComplete) {
           return;
         }
 
-        // Get current user data
+        // Hämta aktuell användardata
         const userData = await authService.getCurrentUser();
         if (!userData) {
           return;
         }
 
-        // Check if profile setup is needed
+        // Kolla om profilinställning behövs
         const needsSetup = !userData.username || 
-                           userData.username.startsWith('user_') || 
-                           !userData.displayName || 
-                           userData.displayName === 'New User';
+                         userData.username.startsWith('user_') || 
+                         !userData.displayName || 
+                         userData.displayName === 'New User';
 
         if (needsSetup) {
-          // Add a small delay to prevent redirect loops
+          // Lägg till en liten fördröjning för att förhindra omdirigeringsloop
           setTimeout(() => {
             navigate('/setup-profile', { replace: true });
           }, 100);
         } else {
-          // Mark profile setup as complete
+          // Markera profilinställning som slutförd
           localStorage.setItem('profile_setup_complete', 'true');
         }
       } catch (error) {
@@ -183,45 +211,73 @@ function App() {
       return;
     }
     
-    // Optimize auth callback handling
+    // Optimera auth callback-hantering för snabb omdirigering
     const handleAuthCallback = async () => {
       try {
         console.log('Auth callback page detected, processing authentication...');
         
-        // Force immediate session check
+        // Tvinga omedelbar sessionkontroll
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          console.log('Session found on callback, redirecting to home');
-          // Store essential auth data
+          console.log('Session found on callback, redirecting to appropriate page');
+          // Lagra viktig auth-data
           localStorage.setItem('jwt_token', session.access_token);
           localStorage.setItem('user_id', session.user.id);
           
-          // Fetch user data in background
+          // Hämta användardata i bakgrunden
           authService.getCurrentUser()
-            .then(() => {
+            .then((user) => {
+              // Kontrollera om användaren behöver gå till profilinställningssidan
+              const needsSetup = localStorage.getItem('needs_profile_setup') === 'true' || 
+                             !user.username || 
+                             user.username.startsWith('user_') || 
+                             !user.displayName || 
+                             user.displayName === 'New User';
+              
+              if (needsSetup) {
+                localStorage.removeItem('profile_setup_complete');
+                navigate('/setup-profile', { replace: true });
+              } else {
+                localStorage.setItem('profile_setup_complete', 'true');
+                navigate('/', { replace: true });
+              }
+              
               toast.success('Inloggad!');
             })
             .catch(error => {
               console.error('Error in auth callback user fetch:', error);
+              navigate('/', { replace: true });
             });
           
-          // Redirect immediately rather than waiting
-          navigate('/', { replace: true });
+          // Omdirigera omedelbart om vi inte kunde hämta användardata av någon anledning
+          const timeoutId = setTimeout(() => {
+            if (location.pathname.includes('/auth/callback')) {
+              navigate('/', { replace: true });
+            }
+          }, 1500);
+          
+          return () => clearTimeout(timeoutId);
         } else {
-          // Wait a brief moment and check again in case the session is being established
+          // Vänta en kort stund och kontrollera igen ifall sessionen håller på att etableras
           setTimeout(async () => {
             const { data: { session: retrySession } } = await supabase.auth.getSession();
             if (retrySession) {
-              console.log('Session found after retry, redirecting to home');
+              console.log('Session found after retry, redirecting to appropriate page');
               localStorage.setItem('jwt_token', retrySession.access_token);
               localStorage.setItem('user_id', retrySession.user.id);
-              navigate('/', { replace: true });
+              
+              const needsSetup = localStorage.getItem('needs_profile_setup') === 'true';
+              if (needsSetup) {
+                navigate('/setup-profile', { replace: true });
+              } else {
+                navigate('/', { replace: true });
+              }
             } else {
               console.log('No session found after retry, redirecting to home anyway');
               navigate('/', { replace: true });
             }
-          }, 2000); // Short timeout for final check
+          }, 800); // Kort timeout för slutlig kontroll
         }
       } catch (error) {
         console.error('Error during auth callback:', error);

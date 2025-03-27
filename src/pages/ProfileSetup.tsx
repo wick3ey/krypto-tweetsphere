@@ -9,16 +9,17 @@ const ProfileSetupPage = () => {
   const navigate = useNavigate();
   const { currentUser, isLoadingCurrentUser, needsProfileSetup } = useUser();
   
-  // Check if user is authenticated
+  // Kontrollera om användaren är autentiserad
   const isAuthenticated = !!localStorage.getItem('jwt_token');
   
   useEffect(() => {
-    // If the user has completed setup, redirect to home
+    // Om användaren har slutfört inställningen, omdirigera till startsidan
     if (currentUser && !isLoadingCurrentUser && !needsProfileSetup()) {
-      // Mark setup as complete in localStorage to prevent loops
+      // Markera inställningen som slutförd i localStorage för att förhindra loopar
       localStorage.setItem('profile_setup_complete', 'true');
+      localStorage.removeItem('needs_profile_setup');
       
-      // Short delay to prevent flickering
+      // Kort fördröjning för att förhindra flimmer
       const timer = setTimeout(() => {
         navigate('/', { replace: true });
       }, 100);
@@ -28,11 +29,11 @@ const ProfileSetupPage = () => {
   }, [currentUser, isLoadingCurrentUser, needsProfileSetup, navigate]);
   
   if (!isAuthenticated) {
-    // Redirect to home if not authenticated
+    // Omdirigera till startsidan om inte autentiserad
     return <Navigate to="/" replace />;
   }
   
-  // Show loading state while checking the user's profile
+  // Visa laddningstillstånd medan användarens profil kontrolleras
   if (isLoadingCurrentUser) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -45,7 +46,7 @@ const ProfileSetupPage = () => {
     );
   }
   
-  // Only render the profile setup component if user needs setup
+  // Visa endast profilinställningskomponenten om användaren behöver inställning
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-screen-md bg-card rounded-xl shadow-lg border border-border/50 overflow-hidden">

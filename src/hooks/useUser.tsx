@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/api/userService';
 import { authService } from '@/api/authService';
@@ -122,6 +121,10 @@ export function useUser() {
   };
 
   const needsProfileSetup = () => {
+    if (localStorage.getItem('needs_profile_setup') === 'true') {
+      return true;
+    }
+    
     if (localStorage.getItem('profile_setup_complete') === 'true') {
       return false;
     }
@@ -135,6 +138,7 @@ export function useUser() {
     
     if (!needsSetup) {
       localStorage.setItem('profile_setup_complete', 'true');
+      localStorage.removeItem('needs_profile_setup');
     }
     
     return needsSetup;

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -38,6 +37,10 @@ export const SignUp = ({ onToggleForm }: { onToggleForm: () => void }) => {
     try {
       setIsLoading(true);
       await authService.signUpWithEmail(email, password);
+      
+      // Markera att profilinställning behövs
+      localStorage.removeItem('profile_setup_complete');
+      
       toast.success('Konto skapat!', {
         description: 'Du kan nu logga in med dina uppgifter.'
       });
@@ -65,27 +68,18 @@ export const SignUp = ({ onToggleForm }: { onToggleForm: () => void }) => {
       setGoogleLoading(true);
       toast.info('Omdirigerar till Google...');
       
-      // Get current URL to determine environment
-      const isLocalhost = window.location.hostname === 'localhost' || 
-                         window.location.hostname === '127.0.0.1';
+      // Markera att profilinställning behövs för Google-registrering
+      localStorage.removeItem('profile_setup_complete');
       
-      const redirectTo = isLocalhost
-        ? `${window.location.origin}/auth/callback` // Use local origin for development
-        : 'https://f3oci3ty.xyz/auth/callback'; // Use production domain for live site
+      // Använd genväg för att garantera att användaren dirigeras till profilinställningen efter Google-auth
+      localStorage.setItem('needs_profile_setup', 'true');
       
-      console.log('Signing up with Google, redirectTo:', redirectTo);
+      await authService.signUpWithGoogle();
       
-      const result = await authService.signUpWithGoogle();
-      
-      if (result.error) {
-        throw result.error;
-      }
-      
-      // Google redirection happens here, no need to handle navigation
-      // But we'll set a timeout to reset the button state if redirection doesn't happen
+      // Kortare timeout
       setTimeout(() => {
         setGoogleLoading(false);
-      }, 5000); // 5 seconds timeout
+      }, 1500);
       
     } catch (error: any) {
       console.error('Google-registreringsfel:', error);

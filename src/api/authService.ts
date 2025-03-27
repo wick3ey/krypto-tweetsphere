@@ -81,6 +81,10 @@ export const authService = {
           throw createError;
         }
         
+        // Markera att användaren behöver slutföra profilinställningen
+        localStorage.setItem('needs_profile_setup', 'true');
+        localStorage.removeItem('profile_setup_complete');
+        
         // Cache the newly created user
         localStorage.setItem('current_user', JSON.stringify(createdUser));
         
@@ -188,7 +192,8 @@ export const authService = {
         options: {
           redirectTo,
           queryParams: {
-            prompt: 'select_account' // Always show account selection screen
+            prompt: 'select_account', // Always show account selection screen
+            access_type: 'offline'    // För att få refresh token
           }
         }
       });
@@ -206,6 +211,10 @@ export const authService = {
    * Sign up with Google
    */
   async signUpWithGoogle() {
+    // Markera att detta är en ny användare som behöver konfigurera sin profil
+    localStorage.setItem('needs_profile_setup', 'true');
+    localStorage.removeItem('profile_setup_complete');
+    
     return this.signInWithGoogle(); // Same method for both sign in and sign up
   },
   

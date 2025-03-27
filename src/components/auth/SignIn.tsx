@@ -28,7 +28,13 @@ export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
       setIsLoading(true);
       await authService.signInWithEmail(email, password);
       toast.success('Inloggad!');
-      navigate('/');
+      
+      // Kontrollera om användaren behöver gå till profilinställningssidan
+      if (localStorage.getItem('profile_setup_complete') !== 'true') {
+        navigate('/setup-profile');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       console.error('Inloggningsfel:', error);
       
@@ -56,14 +62,14 @@ export const SignIn = ({ onToggleForm }: { onToggleForm: () => void }) => {
       setGoogleLoading(true);
       toast.info('Omdirigerar till Google...');
       
-      // Optimera Google-inloggningen
+      // Optimera Google-inloggningen för prestanda
       await authService.signInWithGoogle();
       
-      // Google-omdirigering sker automatiskt, men vi lägger till en timeout
-      // för att återställa knappens tillstånd om omdirigering inte sker
+      // Google-omdirigering sker automatiskt, men vi lägger till en mycket 
+      // kortare timeout för att återställa knappens tillstånd om omdirigering inte sker
       setTimeout(() => {
         setGoogleLoading(false);
-      }, 5000);
+      }, 1500);
       
     } catch (error: any) {
       console.error('Google-inloggningsfel:', error);
