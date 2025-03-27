@@ -1,6 +1,5 @@
 
-// Denna edge-funktion skulle skapa metadata för tokens
-// (Implementeras senare när det behövs)
+// Edge-funktion för att skapa metadata för tokens
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 

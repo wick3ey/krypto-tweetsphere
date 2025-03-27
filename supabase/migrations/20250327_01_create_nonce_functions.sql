@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS public.nonce_challenges (
 );
 
 -- Function to get a nonce for a wallet address
-CREATE OR REPLACE FUNCTION get_nonce(wallet_addr TEXT)
+CREATE OR REPLACE FUNCTION public.get_nonce(wallet_addr TEXT)
 RETURNS TABLE (nonce TEXT, message TEXT) AS $$
 BEGIN
   RETURN QUERY
@@ -20,7 +20,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to create or update a nonce for a wallet address
-CREATE OR REPLACE FUNCTION create_nonce(wallet_addr TEXT, nonce_value TEXT, message_text TEXT)
+CREATE OR REPLACE FUNCTION public.create_nonce(wallet_addr TEXT, nonce_value TEXT, message_text TEXT)
 RETURNS void AS $$
 BEGIN
   INSERT INTO public.nonce_challenges (wallet_address, nonce, message)

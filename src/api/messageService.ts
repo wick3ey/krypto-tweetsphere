@@ -50,18 +50,25 @@ export const messageService = {
         return [];
       }
       
-      // Hämta alla konversationer där användaren är avsändare eller mottagare
+      // Hämta alla konversationer där användaren är avsändare
       const { data: sentMessages, error: sentError } = await supabase
         .from('messages')
-        .select('*, receiver:receiver_id(*)') // Specify the column relationship explicitly
+        .select(`
+          *,
+          receiver:receiver_id(*)
+        `)
         .eq('sender_id', currentUserId)
         .order('created_at', { ascending: false });
         
       if (sentError) throw sentError;
       
+      // Hämta alla konversationer där användaren är mottagare
       const { data: receivedMessages, error: receivedError } = await supabase
         .from('messages')
-        .select('*, sender:sender_id(*)') // Specify the column relationship explicitly
+        .select(`
+          *,
+          sender:sender_id(*)
+        `)
         .eq('receiver_id', currentUserId)
         .order('created_at', { ascending: false });
         
@@ -73,10 +80,12 @@ export const messageService = {
       // Lägg till skickade meddelanden
       if (sentMessages && sentMessages.length > 0) {
         sentMessages.forEach(message => {
-          if (!message.receiver) return; // Skip if receiver is undefined
+          if (!message.receiver) return;
           
           const otherUser = message.receiver;
           const userId = otherUser.id;
+          
+          if (!userId) return; // Skip if user id is undefined
           
           if (!conversations.has(userId)) {
             conversations.set(userId, {
@@ -94,10 +103,12 @@ export const messageService = {
       // Lägg till mottagna meddelanden
       if (receivedMessages && receivedMessages.length > 0) {
         receivedMessages.forEach(message => {
-          if (!message.sender) return; // Skip if sender is undefined
+          if (!message.sender) return;
           
           const otherUser = message.sender;
           const userId = otherUser.id;
+          
+          if (!userId) return; // Skip if user id is undefined
           
           if (!conversations.has(userId)) {
             conversations.set(userId, {

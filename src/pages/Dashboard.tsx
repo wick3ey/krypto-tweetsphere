@@ -73,6 +73,32 @@ const Dashboard = () => {
     refetchTransactions();
   };
   
+  const renderTokenItem = (token: any) => {
+    const price = token.price || 0;
+    const priceChange = token.priceChange24h || 0;
+    const priceChangeClass = priceChange >= 0 ? 'text-green-500' : 'text-red-500';
+    
+    return (
+      <div key={token.symbol} className="flex items-center justify-between p-3 border-b border-border">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 overflow-hidden rounded-full">
+            <img src={token.logo || "/placeholder.svg"} alt={token.name} className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <h3 className="font-semibold">{token.symbol}</h3>
+            <p className="text-sm text-muted-foreground">{token.name}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="font-medium">${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <p className={`text-sm ${priceChangeClass}`}>
+            {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   if (!isRendered) {
     return (
       <main className="container pt-20 px-4 min-h-screen">
@@ -211,21 +237,7 @@ const Dashboard = () => {
               ))
             ) : (
               supportedTokens && supportedTokens.length > 0 ? supportedTokens.slice(0, 4).map((token) => (
-                <div key={token.symbol} className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors">
-                  <div className="flex items-center space-x-2">
-                    <img src={token.logo} alt={token.symbol} className="h-6 w-6" />
-                    <span>{token.symbol}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="font-mono">${token.price?.toLocaleString() || '0.00'}</span>
-                    <span className={cn(
-                      "ml-2 text-sm",
-                      (token.priceChange24h || 0) >= 0 ? "text-crypto-green" : "text-crypto-red"
-                    )}>
-                      {(token.priceChange24h || 0) >= 0 ? "+" : ""}{token.priceChange24h || 0}%
-                    </span>
-                  </div>
-                </div>
+                renderTokenItem(token)
               )) : (
                 <div className="text-muted-foreground p-2">No token data available</div>
               )
