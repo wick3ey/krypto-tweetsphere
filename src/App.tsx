@@ -34,7 +34,10 @@ function App() {
   useEffect(() => {
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_IN') {
+        // Store user data
+        localStorage.setItem('current_user', JSON.stringify(session?.user));
+      } else if (event === 'SIGNED_OUT') {
         // Clear local storage and redirect to home page
         authService.clearAuthData();
         if (location.pathname !== '/') {
@@ -43,9 +46,16 @@ function App() {
       }
     });
     
+    // Get current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        localStorage.setItem('current_user', JSON.stringify(session.user));
+      }
+    });
+    
     // Update last seen periodically
     const updateLastSeenInterval = setInterval(() => {
-      if (authService.isLoggedIn()) {
+      if (localStorage.getItem('current_user')) {
         authService.updateLastSeen();
       }
     }, 5 * 60 * 1000); // Every 5 minutes

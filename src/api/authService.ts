@@ -1,16 +1,15 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import apiClient from './apiClient';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
+import { toast } from 'sonner';
 
 export const authService = {
   /**
    * Check if user is logged in
    */
   isLoggedIn: () => {
-    const token = localStorage.getItem('jwt_token');
-    return !!token;
+    return !!supabase.auth.getSession();
   },
   
   /**
@@ -18,11 +17,13 @@ export const authService = {
    */
   async getCurrentUser(): Promise<User> {
     try {
-      const walletAddress = localStorage.getItem('wallet_address');
-      
-      if (!walletAddress) {
-        throw new Error('No wallet address found');
+      // First check if we have a session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session found');
       }
+      
+      const userId = session.user.id;
       
       // Try to get from local storage first for faster access
       const cachedUser = localStorage.getItem('current_user');
@@ -35,7 +36,7 @@ export const authService = {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('wallet_address', walletAddress)
+        .eq('id', userId)
         .maybeSingle();
         
       if (error) throw error;
@@ -67,15 +68,95 @@ export const authService = {
    */
   async updateLastSeen() {
     try {
-      const walletAddress = localStorage.getItem('wallet_address');
-      if (!walletAddress) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
       
       await supabase
         .from('users')
         .update({ last_seen: new Date().toISOString() })
-        .eq('wallet_address', walletAddress);
+        .eq('id', session.user.id);
     } catch (error) {
       console.error('Error updating last seen:', error);
+    }
+  },
+  
+  /**
+   * Sign in with email and password
+   */
+  async signInWithEmail(email: string, password: string) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      // Set auth data
+      localStorage.setItem('current_user', JSON.stringify(data.user));
+      
+      return data;
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Sign up with email and password
+   */
+  async signUpWithEmail(email: string, password: string) {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      });
+      
+      if (error) throw error;
+      
+      return data;
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Sign in with Google
+   */
+  async signInWithGoogle() {
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
+      
+      if (error) throw error;
+      
+      return data;
+    } catch (error: any) {
+      console.error('Google sign in error:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Sign out user
+   */
+  async signOut() {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Clear auth data
+      this.clearAuthData();
+      
+      return true;
+    } catch (error) {
+      console.error('Sign out error:', error);
+      throw error;
     }
   },
   
@@ -83,16 +164,6 @@ export const authService = {
    * Clear all authentication data
    */
   clearAuthData() {
-    localStorage.removeItem('wallet_address');
-    localStorage.removeItem('jwt_token');
     localStorage.removeItem('current_user');
-  },
-  
-  /**
-   * Connect wallet and authenticate (this is implemented in the WalletConnect component)
-   * This is just a placeholder for the API signature
-   */
-  async connectWallet(): Promise<{ user: User, token: string }> {
-    throw new Error('Not implemented. Please use the WalletConnect component');
   }
 };

@@ -1,19 +1,20 @@
+
 import { useState, useEffect } from 'react';
 import { Bell, Menu, X, Moon, Sun, PlusCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { WalletConnect } from '@/components/common/WalletConnect';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { notificationService } from '@/api/notificationService';
 import { authService } from '@/api/authService';
 import { useQuery } from '@tanstack/react-query';
+import { AuthDialog } from '@/components/auth/AuthDialog';
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [isDark, setIsDark] = useState(true); // Since we implemented a dark theme by default
-  const isAuthenticated = !!localStorage.getItem('jwt_token');
+  const isAuthenticated = !!localStorage.getItem('current_user');
   
   // Fetch notification count
   const { data: notificationCount = 0 } = useQuery({
@@ -90,40 +91,44 @@ const Header = () => {
             className="rounded-full hidden md:flex items-center gap-1"
           >
             <PlusCircle className="h-4 w-4 mr-1" />
-            <span>New</span>
+            <span>Ny</span>
           </Button>
           
-          <Button variant="ghost" size="icon" className="relative rounded-full">
-            <Bell className="h-5 w-5" />
-            {notificationCount > 0 && (
-              <Badge 
-                className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-crypto-red text-white"
-              >
-                {notificationCount}
-              </Badge>
-            )}
-          </Button>
-          
-          <WalletConnect />
-          
-          <Link to="/profile">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className={cn(
-                "rounded-full overflow-hidden border border-crypto-blue/30 group",
-                "transition-all duration-300 hover:border-crypto-blue hover:shadow-glow-blue"
+          {isAuthenticated && (
+            <Button variant="ghost" size="icon" className="relative rounded-full">
+              <Bell className="h-5 w-5" />
+              {notificationCount > 0 && (
+                <Badge 
+                  className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-crypto-red text-white"
+                >
+                  {notificationCount}
+                </Badge>
               )}
-            >
-              <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                <img
-                  src={currentUser?.avatarUrl || "https://api.dicebear.com/7.x/identicon/svg?seed=user"}
-                  alt="Profile"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                />
-              </div>
             </Button>
-          </Link>
+          )}
+          
+          <AuthDialog />
+          
+          {isAuthenticated && currentUser && (
+            <Link to="/profile">
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className={cn(
+                  "rounded-full overflow-hidden border border-crypto-blue/30 group",
+                  "transition-all duration-300 hover:border-crypto-blue hover:shadow-glow-blue"
+                )}
+              >
+                <div className="relative h-8 w-8 overflow-hidden rounded-full">
+                  <img
+                    src={currentUser?.avatarUrl || "https://api.dicebear.com/7.x/identicon/svg?seed=user"}
+                    alt="Profile"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                  />
+                </div>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
       
@@ -135,12 +140,12 @@ const Header = () => {
         <div className="flex flex-col p-4 space-y-4">
           <nav className="space-y-2">
             {[
-              { text: 'Home', path: '/' },
-              { text: 'Profile', path: '/profile' },
-              { text: 'Explore', path: '/explore' },
+              { text: 'Hem', path: '/' },
+              { text: 'Profil', path: '/profile' },
+              { text: 'Utforska', path: '/explore' },
               { text: 'Dashboard', path: '/dashboard' },
-              { text: 'Messages', path: '/messages' },
-              { text: 'Settings', path: '/settings' },
+              { text: 'Meddelanden', path: '/messages' },
+              { text: 'Inställningar', path: '/settings' },
             ].map((item) => (
               <Link 
                 key={item.path} 
