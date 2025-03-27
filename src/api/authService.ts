@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
@@ -14,8 +13,7 @@ export const authService = {
     try {
       // We'll use a raw query here since nonce_challenges isn't in our type definitions
       const { data, error } = await supabase
-        .rpc('get_nonce', { wallet_addr: walletAddress })
-        .single();
+        .rpc('get_nonce', { wallet_addr: walletAddress });
 
       if (error) {
         console.error('Error getting nonce:', error);

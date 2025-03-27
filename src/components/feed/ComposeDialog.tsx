@@ -32,7 +32,7 @@ const ComposeDialog = ({ open, onOpenChange, replyToTweetId }: ComposeDialogProp
   
   const { mutate: createTweet, isPending: isCreatingTweet } = useMutation({
     mutationFn: () => {
-      return tweetService.createTweet(content, attachments);
+      return tweetService.createTweet(content, []);
     },
     onSuccess: () => {
       toast.success('Tweet skapad!');
