@@ -10,6 +10,7 @@ export interface User {
   verified: boolean;
   email?: string;
   walletAddress?: string;
+  headerUrl?: string;  // Add headerUrl property
 }
 
 export interface Tweet {

@@ -48,6 +48,7 @@ export const dbUserToUser = (dbUser: DbUser): UserType => ({
   username: dbUser.username,
   displayName: dbUser.display_name,
   avatarUrl: dbUser.avatar_url || '',
+  headerUrl: dbUser.header_url || '',
   bio: dbUser.bio || '',
   joinedDate: dbUser.joined_date,
   following: dbUser.following || [],
