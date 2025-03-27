@@ -2,7 +2,7 @@
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 
-// CORS headers för alla anrop
+// CORS headers for all anrop
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -35,7 +35,7 @@ serve(async (req) => {
 
     if (!email && !userId) {
       return new Response(
-        JSON.stringify({ error: 'Either email or userId is required' }),
+        JSON.stringify({ error: 'Either email or userId is required', success: false }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -97,12 +97,10 @@ serve(async (req) => {
                          existingUser.display_name === 'New User';
       
       // Skapa en uppdateringsobjekt för att hantera ändringar
-      const updateData: any = {};
-      
-      // Uppdatera email om det behövs
-      if (authUser.email && (!existingUser.email || existingUser.email !== authUser.email || forceSync)) {
-        updateData.email = authUser.email;
-      }
+      const updateData: Record<string, any> = {};
+
+      // Hämta email från auth user utan att försöka uppdatera email-fältet i users-tabellen
+      const userEmail = authUser.email || authUser.user_metadata?.email || '';
       
       // Uppdatera displayName om användaren har en autogenererad profil och det finns nya uppgifter
       if ((needsProfileSetup || forceSync) && (authUser.user_metadata?.name || authUser.user_metadata?.full_name)) {
@@ -134,17 +132,21 @@ serve(async (req) => {
       } else {
         userRecord = existingUser;
       }
+
+      // Lägg till email till userRecord för klienten utan att påverka databasen
+      userRecord.auth_email = userEmail;
     } else {
       // Skapa en ny användare
       console.log('Creating new user for auth ID:', authUser.id);
       needsProfileSetup = true;
+
+      const userEmail = authUser.email || authUser.user_metadata?.email || '';
 
       const { data: newUser, error: createError } = await adminClient
         .from('users')
         .insert([
           {
             id: authUser.id,
-            email: authUser.email,
             username: `user_${authUser.id.substring(0, 8)}`,
             display_name: authUser.user_metadata?.name || authUser.user_metadata?.full_name || 'New User',
             avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || '',
@@ -160,6 +162,9 @@ serve(async (req) => {
 
       if (createError) throw createError;
       userRecord = newUser;
+      
+      // Lägg till email till userRecord för klienten utan att påverka databasen
+      userRecord.auth_email = userEmail;
     }
 
     return new Response(

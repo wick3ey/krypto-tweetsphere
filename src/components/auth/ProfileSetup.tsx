@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { toast } from 'sonner';
-import { Image, Upload, Camera, User, Check } from 'lucide-react';
+import { Image, Upload, Camera, User, Check, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -44,7 +44,7 @@ type ProfileSetupFormValues = z.infer<typeof profileSetupSchema>;
 
 const ProfileSetup = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoadingCurrentUser, refetchCurrentUser, createProfile, syncAuthUser } = useUser();
+  const { currentUser, isLoadingCurrentUser, refetchCurrentUser, createProfile, syncAuthUser, getAuthEmail } = useUser();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -56,6 +56,7 @@ const ProfileSetup = () => {
   const [usernameAvailable, setUsernameAvailable] = useState(true);
   const [setupCompleted, setSetupCompleted] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   
   const form = useForm<ProfileSetupFormValues>({
     resolver: zodResolver(profileSetupSchema),
@@ -74,31 +75,64 @@ const ProfileSetup = () => {
         if (session) {
           const userId = session.user.id;
           
-          const result = await syncAuthUser(userId, true);
+          const email = getAuthEmail() || session.user.email || '';
+          setUserEmail(email);
           
-          if (result && !result.needsProfileSetup) {
-            console.log('Profile is already set up, redirecting to home');
-            localStorage.setItem('profile_setup_complete', 'true');
-            localStorage.removeItem('needs_profile_setup');
-            navigate('/', { replace: true });
-            return;
-          }
-          
-          if (result && result.user) {
-            if (result.user.username && !result.user.username.startsWith('user_')) {
-              form.setValue('username', result.user.username);
-            }
+          try {
+            const result = await syncAuthUser(userId, true);
             
-            if (result.user.displayName && result.user.displayName !== 'New User') {
-              form.setValue('displayName', result.user.displayName);
+            if (result && !result.needsProfileSetup) {
+              console.log('User already has a complete profile, redirecting to home');
+              localStorage.setItem('profile_setup_complete', 'true');
+              localStorage.removeItem('needs_profile_setup');
+              
+              localStorage.setItem('current_user', JSON.stringify(result.user));
+              
+              await refetchCurrentUser();
+              
+              setTimeout(() => {
+                window.location.href = '/';
+              }, 100);
+              return;
+            } else if (result && result.user) {
+              if (result.user.username && !result.user.username.startsWith('user_')) {
+                form.setValue('username', result.user.username);
+              }
+              
+              if (result.user.displayName && result.user.displayName !== 'New User') {
+                form.setValue('displayName', result.user.displayName);
+              }
+              
+              if (result.user.bio) {
+                form.setValue('bio', result.user.bio);
+              }
+              
+              if (result.user.avatarUrl) {
+                setAvatarPreview(result.user.avatarUrl);
+              }
             }
+          } catch (error) {
+            console.error('Error syncing user data:', error);
+            toast.error('Kunde inte synkronisera användarprofil', {
+              description: 'Fortsätt med profilinställningarna manuellt'
+            });
             
-            if (result.user.bio) {
-              form.setValue('bio', result.user.bio);
-            }
-            
-            if (result.user.avatarUrl) {
-              setAvatarPreview(result.user.avatarUrl);
+            if (currentUser) {
+              if (currentUser.username && !currentUser.username.startsWith('user_')) {
+                form.setValue('username', currentUser.username);
+              }
+              
+              if (currentUser.displayName && currentUser.displayName !== 'New User') {
+                form.setValue('displayName', currentUser.displayName);
+              }
+              
+              if (currentUser.bio) {
+                form.setValue('bio', currentUser.bio);
+              }
+              
+              if (currentUser.avatarUrl) {
+                setAvatarPreview(currentUser.avatarUrl);
+              }
             }
           }
         }
@@ -111,7 +145,7 @@ const ProfileSetup = () => {
     };
     
     checkProfileStatus();
-  }, [navigate, syncAuthUser, form]);
+  }, [navigate, syncAuthUser, form, currentUser, refetchCurrentUser, getAuthEmail]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -259,7 +293,8 @@ const ProfileSetup = () => {
         bio: data.bio || '',
         avatarUrl,
         headerUrl,
-        id: currentUser?.id
+        id: currentUser?.id,
+        email: userEmail
       };
       
       console.log('Sending profile data for setup:', profileData);
@@ -345,6 +380,13 @@ const ProfileSetup = () => {
                 <h1 className="text-2xl font-semibold">Konfigurera din profil</h1>
                 <p className="text-muted-foreground mt-2">Välj hur du vill visas på F3ociety</p>
               </div>
+              
+              {userEmail && (
+                <div className="flex items-center gap-2 p-3 bg-muted rounded-md mb-4">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">{userEmail}</p>
+                </div>
+              )}
               
               <FormField
                 control={form.control}
