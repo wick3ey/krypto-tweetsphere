@@ -140,6 +140,30 @@ export type Database = {
           },
         ]
       }
+      nonce_challenges: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          nonce: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          nonce: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          nonce?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           content: string
@@ -453,12 +477,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_nonce: {
+        Args: {
+          wallet_addr: string
+          nonce_value: string
+          message_text: string
+        }
+        Returns: undefined
+      }
       follow_user: {
         Args: {
           follower_id: string
           followed_id: string
         }
         Returns: undefined
+      }
+      get_nonce: {
+        Args: {
+          wallet_addr: string
+        }
+        Returns: {
+          nonce: string
+          message: string
+        }[]
       }
       get_unread_messages_count: {
         Args: {
@@ -478,6 +519,14 @@ export type Database = {
           followed_id: string
         }
         Returns: undefined
+      }
+      verify_signature: {
+        Args: {
+          wallet_addr: string
+          signature: string
+          message: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
