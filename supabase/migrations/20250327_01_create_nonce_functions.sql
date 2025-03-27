@@ -33,7 +33,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Add increment_comment_count function if it doesn't exist
+-- Add increment_comment_count function
 CREATE OR REPLACE FUNCTION public.increment_comment_count(tweet_id UUID)
 RETURNS void AS $$
 BEGIN
@@ -42,4 +42,3 @@ BEGIN
   WHERE id = tweet_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
