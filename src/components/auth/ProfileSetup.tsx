@@ -22,7 +22,6 @@ import { User as UserType } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/hooks/useUser';
 
-// Set up schema validation
 const profileSetupSchema = z.object({
   username: z
     .string()
@@ -66,10 +65,8 @@ const ProfileSetup = () => {
     },
   });
 
-  // Set initial values if user data is available
   useEffect(() => {
     if (currentUser) {
-      // Only set initial values if they're not already set by the user
       const currentUsername = form.getValues('username');
       if (!currentUsername && currentUser.username && !currentUser.username.startsWith('user_')) {
         form.setValue('username', currentUser.username);
@@ -94,33 +91,28 @@ const ProfileSetup = () => {
     }
   }, [currentUser, form]);
 
-  // Handle avatar upload
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setAvatarFile(file);
       
-      // Create a preview URL
       const previewUrl = URL.createObjectURL(file);
       setAvatarPreview(previewUrl);
     }
   };
 
-  // Handle header upload
   const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setHeaderFile(file);
       
-      // Create a preview URL
       const previewUrl = URL.createObjectURL(file);
       setHeaderPreview(previewUrl);
     }
   };
 
-  // Username availability check with debounce
   const checkUsernameAvailability = useCallback(async (username: string) => {
-    if (username.length < 3) return true; // Skip check if too short
+    if (username.length < 3) return true;
     
     setIsValidating(true);
     try {
@@ -128,7 +120,7 @@ const ProfileSetup = () => {
         .from('users')
         .select('id')
         .eq('username', username)
-        .neq('id', currentUser?.id || '') // Don't check against current user
+        .neq('id', currentUser?.id || '')
         .maybeSingle();
         
       const isAvailable = !data;
@@ -143,9 +135,7 @@ const ProfileSetup = () => {
   }, [currentUser?.id]);
 
   const handleNextStep = () => {
-    // Validate current step before moving to next
     if (currentStep === 0) {
-      // Validate username and display name
       form.trigger(['username', 'displayName']).then(async (isValid) => {
         if (isValid) {
           const username = form.getValues('username');
@@ -181,7 +171,6 @@ const ProfileSetup = () => {
         throw new Error('User not found');
       }
       
-      // Upload avatar if selected
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const filePath = `${currentUser.id}/avatar_${Date.now()}.${fileExt}`;
@@ -192,7 +181,6 @@ const ProfileSetup = () => {
           
         if (avatarError) throw avatarError;
         
-        // Get public URL
         const { data: avatarUrlData } = supabase.storage
           .from('profiles')
           .getPublicUrl(filePath);
@@ -200,7 +188,6 @@ const ProfileSetup = () => {
         avatarUrl = avatarUrlData.publicUrl;
       }
       
-      // Upload header if selected
       if (headerFile) {
         const fileExt = headerFile.name.split('.').pop();
         const filePath = `${currentUser.id}/header_${Date.now()}.${fileExt}`;
@@ -211,7 +198,6 @@ const ProfileSetup = () => {
           
         if (headerError) throw headerError;
         
-        // Get public URL
         const { data: headerUrlData } = supabase.storage
           .from('profiles')
           .getPublicUrl(filePath);
@@ -241,49 +227,38 @@ const ProfileSetup = () => {
     setIsSubmitting(true);
     
     try {
-      // Set this flag immediately to prevent multiple submissions
       setSetupCompleted(true);
       
-      // Upload profile images first
       const { avatarUrl, headerUrl } = await uploadImages();
       
-      // Prepare the data for API
       const profileData: Partial<UserType> = {
         username: data.username,
         displayName: data.displayName,
         bio: data.bio || '',
         avatarUrl,
         headerUrl,
-        // Add the current user's ID to ensure we're updating the correct record
         id: currentUser?.id
       };
       
-      // Log the profile data we're sending
       console.log('Sending profile data for setup:', profileData);
       
-      // Send to API - using the createProfile mutation
       createProfile(profileData);
       
-      // Show success message
       toast.success('Profilinställning klar!', {
         description: 'Välkommen till F3ociety!',
       });
       
-      // Explicitly mark profile setup as complete in localStorage
       localStorage.setItem('profile_setup_complete', 'true');
       localStorage.removeItem('needs_profile_setup');
       
-      // Refresh user data
       await refetchCurrentUser();
       
-      // Navigate to the home page - doing it BOTH ways to ensure it works
       window.location.href = '/';
     } catch (error) {
       console.error('Error setting up profile:', error);
       toast.error('Profilinställning misslyckades', {
         description: 'Vänligen försök igen.',
       });
-      // Reset flag if setup fails
       setSetupCompleted(false);
     } finally {
       setIsSubmitting(false);
@@ -294,7 +269,6 @@ const ProfileSetup = () => {
     const value = e.target.value;
     form.setValue('username', value);
     
-    // Add debounce for username check
     if (value.length >= 3) {
       const timeoutId = setTimeout(() => {
         checkUsernameAvailability(value);
@@ -304,7 +278,6 @@ const ProfileSetup = () => {
     }
   };
 
-  // Check if the user needs to be redirected if profile setup is already complete
   useEffect(() => {
     if (currentUser && !isLoadingCurrentUser) {
       const needsSetup = !currentUser.username || 
@@ -313,7 +286,6 @@ const ProfileSetup = () => {
                           currentUser.displayName === 'New User';
       
       if (!needsSetup) {
-        // Profile already set up, redirect to home
         localStorage.setItem('profile_setup_complete', 'true');
         navigate('/', { replace: true });
       }
@@ -330,7 +302,6 @@ const ProfileSetup = () => {
 
   return (
     <div className="max-w-md mx-auto bg-background rounded-lg shadow-sm border">
-      {/* Progress Indicator */}
       <div className="relative pt-4">
         <div className="flex justify-center mb-2 px-4">
           <div className="w-full bg-muted rounded-full h-1.5">
@@ -418,7 +389,6 @@ const ProfileSetup = () => {
               </div>
               
               <div className="space-y-6">
-                {/* Avatar Upload */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Profilbild</label>
                   <div className="flex items-center gap-4">
@@ -448,7 +418,6 @@ const ProfileSetup = () => {
                   </div>
                 </div>
                 
-                {/* Header Upload */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Omslagsbild</label>
                   <div className="border-2 border-dashed border-border rounded-lg p-4 text-center relative group cursor-pointer">

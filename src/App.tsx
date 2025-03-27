@@ -1,4 +1,3 @@
-
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
@@ -59,7 +58,7 @@ function App() {
               if (user) {
                 localStorage.setItem('current_user', JSON.stringify(user));
                 
-                // Check if profile setup is needed
+                // Check if profile setup is needed - use more robust criteria
                 const needsSetup = !user.username || 
                                   user.username.startsWith('user_') || 
                                   !user.displayName || 
@@ -76,8 +75,16 @@ function App() {
                     }, 100);
                   }
                 } else {
+                  // Mark profile as complete - this user doesn't need setup
                   localStorage.setItem('profile_setup_complete', 'true');
                   localStorage.removeItem('needs_profile_setup');
+                  
+                  // If on setup page but profile is complete, redirect to home
+                  if (location.pathname.includes('/setup-profile')) {
+                    setTimeout(() => {
+                      navigate('/', { replace: true });
+                    }, 100);
+                  }
                 }
               }
               setIsLoading(false);
@@ -102,17 +109,46 @@ function App() {
               
               toast.success('Inloggad!');
               
-              // If user just registered (from localStorage flag)
-              if (localStorage.getItem('needs_profile_setup') === 'true') {
-                // Short timeout before redirect to ensure data exists
-                setTimeout(() => {
-                  navigate('/setup-profile', { replace: true });
-                }, 100);
-              }
-              // If we're on callback page, redirect to home page
-              else if (location.pathname.includes('/auth/callback')) {
-                navigate('/', { replace: true });
-              }
+              // We'll check if profile setup is needed after fetching user data
+              authService.getCurrentUser()
+                .then(user => {
+                  // Store current user data
+                  if (user) {
+                    localStorage.setItem('current_user', JSON.stringify(user));
+                    
+                    // Check if profile setup is needed - use more robust criteria
+                    const needsSetup = !user.username || 
+                                      user.username.startsWith('user_') || 
+                                      !user.displayName || 
+                                      user.displayName === 'New User';
+                    
+                    if (needsSetup) {
+                      localStorage.setItem('needs_profile_setup', 'true');
+                      localStorage.removeItem('profile_setup_complete');
+                      
+                      // Only redirect if not already on setup page
+                      if (!location.pathname.includes('/setup-profile')) {
+                        setTimeout(() => {
+                          navigate('/setup-profile', { replace: true });
+                        }, 100);
+                      }
+                    } else {
+                      // Mark profile as complete - this user doesn't need setup
+                      localStorage.setItem('profile_setup_complete', 'true');
+                      localStorage.removeItem('needs_profile_setup');
+                      
+                      // If we're on callback page, redirect to home page
+                      if (location.pathname.includes('/auth/callback')) {
+                        setTimeout(() => {
+                          navigate('/', { replace: true });
+                        }, 100);
+                      }
+                    }
+                  }
+                })
+                .catch(err => {
+                  console.error('Error fetching user data after sign in:', err);
+                });
             }
           } else if (event === 'SIGNED_OUT') {
             // Clear all auth data

@@ -81,7 +81,7 @@ export const authService = {
           throw createError;
         }
         
-        // Markera att användaren behöver slutföra profilinställningen
+        // Mark that user needs to complete profile setup
         localStorage.setItem('needs_profile_setup', 'true');
         localStorage.removeItem('profile_setup_complete');
         
@@ -89,6 +89,17 @@ export const authService = {
         localStorage.setItem('current_user', JSON.stringify(createdUser));
         
         return dbUserToUser(createdUser);
+      }
+      
+      // If we have user data and the profile appears complete, mark it as such
+      const isCompleteProfile = data.username && 
+                              !data.username.startsWith('user_') && 
+                              data.display_name && 
+                              data.display_name !== 'New User';
+      
+      if (isCompleteProfile) {
+        localStorage.setItem('profile_setup_complete', 'true');
+        localStorage.removeItem('needs_profile_setup');
       }
       
       // Fetch followers and following counts
@@ -185,6 +196,10 @@ export const authService = {
         : 'https://f3oci3ty.xyz/auth/callback'; // Use production domain for live site
       
       console.log('Signing in with Google, redirectTo:', redirectTo);
+      
+      // Reset the profile setup flags - we'll determine this after sign-in
+      localStorage.removeItem('needs_profile_setup');
+      localStorage.removeItem('profile_setup_complete');
       
       // Optimize for faster redirects by setting fewer options
       const result = await supabase.auth.signInWithOAuth({

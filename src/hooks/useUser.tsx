@@ -126,22 +126,25 @@ export function useUser() {
   };
 
   const needsProfileSetup = () => {
-    if (localStorage.getItem('needs_profile_setup') === 'true') {
-      return true;
-    }
-    
     if (localStorage.getItem('profile_setup_complete') === 'true') {
       return false;
     }
     
-    if (!currentUser) return true;
+    if (localStorage.getItem('needs_profile_setup') === 'true') {
+      return true;
+    }
+    
+    if (!currentUser) return false;
     
     const needsSetup = !currentUser.username || 
            currentUser.username.startsWith('user_') || 
            !currentUser.displayName || 
            currentUser.displayName === 'New User';
     
-    if (!needsSetup) {
+    if (needsSetup) {
+      localStorage.setItem('needs_profile_setup', 'true');
+      localStorage.removeItem('profile_setup_complete');
+    } else {
       localStorage.setItem('profile_setup_complete', 'true');
       localStorage.removeItem('needs_profile_setup');
     }

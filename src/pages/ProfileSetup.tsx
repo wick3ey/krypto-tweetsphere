@@ -34,7 +34,7 @@ const ProfileSetupPage = () => {
         // Set redirecting flag to prevent flickering
         setRedirecting(true);
         
-        // Navigate to home page directly
+        // Hard redirect to home to ensure complete page refresh
         window.location.href = '/';
       }
     }
