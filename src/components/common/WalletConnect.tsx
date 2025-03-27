@@ -7,6 +7,16 @@ import { useNavigate } from 'react-router-dom';
 import { PhantomIcon } from '@/components/icons/PhantomIcon';
 import { useUser } from '@/hooks/useUser';
 
+// Define the PhantomProvider interface once
+interface PhantomProvider {
+  isPhantom?: boolean;
+  connect: () => Promise<{ publicKey: { toString: () => string } }>;
+  disconnect: () => Promise<void>;
+  signMessage: (message: Uint8Array, encoding: string) => Promise<{ signature: Uint8Array }>;
+  signTransaction: (transaction: any) => Promise<any>;
+  signAllTransactions: (transactions: any[]) => Promise<any[]>;
+}
+
 export const WalletConnect = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -90,7 +100,7 @@ export const WalletConnect = () => {
         message
       });
       
-      // Verify the signature with the backend
+      // Verify the signature with the backend - without any authorization headers
       const authResponse = await fetch('https://dtrlmfwgtjrjkepvgatv.supabase.co/functions/v1/verify-wallet-signature', {
         method: 'POST',
         headers: {
