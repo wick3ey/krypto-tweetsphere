@@ -12,20 +12,21 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Tweet, User } from '@/lib/types';
 import ComposeDialog from '@/components/feed/ComposeDialog';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { tweetService } from '@/api/tweetService';
-import { authService } from '@/api/authService';
 import { exploreService } from '@/api/exploreService';
-import { userService } from '@/api/userService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '@/hooks/useUser';
+import ProfileCard from '@/components/profile/ProfileCard';
 
 const Index = () => {
   const [activeFeed, setActiveFeed] = useState('trending'); // trending, latest, following
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const { currentUser, followUser } = useUser();
   
   // Check if user is logged in
   const isLoggedIn = !!localStorage.getItem('jwt_token');
@@ -55,24 +56,8 @@ const Index = () => {
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1, // Only retry once to prevent excessive calls
     refetchOnWindowFocus: false, // Disable auto refetch on window focus
-    enabled: !isLoadingTweets, // Load after tweets to prioritize main content
+    enabled: isLoggedIn, // Only fetch if logged in
   });
-  
-  // Fetch current user
-  const { data: currentUser, isLoading: isLoadingUser, refetch: refetchUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => authService.getCurrentUser(),
-    enabled: isLoggedIn,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: false, // Disable auto refetch on window focus
-  });
-  
-  // Refetch user data when token changes
-  useEffect(() => {
-    if (isLoggedIn) {
-      refetchUser();
-    }
-  }, [isLoggedIn, refetchUser]);
   
   // Tweet creation mutation
   const createTweetMutation = useMutation({
@@ -104,38 +89,27 @@ const Index = () => {
   };
   
   // Follow user mutation
-  const followUserMutation = useMutation({
-    mutationFn: (userId: string) => {
-      return userService.followUser(userId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
-      toast({
-        title: "Success",
-        description: "You are now following this user.",
-      });
-    },
-    onError: (error) => {
-      console.error("Error following user:", error);
-      toast({
-        title: "Error",
-        description: "Could not follow user. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-  
   const handleFollowUser = (userId: string) => {
     if (!isLoggedIn) {
-      toast({
-        title: "Authentication required",
-        description: "Please connect your wallet to follow users",
-        variant: "destructive",
+      toast.error("Authentication required", {
+        description: "Please connect your wallet to follow users"
       });
       return;
     }
     
-    followUserMutation.mutate(userId);
+    followUser(userId);
+  };
+  
+  // If user is logged in, show current user info in sidebar
+  const renderUserProfile = () => {
+    if (isLoggedIn && currentUser) {
+      return (
+        <AnimatedCard className="mb-6" delay={200}>
+          <ProfileCard profile={currentUser} />
+        </AnimatedCard>
+      );
+    }
+    return null;
   };
   
   return (
@@ -175,6 +149,7 @@ const Index = () => {
                   size="sm" 
                   className="rounded-full flex items-center gap-1 whitespace-nowrap"
                   onClick={() => setActiveFeed('following')}
+                  disabled={!isLoggedIn}
                 >
                   <Lightbulb className="h-3.5 w-3.5" />
                   Följer
@@ -245,6 +220,9 @@ const Index = () => {
           </div>
           
           <div className="hidden lg:flex lg:flex-col space-y-6">
+            {/* Show user profile if logged in */}
+            {renderUserProfile()}
+            
             <MarketStats />
             
             <TrendingTopics />
@@ -283,8 +261,8 @@ const Index = () => {
                         <Link to={`/profile/${user.username}`} className="flex items-center space-x-2">
                           <div className="relative">
                             <img
-                              src={user.avatarUrl}
-                              alt={user.displayName}
+                              src={user.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${user.username || user.id}`}
+                              alt={user.displayName || "User"}
                               className={cn(
                                 "h-10 w-10 rounded-full object-cover border border-border/50",
                                 "transition-transform duration-300 group-hover:scale-110"
@@ -298,14 +276,14 @@ const Index = () => {
                           </div>
                           <div>
                             <div className="flex items-center font-medium text-sm">
-                              {user.displayName}
+                              {user.displayName || "Namnlös användare"}
                               {user.verified && (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1 text-crypto-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                                 </svg>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">@{user.username}</p>
+                            <p className="text-xs text-muted-foreground">@{user.username || "användarnamn"}</p>
                           </div>
                         </Link>
                         <Button 
@@ -322,13 +300,15 @@ const Index = () => {
                     <p className="text-center text-muted-foreground">No suggested users available</p>
                   )
                 )}
-                <Button 
-                  variant="ghost" 
-                  className="w-full text-xs text-crypto-blue"
-                  onClick={() => queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] })}
-                >
-                  Visa mer
-                </Button>
+                {Array.isArray(suggestedUsers) && suggestedUsers.length > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    className="w-full text-xs text-crypto-blue"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] })}
+                  >
+                    Visa mer
+                  </Button>
+                )}
               </div>
             </AnimatedCard>
           </div>

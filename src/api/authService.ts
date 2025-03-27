@@ -86,7 +86,7 @@ export const authService = {
   
   getCurrentUser: async () => {
     try {
-      console.debug("Getting current user", {});
+      console.debug("Getting current user");
       const response = await apiClient.get('https://f3oci3ty.xyz/api/auth/me');
       console.debug("Current user retrieved", { user: response.data.user });
       return response.data.user;
@@ -98,7 +98,7 @@ export const authService = {
   
   logout: async () => {
     try {
-      console.info("Logging out user", {});
+      console.info("Logging out user");
       
       // Get Phantom provider if available
       const provider = window.phantom?.solana;
@@ -119,7 +119,7 @@ export const authService = {
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
       
-      console.info("User logged out successfully", {});
+      console.info("User logged out successfully");
       toast.success("Logged out successfully");
       return response.data;
     } catch (error) {

@@ -32,10 +32,16 @@ export const userService = {
     }
   },
   
-  getUserProfile: async (identifier: string) => {
+  getUserProfile: async (identifier: string, options?: { includeNFTs?: boolean, includeTweets?: boolean }) => {
     try {
-      logService.debug("Getting user profile", { identifier }, "userService");
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${identifier}`);
+      const params = new URLSearchParams();
+      if (options?.includeNFTs) params.append('includeNFTs', 'true');
+      if (options?.includeTweets) params.append('includeTweets', 'true');
+      
+      logService.debug("Getting user profile", { identifier, options }, "userService");
+      const response = await apiClient.get(
+        `https://f3oci3ty.xyz/api/users/${identifier}${params.toString() ? `?${params.toString()}` : ''}`
+      );
       return response.data.user;
     } catch (error) {
       logService.error('Error getting user profile', { error, identifier }, "userService");
@@ -89,10 +95,12 @@ export const userService = {
     }
   },
   
-  getUserFollowers: async (userId: string) => {
+  getUserFollowers: async (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
     try {
-      logService.debug("Getting user followers", { userId }, "userService");
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/followers`);
+      logService.debug("Getting user followers", { userId, page, limit, sortBy }, "userService");
+      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/followers`, {
+        params: { page, limit, sortBy }
+      });
       return response.data.followers;
     } catch (error) {
       logService.error('Error getting user followers', { error, userId }, "userService");
@@ -100,10 +108,12 @@ export const userService = {
     }
   },
   
-  getUserFollowing: async (userId: string) => {
+  getUserFollowing: async (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
     try {
-      logService.debug("Getting user following", { userId }, "userService");
-      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/following`);
+      logService.debug("Getting user following", { userId, page, limit, sortBy }, "userService");
+      const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/following`, {
+        params: { page, limit, sortBy }
+      });
       return response.data.following;
     } catch (error) {
       logService.error('Error getting user following', { error, userId }, "userService");
@@ -111,15 +121,16 @@ export const userService = {
     }
   },
   
-  getUserTweets: async (userId: string, type?: string) => {
+  getUserTweets: async (userId: string, options?: { type?: string, page?: number, limit?: number, sortBy?: string }) => {
     try {
-      logService.debug("Getting user tweets", { userId, type }, "userService");
+      const { type = 'all', page = 1, limit = 20, sortBy = 'recent' } = options || {};
+      logService.debug("Getting user tweets", { userId, type, page, limit, sortBy }, "userService");
       const response = await apiClient.get(`https://f3oci3ty.xyz/api/users/${userId}/tweets`, {
-        params: type ? { type } : undefined
+        params: { type, page, limit, sortBy }
       });
       return response.data.tweets;
     } catch (error) {
-      logService.error('Error getting user tweets', { error, userId, type }, "userService");
+      logService.error('Error getting user tweets', { error, userId }, "userService");
       throw error;
     }
   }

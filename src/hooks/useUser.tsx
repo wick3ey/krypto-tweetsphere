@@ -8,7 +8,7 @@ import { User } from '@/lib/types';
 export function useUser() {
   const queryClient = useQueryClient();
   
-  // Hämta inloggad användare
+  // Get current user
   const { 
     data: currentUser,
     isLoading: isLoadingCurrentUser,
@@ -18,20 +18,20 @@ export function useUser() {
     queryKey: ['currentUser'],
     queryFn: () => authService.getCurrentUser(),
     enabled: !!localStorage.getItem('jwt_token'),
-    staleTime: 5 * 60 * 1000, // 5 minuter
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Hämta en specifik användarprofil med ID, wallet-adress eller användarnamn
+  // Get a specific user profile by ID, wallet address, or username
   const getUserProfile = (identifier: string, options = {}) => {
     return useQuery({
       queryKey: ['userProfile', identifier],
-      queryFn: () => userService.getUserProfile(identifier),
-      staleTime: 2 * 60 * 1000, // 2 minuter
+      queryFn: () => userService.getUserProfile(identifier, options),
+      staleTime: 2 * 60 * 1000, // 2 minutes
       ...options
     });
   };
 
-  // Uppdatera användarens profil
+  // Update user profile
   const updateProfileMutation = useMutation({
     mutationFn: (profileData: Partial<User>) => userService.updateProfile(profileData),
     onSuccess: (data) => {
@@ -48,12 +48,13 @@ export function useUser() {
     }
   });
 
-  // Följ användare
+  // Follow user
   const followUserMutation = useMutation({
     mutationFn: (userId: string) => userService.followUser(userId),
     onSuccess: (_, userId) => {
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       toast.success("Du följer nu denna användare");
     },
     onError: (error: any) => {
@@ -63,12 +64,13 @@ export function useUser() {
     }
   });
 
-  // Sluta följa användare
+  // Unfollow user
   const unfollowUserMutation = useMutation({
     mutationFn: (userId: string) => userService.unfollowUser(userId),
     onSuccess: (_, userId) => {
       queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       queryClient.invalidateQueries({ queryKey: ['suggestedUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       toast.success("Du följer inte längre denna användare");
     },
     onError: (error: any) => {
@@ -78,21 +80,27 @@ export function useUser() {
     }
   });
 
-  // Hämta användarens följare
-  const getUserFollowers = (userId: string, options = {}) => {
+  // Get user followers with pagination
+  const getUserFollowers = (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
     return useQuery({
-      queryKey: ['userFollowers', userId],
-      queryFn: () => userService.getUserFollowers(userId),
-      ...options
+      queryKey: ['userFollowers', userId, page, limit, sortBy],
+      queryFn: () => userService.getUserFollowers(userId, page, limit, sortBy),
     });
   };
 
-  // Hämta användare som användaren följer
-  const getUserFollowing = (userId: string, options = {}) => {
+  // Get users that the user is following with pagination
+  const getUserFollowing = (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
     return useQuery({
-      queryKey: ['userFollowing', userId],
-      queryFn: () => userService.getUserFollowing(userId),
-      ...options
+      queryKey: ['userFollowing', userId, page, limit, sortBy],
+      queryFn: () => userService.getUserFollowing(userId, page, limit, sortBy),
+    });
+  };
+
+  // Get user tweets with options
+  const getUserTweets = (userId: string, options = {}) => {
+    return useQuery({
+      queryKey: ['userTweets', userId, options],
+      queryFn: () => userService.getUserTweets(userId, options),
     });
   };
 
@@ -109,6 +117,7 @@ export function useUser() {
     unfollowUser: unfollowUserMutation.mutate,
     isUnfollowingUser: unfollowUserMutation.isPending,
     getUserFollowers,
-    getUserFollowing
+    getUserFollowing,
+    getUserTweets
   };
 }

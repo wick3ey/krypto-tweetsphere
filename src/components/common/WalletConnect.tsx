@@ -150,7 +150,7 @@ const WalletConnect = ({ onConnect, className }: WalletConnectProps) => {
       }
       console.debug("WalletConnect component unmounted");
     };
-  }, []);
+  }, [refetchCurrentUser, queryClient, onConnect]);
   
   const verifyWalletConnection = async (provider: any, address: string) => {
     try {
