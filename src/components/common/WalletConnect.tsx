@@ -5,7 +5,6 @@ import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { PhantomIcon } from '@/components/icons/PhantomIcon';
-import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/hooks/useUser';
 
 export const WalletConnect = () => {
@@ -76,13 +75,19 @@ export const WalletConnect = () => {
       const message = `Sign this message to verify your wallet ownership: ${Date.now()}`;
       const encodedMessage = new TextEncoder().encode(message);
       
-      // Sign the message with the wallet following Phantom documentation exactly
+      // Sign the message with the wallet
       const signedMessage = await provider.signMessage(encodedMessage, "utf8");
       
       // Convert signature to hex string
       const signature = Array.from(signedMessage.signature)
         .map(b => b.toString(16).padStart(2, "0"))
         .join("");
+      
+      console.log("Sending verification request with:", {
+        walletAddress: newWalletAddress,
+        signature,
+        message
+      });
       
       // Verify the signature with the backend
       const authResponse = await fetch('https://dtrlmfwgtjrjkepvgatv.supabase.co/functions/v1/verify-wallet-signature', {
@@ -97,10 +102,17 @@ export const WalletConnect = () => {
         })
       });
       
-      const data = await authResponse.json();
-      
       if (!authResponse.ok) {
-        throw new Error(data.error || 'Authentication failed');
+        const errorData = await authResponse.json();
+        console.error("Auth response error:", errorData);
+        throw new Error(errorData.error || `Authentication failed with status ${authResponse.status}`);
+      }
+      
+      const data = await authResponse.json();
+      console.log("Auth response data:", data);
+      
+      if (!data.token) {
+        throw new Error('No token received from server');
       }
       
       // Store JWT token

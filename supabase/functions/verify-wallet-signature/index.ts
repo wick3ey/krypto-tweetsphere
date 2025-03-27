@@ -1,7 +1,7 @@
 
 import { serve } from "std/http/server.ts";
 import { createClient } from "supabase";
-import bs58 from "base58";
+import * as bs58 from "bs58";
 
 // Set up CORS headers
 const corsHeaders = {
@@ -96,56 +96,97 @@ serve(async (req) => {
       userId = newUser.id;
     }
     
-    // Generate a JWT token - we'll use email+password auth as a simple solution
-    // This approach creates a "fake" email and password to associate with the wallet
-    const safeSignature = signature.substring(0, 20);
+    // Generate JWT token using admin.createUser for new users or admin.signIn for existing users
+    const email = `${walletAddress}@phantom.wallet`;
+    const password = signature.substring(0, 20); // Use part of the signature as password
+    
     let authData;
+    
     try {
-      authData = await supabase.auth.admin.createUser({
-        email: `${walletAddress}@phantom.wallet`,
-        password: safeSignature, 
-        email_confirm: true,
-        user_metadata: {
-          wallet_address: walletAddress,
-          user_id: userId,
-        },
-      });
-    } catch (authError: any) {
-      if (authError.message?.includes("User already registered")) {
-        // Try to sign in instead if the user already exists in auth
-        authData = await supabase.auth.admin.signInWithEmail({
-          email: `${walletAddress}@phantom.wallet`,
-          password: safeSignature,
+      if (isNewUser) {
+        // Create auth user for new users
+        authData = await supabase.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: {
+            wallet_address: walletAddress,
+            user_id: userId,
+          },
         });
       } else {
-        throw authError;
+        // Sign in existing users
+        // First try to delete any existing user with this email to avoid conflicts
+        try {
+          const { data: userByEmail } = await supabase.auth.admin.listUsers({
+            filters: {
+              email,
+            },
+          });
+          
+          if (userByEmail && userByEmail.users.length > 0) {
+            // User exists in auth, try to sign in
+            authData = await supabase.auth.admin.signInWithEmail({
+              email,
+              password,
+            });
+          } else {
+            // No user found in auth, create one
+            authData = await supabase.auth.admin.createUser({
+              email,
+              password,
+              email_confirm: true,
+              user_metadata: {
+                wallet_address: walletAddress,
+                user_id: userId,
+              },
+            });
+          }
+        } catch (err) {
+          console.error('Error checking auth user:', err);
+          // Fallback to create user
+          authData = await supabase.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+            user_metadata: {
+              wallet_address: walletAddress,
+              user_id: userId,
+            },
+          });
+        }
+      }
+    } catch (authError: any) {
+      console.error('Auth error:', authError);
+      
+      // Try to sign in if user already exists
+      if (authError.message?.includes("User already registered")) {
+        try {
+          authData = await supabase.auth.admin.signInWithEmail({
+            email,
+            password,
+          });
+        } catch (signInError) {
+          console.error('Sign in error:', signInError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to authenticate' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+      } else {
+        return new Response(
+          JSON.stringify({ error: 'Authentication error', details: authError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
     }
     
     if (authData.error) {
-      // If we get an error about the user being already registered, try to sign in
-      if (authData.error.message === 'User already registered') {
-        const signInData = await supabase.auth.admin.signInWithEmail({
-          email: `${walletAddress}@phantom.wallet`,
-          password: safeSignature,
-        });
-        
-        if (signInData.error) {
-          console.error('Error signing in:', signInData.error);
-          return new Response(
-            JSON.stringify({ error: 'Failed to authenticate user' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-          );
-        }
-        
-        authData = signInData;
-      } else {
-        console.error('Error creating auth account:', authData.error);
-        return new Response(
-          JSON.stringify({ error: 'Failed to authenticate user' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-        );
-      }
+      console.error('Auth data error:', authData.error);
+      return new Response(
+        JSON.stringify({ error: 'Authentication failed', details: authData.error.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
     
     // Get full user data
