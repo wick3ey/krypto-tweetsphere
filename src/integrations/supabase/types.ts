@@ -543,12 +543,17 @@ export type Database = {
         }
         Returns: number
       }
-      get_unread_notifications_count: {
-        Args: {
-          user_id: string
-        }
-        Returns: number
-      }
+      get_unread_notifications_count:
+        | {
+            Args: Record<PropertyKey, never>
+            Returns: number
+          }
+        | {
+            Args: {
+              user_id: string
+            }
+            Returns: number
+          }
       unfollow_user: {
         Args: {
           follower_id: string
