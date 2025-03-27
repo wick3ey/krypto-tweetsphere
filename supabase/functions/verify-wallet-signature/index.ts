@@ -108,7 +108,7 @@ serve(async (req) => {
         user = newUser;
       }
 
-      // Create a JWT token for authentication
+      // Create a JWT token for authentication with custom domain
       const { data: sessionData, error: sessionError } = await supabase.auth.admin.createSession({
         properties: {
           user_id: user.id,
