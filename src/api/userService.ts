@@ -102,8 +102,8 @@ export const userService = {
         display_name: profileData.displayName,
         bio: profileData.bio || '',
         avatar_url: profileData.avatarUrl,
-        header_url: profileData.headerUrl || '',
-        updated_at: new Date()
+        header_url: profileData.headerUrl || ''
+        // Removed updated_at as it doesn't exist in the users table
       };
 
       const { data, error } = await supabase
