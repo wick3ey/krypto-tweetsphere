@@ -28,6 +28,12 @@ export const userService = {
       logService.info("Setting up user profile", { profileData }, "userService");
       const response = await apiClient.post('https://f3oci3ty.xyz/api/users/setup', profileData);
       logService.info("Profile setup completed", { userId: response.data.user.id }, "userService");
+      
+      // Save updated user to localStorage for faster access and offline support
+      if (response.data.user) {
+        localStorage.setItem('current_user', JSON.stringify(response.data.user));
+      }
+      
       toast.success("Profile setup completed successfully");
       return response.data.user;
     } catch (error: any) {
@@ -45,6 +51,15 @@ export const userService = {
       if (options?.includeNFTs) params.append('includeNFTs', 'true');
       if (options?.includeTweets) params.append('includeTweets', 'true');
       
+      // Try to get from localStorage first for faster response
+      const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (currentUser && 
+          (currentUser.id === identifier || 
+           currentUser.username === identifier || 
+           currentUser.walletAddress === identifier)) {
+        return currentUser;
+      }
+      
       logService.debug("Getting user profile", { identifier, options }, "userService");
       const response = await apiClient.get(
         `https://f3oci3ty.xyz/api/users/${identifier}${params.toString() ? `?${params.toString()}` : ''}`
@@ -52,6 +67,13 @@ export const userService = {
       return response.data.user;
     } catch (error) {
       logService.error('Error getting user profile', { error, identifier }, "userService");
+      // Try to use mock data if API fails
+      if (identifier === 'me' || identifier === localStorage.getItem('wallet_address')) {
+        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+        if (currentUser && currentUser.id) {
+          return currentUser;
+        }
+      }
       throw error;
     }
   },
@@ -60,6 +82,14 @@ export const userService = {
     try {
       logService.info("Updating user profile", { profileData }, "userService");
       const response = await apiClient.put('https://f3oci3ty.xyz/api/users/profile', profileData);
+      
+      // Update local storage with the updated user data
+      if (response.data.user) {
+        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+        const updatedUser = { ...currentUser, ...response.data.user };
+        localStorage.setItem('current_user', JSON.stringify(updatedUser));
+      }
+      
       logService.info("Profile updated successfully", { userId: response.data.user.id }, "userService");
       toast.success("Profile updated successfully");
       return response.data.user;
@@ -81,28 +111,30 @@ export const userService = {
     try {
       logService.info("Following user", { targetUserId: userId }, "userService");
       
-      // Create mock response for testing/demo if API fails
+      // First update local state optimistically
+      const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (currentUser && currentUser.id) {
+        // Add to following list if not already there
+        if (!currentUser.following) {
+          currentUser.following = [];
+        }
+        if (!Array.isArray(currentUser.following)) {
+          currentUser.following = [];
+        }
+        if (!currentUser.following.includes(userId)) {
+          currentUser.following.push(userId);
+          localStorage.setItem('current_user', JSON.stringify(currentUser));
+        }
+      }
+      
+      // Now try the API call
       try {
         const response = await apiClient.post(`https://f3oci3ty.xyz/api/users/${userId}/follow`);
         logService.info("Successfully followed user", { targetUserId: userId }, "userService");
-        toast.success("Now following user");
         return response.data;
       } catch (apiError) {
         console.error('API call failed, using local fallback:', apiError);
-        // Simulate successful follow for demo/testing
-        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-        if (currentUser && currentUser.id) {
-          // Add to following list if not already there
-          if (!currentUser.following) {
-            currentUser.following = [];
-          }
-          if (!currentUser.following.includes(userId)) {
-            currentUser.following.push(userId);
-            localStorage.setItem('current_user', JSON.stringify(currentUser));
-          }
-        }
-        
-        toast.success("Now following user");
+        // We already updated the local state, just return success
         return { success: true, message: "Followed user (local only)" };
       }
     } catch (error: any) {
@@ -123,23 +155,24 @@ export const userService = {
     try {
       logService.info("Unfollowing user", { targetUserId: userId }, "userService");
       
-      // Create mock response for testing/demo if API fails
-      try {
-        const response = await apiClient.delete(`https://f3oci3ty.xyz/api/users/${userId}/follow`);
-        logService.info("Successfully unfollowed user", { targetUserId: userId }, "userService");
-        toast.success("Unfollowed user");
-        return response.data;
-      } catch (apiError) {
-        console.error('API call failed, using local fallback:', apiError);
-        // Simulate successful unfollow for demo/testing
-        const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
-        if (currentUser && currentUser.id && currentUser.following) {
-          // Remove from following list
+      // First update local state optimistically
+      const currentUser = JSON.parse(localStorage.getItem('current_user') || '{}');
+      if (currentUser && currentUser.id && currentUser.following) {
+        // Remove from following list
+        if (Array.isArray(currentUser.following)) {
           currentUser.following = currentUser.following.filter((id: string) => id !== userId);
           localStorage.setItem('current_user', JSON.stringify(currentUser));
         }
-        
-        toast.success("Unfollowed user");
+      }
+      
+      // Now try the API call
+      try {
+        const response = await apiClient.delete(`https://f3oci3ty.xyz/api/users/${userId}/follow`);
+        logService.info("Successfully unfollowed user", { targetUserId: userId }, "userService");
+        return response.data;
+      } catch (apiError) {
+        console.error('API call failed, using local fallback:', apiError);
+        // We already updated the local state, just return success
         return { success: true, message: "Unfollowed user (local only)" };
       }
     } catch (error: any) {

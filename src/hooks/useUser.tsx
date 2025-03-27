@@ -19,6 +19,22 @@ export function useUser() {
     queryFn: () => authService.getCurrentUser(),
     enabled: !!localStorage.getItem('jwt_token'),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+    // Add fallback to prevent errors when user is null
+    select: (data) => {
+      // If data is null, try to get from localStorage
+      if (!data) {
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+          try {
+            return JSON.parse(storedUser);
+          } catch (e) {
+            console.error('Error parsing stored user:', e);
+          }
+        }
+      }
+      return data;
+    }
   });
 
   // Get a specific user profile by ID, wallet address, or username

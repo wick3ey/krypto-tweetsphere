@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -116,8 +117,8 @@ const ProfileSetup = () => {
         description: 'Welcome to F3oci3ty!',
       });
       
-      // Redirect to dashboard
-      navigate('/dashboard');
+      // Redirect to profile page instead of dashboard (which doesn't exist)
+      navigate('/profile');
     } catch (error) {
       console.error('Error setting up profile:', error);
       toast.error('Profile setup failed', {

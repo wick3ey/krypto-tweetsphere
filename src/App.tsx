@@ -55,10 +55,11 @@ const SetupProfileWrapper = ({ children }: { children: React.ReactNode }) => {
       if (token) {
         try {
           const user = await authService.getCurrentUser();
-          hasCompletedSetup.current = !!(user.username && user.displayName);
+          // If user exists and has both username and displayName, setup is complete
+          hasCompletedSetup.current = !!(user && user.username && user.displayName);
         } catch (error) {
           console.error("Error checking profile completion:", error);
-          // If we can't verify, we'll assume they need to set up their profile
+          // If we can't verify, assume they need to set up their profile to be safe
           hasCompletedSetup.current = false;
         }
       } else {

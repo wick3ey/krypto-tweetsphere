@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Check, UserPlus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,7 @@ interface FollowButtonProps {
   userId: string;
   initialFollowing?: boolean;
   className?: string;
-  variant?: 'default' | 'outline' | 'secondary'; // Changed from 'subtle' to valid variants
+  variant?: 'default' | 'outline' | 'secondary';
   size?: 'default' | 'sm' | 'lg';
   onSuccess?: (isFollowing: boolean) => void;
 }
@@ -27,9 +27,17 @@ const FollowButton = ({
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
   const [isPending, setIsPending] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
-  const { currentUser } = useUser();
+  const { currentUser, refetchCurrentUser } = useUser();
   
+  // Check if this is the user's own profile
   const isOwnProfile = currentUser?.id === userId;
+  
+  // Check local state when component mounts or currentUser changes
+  useEffect(() => {
+    if (currentUser?.following && Array.isArray(currentUser.following)) {
+      setIsFollowing(currentUser.following.includes(userId));
+    }
+  }, [currentUser, userId]);
   
   // Don't render if this is the user's own profile
   if (isOwnProfile) {
@@ -61,6 +69,9 @@ const FollowButton = ({
         toast.success("Du följer inte längre denna användare");
       }
       
+      // Refresh current user data to update following list
+      refetchCurrentUser();
+      
       // Callback if provided
       if (onSuccess) {
         onSuccess(!isFollowing);
@@ -78,7 +89,7 @@ const FollowButton = ({
   if (isFollowing) {
     return (
       <Button
-        variant={variant === 'default' ? 'outline' : variant} // Changed - now only using valid variants
+        variant={variant === 'default' ? 'outline' : variant} 
         size={size}
         className={cn(
           "transition-all rounded-full", 
@@ -108,7 +119,7 @@ const FollowButton = ({
   
   return (
     <Button
-      variant={variant} // Now using valid variants
+      variant={variant}
       size={size}
       className={cn("rounded-full", className)}
       onClick={handleFollowClick}

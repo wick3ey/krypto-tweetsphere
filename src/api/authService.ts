@@ -64,6 +64,11 @@ export const authService = {
         localStorage.setItem('jwt_token', token);
         localStorage.setItem('wallet_address', walletAddress);
         
+        // Store the user in localStorage for offline access
+        if (user) {
+          localStorage.setItem('current_user', JSON.stringify(user));
+        }
+        
         console.info("Authentication successful", { userId: user.id, needsSetup: user.needsSetup });
         return {
           token,
@@ -87,11 +92,46 @@ export const authService = {
   getCurrentUser: async () => {
     try {
       console.debug("Getting current user");
+      
+      // Try to get from localStorage first for faster response
+      const storedUser = localStorage.getItem('current_user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        // Still make the API call in the background to ensure we have the latest data
+        apiClient.get('https://f3oci3ty.xyz/api/auth/me')
+          .then(response => {
+            if (response.data.user) {
+              localStorage.setItem('current_user', JSON.stringify(response.data.user));
+            }
+          })
+          .catch(error => {
+            console.error('Error refreshing current user in background:', error);
+          });
+        
+        return user;
+      }
+      
+      // If not in localStorage, make the API call
       const response = await apiClient.get('https://f3oci3ty.xyz/api/auth/me');
       console.debug("Current user retrieved", { user: response.data.user });
+      
+      // Store in localStorage for offline access
+      if (response.data.user) {
+        localStorage.setItem('current_user', JSON.stringify(response.data.user));
+      }
+      
       return response.data.user;
     } catch (error) {
       console.error('Error getting current user', { error });
+      // Try to get from localStorage as a fallback
+      try {
+        const storedUser = localStorage.getItem('current_user');
+        if (storedUser) {
+          return JSON.parse(storedUser);
+        }
+      } catch (localStorageError) {
+        console.error('Error getting user from localStorage:', localStorageError);
+      }
       return null;
     }
   },
@@ -115,9 +155,10 @@ export const authService = {
       // Call server-side logout
       const response = await apiClient.post('https://f3oci3ty.xyz/api/auth/logout');
       
-      // Clear local storage even if API call succeeds or fails
+      // Clear all local storage related to the user session
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
+      localStorage.removeItem('current_user');
       
       console.info("User logged out successfully");
       toast.success("Logged out successfully");
@@ -128,6 +169,7 @@ export const authService = {
       // Still clear local storage even if the API call fails
       localStorage.removeItem('jwt_token');
       localStorage.removeItem('wallet_address');
+      localStorage.removeItem('current_user');
       throw error;
     }
   }
