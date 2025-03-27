@@ -126,10 +126,18 @@ export const authService = {
    */
   async signInWithGoogle() {
     try {
+      // Get current URL to determine environment
+      const isLocalhost = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1';
+      
+      const redirectTo = isLocalhost
+        ? window.location.origin // Use local origin for development
+        : 'https://f3oci3ty.xyz'; // Use production domain for live site
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://f3oci3ty.xyz',
+          redirectTo,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent'
