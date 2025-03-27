@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
 import { dbUserToUser } from '@/lib/db-types';
@@ -71,7 +72,7 @@ export const authService = {
         // Try to sync the user via our edge function
         try {
           const response = await supabase.functions.invoke('sync-auth-user', {
-            body: { userId }
+            body: { userId, forceSync: true }
           });
           
           if (!response.data.success) {
@@ -102,6 +103,7 @@ export const authService = {
             username: `user_${user.id.substring(0, 8)}`,
             display_name: user.user_metadata?.name || user.user_metadata?.full_name || 'New User',
             avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
+            email: user.email,
             bio: '',
             joined_date: new Date().toISOString(),
             following: [],
@@ -251,6 +253,7 @@ export const authService = {
       // Reset the profile setup flags - we'll determine this after sign-in
       localStorage.removeItem('needs_profile_setup');
       localStorage.removeItem('profile_setup_complete');
+      localStorage.removeItem('current_user'); // Tvinga ny synkronisering efter inloggning
       
       // Optimize for faster redirects by setting fewer options
       const result = await supabase.auth.signInWithOAuth({

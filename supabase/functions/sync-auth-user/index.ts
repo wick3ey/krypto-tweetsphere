@@ -31,7 +31,7 @@ serve(async (req) => {
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Hämta användarinfo från request
-    const { email, userId } = await req.json();
+    const { email, userId, forceSync } = await req.json();
 
     if (!email && !userId) {
       return new Response(
@@ -96,21 +96,21 @@ serve(async (req) => {
                          !existingUser.display_name || 
                          existingUser.display_name === 'New User';
       
-      // Om användaren har en autogenererad profil men det finns nya uppgifter i auth, uppdatera
+      // Skapa en uppdateringsobjekt för att hantera ändringar
       const updateData: any = {};
       
       // Uppdatera email om det behövs
-      if (authUser.email && (!existingUser.email || existingUser.email !== authUser.email)) {
+      if (authUser.email && (!existingUser.email || existingUser.email !== authUser.email || forceSync)) {
         updateData.email = authUser.email;
       }
       
       // Uppdatera displayName om användaren har en autogenererad profil och det finns nya uppgifter
-      if (needsProfileSetup && (authUser.user_metadata?.name || authUser.user_metadata?.full_name)) {
+      if ((needsProfileSetup || forceSync) && (authUser.user_metadata?.name || authUser.user_metadata?.full_name)) {
         updateData.display_name = authUser.user_metadata?.name || authUser.user_metadata?.full_name || existingUser.display_name;
       }
       
       // Uppdatera avatar om användaren har en autogenererad profil och det finns nya uppgifter
-      if (needsProfileSetup && (authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture)) {
+      if ((needsProfileSetup || forceSync) && (authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture)) {
         updateData.avatar_url = authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || existingUser.avatar_url;
       }
       

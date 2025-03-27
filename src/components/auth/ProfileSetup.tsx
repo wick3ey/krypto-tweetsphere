@@ -44,7 +44,7 @@ type ProfileSetupFormValues = z.infer<typeof profileSetupSchema>;
 
 const ProfileSetup = () => {
   const navigate = useNavigate();
-  const { currentUser, isLoadingCurrentUser, refetchCurrentUser, createProfile } = useUser();
+  const { currentUser, isLoadingCurrentUser, refetchCurrentUser, createProfile, syncAuthUser } = useUser();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -55,6 +55,7 @@ const ProfileSetup = () => {
   const [isValidating, setIsValidating] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState(true);
   const [setupCompleted, setSetupCompleted] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   
   const form = useForm<ProfileSetupFormValues>({
     resolver: zodResolver(profileSetupSchema),
@@ -66,30 +67,51 @@ const ProfileSetup = () => {
   });
 
   useEffect(() => {
-    if (currentUser) {
-      const currentUsername = form.getValues('username');
-      if (!currentUsername && currentUser.username && !currentUser.username.startsWith('user_')) {
-        form.setValue('username', currentUser.username);
+    const checkProfileStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          const userId = session.user.id;
+          
+          const result = await syncAuthUser(userId, true);
+          
+          if (result && !result.needsProfileSetup) {
+            console.log('Profile is already set up, redirecting to home');
+            localStorage.setItem('profile_setup_complete', 'true');
+            localStorage.removeItem('needs_profile_setup');
+            navigate('/', { replace: true });
+            return;
+          }
+          
+          if (result && result.user) {
+            if (result.user.username && !result.user.username.startsWith('user_')) {
+              form.setValue('username', result.user.username);
+            }
+            
+            if (result.user.displayName && result.user.displayName !== 'New User') {
+              form.setValue('displayName', result.user.displayName);
+            }
+            
+            if (result.user.bio) {
+              form.setValue('bio', result.user.bio);
+            }
+            
+            if (result.user.avatarUrl) {
+              setAvatarPreview(result.user.avatarUrl);
+            }
+          }
+        }
+        
+        setDataLoaded(true);
+      } catch (error) {
+        console.error('Error checking profile status:', error);
+        setDataLoaded(true);
       }
-      
-      const currentDisplayName = form.getValues('displayName');
-      if (!currentDisplayName && currentUser.displayName && currentUser.displayName !== 'New User') {
-        form.setValue('displayName', currentUser.displayName);
-      }
-      
-      if (currentUser.bio) {
-        form.setValue('bio', currentUser.bio);
-      }
-      
-      if (currentUser.avatarUrl) {
-        setAvatarPreview(currentUser.avatarUrl);
-      }
-      
-      if (currentUser.headerUrl) {
-        setHeaderPreview(currentUser.headerUrl);
-      }
-    }
-  }, [currentUser, form]);
+    };
+    
+    checkProfileStatus();
+  }, [navigate, syncAuthUser, form]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -257,6 +279,7 @@ const ProfileSetup = () => {
       
       localStorage.setItem('profile_setup_complete', 'true');
       localStorage.removeItem('needs_profile_setup');
+      localStorage.removeItem('current_user');
       
       await refetchCurrentUser();
       
@@ -287,24 +310,11 @@ const ProfileSetup = () => {
     }
   };
 
-  useEffect(() => {
-    if (currentUser && !isLoadingCurrentUser) {
-      const needsSetup = !currentUser.username || 
-                          currentUser.username.startsWith('user_') || 
-                          !currentUser.displayName || 
-                          currentUser.displayName === 'New User';
-      
-      if (!needsSetup) {
-        localStorage.setItem('profile_setup_complete', 'true');
-        navigate('/', { replace: true });
-      }
-    }
-  }, [currentUser, isLoadingCurrentUser, navigate]);
-
-  if (isLoadingCurrentUser) {
+  if (isLoadingCurrentUser || !dataLoaded) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-8 h-64">
         <div className="animate-spin h-8 w-8 border-4 border-crypto-blue border-t-transparent rounded-full"></div>
+        <div className="ml-3 text-lg">Kontrollerar din profil...</div>
       </div>
     );
   }
