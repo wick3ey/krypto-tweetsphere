@@ -3,7 +3,7 @@ import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import * as bs58 from "bs58";
 
-// Set up CORS headers
+// Set up CORS headers with wildcard origin
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
