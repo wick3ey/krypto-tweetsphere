@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import EnhancedTweetCard from '@/components/feed/EnhancedTweetCard';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
@@ -31,7 +32,6 @@ const Index = () => {
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('current_user', JSON.stringify(currentUser));
-      console.log('Current user stored in localStorage:', currentUser);
     }
   }, [currentUser]);
   
@@ -41,31 +41,15 @@ const Index = () => {
     queryKeys: [['tweets']]
   });
   
-  // Try to sync local tweets with server on initial load
+  // Clear local storage of old tweets when component mounts
   useEffect(() => {
-    if (isLoggedIn) {
-      tweetService.syncLocalTweets().then(result => {
-        if (result.synced > 0) {
-          console.log(`Synced ${result.synced} tweets with server`);
-        }
-      });
-    }
-  }, [isLoggedIn]);
-  
-  // Get local tweets for initialization and fallback
-  const getLocalTweets = useCallback(() => {
-    try {
-      const localTweets = JSON.parse(localStorage.getItem('local_tweets') || '[]');
-      console.log('Local tweets from storage:', localTweets);
-      return localTweets;
-    } catch (e) {
-      console.error('Error parsing local tweets:', e);
-      return [];
-    }
+    // Remove old local tweets
+    localStorage.removeItem('local_tweets');
+    console.log('Removed local tweets from storage');
   }, []);
   
   // Fetch tweets based on active feed
-  const { data: apiTweets = [], isLoading: isLoadingTweets, refetch } = useQuery({
+  const { data: tweets = [], isLoading: isLoadingTweets, refetch } = useQuery({
     queryKey: ['tweets', activeFeed],
     queryFn: async () => {
       console.log(`Fetching ${activeFeed} feed...`);
@@ -85,8 +69,6 @@ const Index = () => {
     retry: 2,
     refetchOnWindowFocus: true,
     refetchInterval: 30000, // Auto-refresh every 30 seconds
-    // Initialize with local tweets while waiting for API
-    placeholderData: getLocalTweets, 
   });
   
   // Force refetch on first load
@@ -96,10 +78,6 @@ const Index = () => {
       refetch();
     }
   }, [refetch]);
-  
-  // Make sure we have tweets, either from API or local storage
-  const tweets = apiTweets && apiTweets.length > 0 ? apiTweets : getLocalTweets();
-  console.log('Combined tweets to display:', tweets);
   
   // Tweet creation mutation
   const createTweetMutation = useMutation({
