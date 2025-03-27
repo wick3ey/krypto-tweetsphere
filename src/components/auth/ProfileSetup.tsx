@@ -260,8 +260,13 @@ const ProfileSetup = () => {
       // Refresh user data
       await refetchCurrentUser();
       
-      // Redirect to profile page
-      navigate('/profile');
+      // Viktigt: markera profilen som uppdaterad i localStorage för att undvika loop
+      localStorage.setItem('profile_setup_complete', 'true');
+      
+      // Redirect to profile page - med en kort fördröjning för att säkerställa att data är uppdaterad
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 500);
     } catch (error) {
       console.error('Error setting up profile:', error);
       toast.error('Profilinställning misslyckades', {

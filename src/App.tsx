@@ -1,6 +1,6 @@
 
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster } from '@/components/ui/toaster';
 import { supabase } from '@/integrations/supabase/client';
 import { authService } from '@/api/authService';
@@ -20,6 +20,7 @@ import NotFound from '@/pages/NotFound';
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [sessionChecked, setSessionChecked] = useState(false);
   
   // Check if user needs profile setup
   useProfileSetup();
@@ -45,33 +46,41 @@ function App() {
           
           toast.success('Inloggad!');
           
-          // Only redirect to profile setup if not already there
-          if (!location.pathname.includes('/setup-profile')) {
-            // Check if user needs profile setup
-            setTimeout(() => {
-              authService.getCurrentUser()
-                .then(user => {
-                  const needsSetup = !user.username || 
-                                   user.username.startsWith('user_') || 
-                                   !user.displayName || 
-                                   user.displayName === 'New User';
-                  
-                  if (needsSetup) {
-                    toast.info('Profilinställning krävs', {
-                      description: 'Slutför din profil för att fortsätta.',
-                    });
-                    navigate('/setup-profile');
-                  }
-                })
-                .catch(err => {
-                  console.error('Error checking user profile:', err);
-                });
-            }, 500);
+          // Kontrollera om användaren redan har en slutförd profiluppsättning
+          if (localStorage.getItem('profile_setup_complete') === 'true') {
+            // Om ja, navigera till startsidan om vi är på profiluppsättningssidan
+            if (location.pathname.includes('/setup-profile')) {
+              navigate('/', { replace: true });
+            }
+          } else {
+            // Annars fortsätt med normal kontroll av profiluppsättning
+            authService.getCurrentUser()
+              .then(user => {
+                const needsSetup = !user.username || 
+                               user.username.startsWith('user_') || 
+                               !user.displayName || 
+                               user.displayName === 'New User';
+                
+                if (needsSetup) {
+                  toast.info('Profilinställning krävs', {
+                    description: 'Slutför din profil för att fortsätta.',
+                  });
+                  navigate('/setup-profile');
+                }
+              })
+              .catch(err => {
+                console.error('Error checking user profile:', err);
+                // Om användaren inte kan hämtas, skicka dem till profiluppsättning
+                navigate('/setup-profile');
+              });
           }
         }
       } else if (event === 'SIGNED_OUT') {
         // Clear local storage and redirect to home page
         authService.clearAuthData();
+        // Ta bort flaggan för profiluppsättning vid utloggning
+        localStorage.removeItem('profile_setup_complete');
+        
         if (location.pathname !== '/') {
           navigate('/', { replace: true });
         }
@@ -85,6 +94,9 @@ function App() {
         localStorage.setItem('jwt_token', session.access_token);
         localStorage.setItem('user_id', session.user.id);
         localStorage.setItem('current_user', JSON.stringify(session.user));
+        setSessionChecked(true);
+      } else {
+        setSessionChecked(true);
       }
     });
     

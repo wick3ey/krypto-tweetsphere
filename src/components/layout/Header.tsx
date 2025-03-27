@@ -1,20 +1,30 @@
 
 import { useState, useEffect } from 'react';
 import { Bell, Menu, X, Moon, Sun, PlusCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { notificationService } from '@/api/notificationService';
 import { authService } from '@/api/authService';
 import { useQuery } from '@tanstack/react-query';
 import { AuthDialog } from '@/components/auth/AuthDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
   const [isDark, setIsDark] = useState(true); // Since we implemented a dark theme by default
-  const isAuthenticated = !!localStorage.getItem('current_user');
+  const navigate = useNavigate();
+  const isAuthenticated = !!localStorage.getItem('jwt_token');
   
   // Fetch notification count
   const { data: notificationCount = 0 } = useQuery({
@@ -40,123 +50,73 @@ const Header = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      await authService.signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
   
   return (
     <header className={cn(
       "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-      scrolled 
-        ? "backdrop-blur-lg bg-background/80 border-b border-border/50 shadow-sm" 
-        : "bg-transparent"
+      scrolled ? "bg-background/80 backdrop-blur-sm shadow-sm" : "bg-transparent"
     )}>
-      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center space-x-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="md:hidden"
-            onClick={() => setMobileMenu(!mobileMenu)}
-          >
-            {mobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
-          
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="relative h-8 w-8">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-crypto-blue to-crypto-purple animate-glow opacity-50"></div>
-              <div className="relative z-10 h-full w-full rounded-full bg-card flex items-center justify-center border border-border">
-                <span className="text-crypto-blue font-bold text-lg">K</span>
-              </div>
-            </div>
-            <span className={cn(
-              "font-bold text-xl md:text-2xl bg-gradient-to-r from-crypto-blue to-crypto-purple bg-clip-text text-transparent",
-              "hover:from-crypto-blue hover:to-crypto-green transition-all duration-700"
-            )}>
-              KryptoSphere
+      <div className="flex items-center justify-between h-16 px-4 md:container">
+        <div className="flex items-center">
+          <Link to="/" className="flex items-center mr-6">
+            <span className="text-xl font-bold bg-gradient-to-r from-crypto-blue to-crypto-purple bg-clip-text text-transparent">
+              F3ociety
             </span>
           </Link>
         </div>
         
-        <div className="flex items-center space-x-3">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-full text-muted-foreground hover:text-foreground"
-            onClick={() => setIsDark(!isDark)}
-          >
-            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </Button>
-          
-          <Button 
-            variant="outline"
-            size="sm"
-            className="rounded-full hidden md:flex items-center gap-1"
-          >
-            <PlusCircle className="h-4 w-4 mr-1" />
-            <span>Ny</span>
-          </Button>
-          
-          {isAuthenticated && (
-            <Button variant="ghost" size="icon" className="relative rounded-full">
-              <Bell className="h-5 w-5" />
-              {notificationCount > 0 && (
-                <Badge 
-                  className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-crypto-red text-white"
-                >
-                  {notificationCount}
-                </Badge>
-              )}
-            </Button>
-          )}
-          
-          <AuthDialog />
-          
-          {isAuthenticated && currentUser && (
-            <Link to="/profile">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                className={cn(
-                  "rounded-full overflow-hidden border border-crypto-blue/30 group",
-                  "transition-all duration-300 hover:border-crypto-blue hover:shadow-glow-blue"
+        <div className="flex items-center space-x-2">
+          {isAuthenticated ? (
+            <>
+              <Button variant="ghost" size="icon" className="relative">
+                <Bell className="h-5 w-5" />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-crypto-blue text-[10px] text-white">
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </span>
                 )}
-              >
-                <div className="relative h-8 w-8 overflow-hidden rounded-full">
-                  <img
-                    src={currentUser?.avatarUrl || "https://api.dicebear.com/7.x/identicon/svg?seed=user"}
-                    alt="Profile"
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
-                  />
-                </div>
               </Button>
-            </Link>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="ml-2 rounded-full relative overflow-hidden p-0 h-8 w-8">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage 
+                        src={currentUser?.avatarUrl || `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUser?.username || 'user'}`} 
+                        alt={currentUser?.displayName || 'User'} 
+                      />
+                      <AvatarFallback>{currentUser?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Min profil</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    Profil
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/setup-profile')}>
+                    Redigera profil
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    Logga ut
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <AuthDialog />
           )}
-        </div>
-      </div>
-      
-      {/* Mobile menu */}
-      <div className={cn(
-        "fixed inset-0 top-16 bg-background/95 backdrop-blur-md z-40 transition-all duration-300 md:hidden border-t border-border/50",
-        mobileMenu ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-full pointer-events-none"
-      )}>
-        <div className="flex flex-col p-4 space-y-4">
-          <nav className="space-y-2">
-            {[
-              { text: 'Hem', path: '/' },
-              { text: 'Profil', path: '/profile' },
-              { text: 'Utforska', path: '/explore' },
-              { text: 'Dashboard', path: '/dashboard' },
-              { text: 'Meddelanden', path: '/messages' },
-              { text: 'Inställningar', path: '/settings' },
-            ].map((item) => (
-              <Link 
-                key={item.path} 
-                to={item.path}
-                className="block p-3 rounded-lg hover:bg-secondary/50 transition-colors"
-                onClick={() => setMobileMenu(false)}
-              >
-                {item.text}
-              </Link>
-            ))}
-          </nav>
         </div>
       </div>
     </header>

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { User, Tweet, UserProfile } from '@/lib/types';
 import { dbUserToUser, dbTweetToTweet } from '@/lib/db-types';
@@ -42,7 +41,6 @@ export const userService = {
     }
   },
   
-  // Ny funktion för att hämta användare via wallet-adress
   async getUserByWalletAddress(walletAddress: string): Promise<User | null> {
     try {
       console.log('Söker användare med wallet-adress:', walletAddress);
@@ -79,7 +77,7 @@ export const userService = {
         throw new Error('User ID not found in local storage');
       }
       
-      // Generera ett unikt filnamn
+      // Generera ett unikt filnamn med timestamp för att undvika cacheproblem
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}/${type}_${Date.now()}.${fileExt}`;
       
@@ -106,6 +104,19 @@ export const userService = {
         .getPublicUrl(fileName);
         
       console.log(`Publik URL: ${publicUrlData.publicUrl}`);
+      
+      // Uppdatera användarens profil direkt i databasen med den nya bilden
+      if (type === 'avatar') {
+        await supabase
+          .from('users')
+          .update({ avatar_url: publicUrlData.publicUrl })
+          .eq('id', userId);
+      } else if (type === 'header') {
+        await supabase
+          .from('users')
+          .update({ header_url: publicUrlData.publicUrl })
+          .eq('id', userId);
+      }
       
       return publicUrlData.publicUrl;
     } catch (error) {
@@ -173,6 +184,10 @@ export const userService = {
         }
         
         console.log('Ny användare skapad:', newUser);
+        
+        // Markera att profiluppsättningen är slutförd
+        localStorage.setItem('profile_setup_complete', 'true');
+        
         return dbUserToUser(newUser);
       }
       
@@ -202,6 +217,29 @@ export const userService = {
       }
       
       console.log('Användarprofil uppdaterad:', data);
+      
+      // Markera att profiluppsättningen är slutförd
+      localStorage.setItem('profile_setup_complete', 'true');
+      
+      // Uppdatera avataren i Auth-metadatan för konsistens
+      if (avatarUrl) {
+        try {
+          await supabase.auth.updateUser({
+            data: { 
+              avatar_url: avatarUrl 
+            }
+          });
+        } catch (metaError) {
+          console.error('Kunde inte uppdatera auth metadata:', metaError);
+          // Detta är inte ett kritiskt fel, så vi fortsätter
+        }
+      }
+      
+      // Uppdatera cache för currentUser
+      if (typeof window !== 'undefined') {
+        const converted = dbUserToUser(data);
+        localStorage.setItem('current_user', JSON.stringify(converted));
+      }
       
       // Konvertera till applikationens User-typ och returnera
       return dbUserToUser(data);

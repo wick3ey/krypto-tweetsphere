@@ -1,15 +1,12 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/api/userService';
 import { authService } from '@/api/authService';
 import { toast } from 'sonner';
 import { User } from '@/lib/types';
 
-// Använd ett vanligt exporterat funktionsnamn för bättre HMR-kompatibilitet
 export function useUser() {
   const queryClient = useQueryClient();
   
-  // Hämta nuvarande användare
   const { 
     data: currentUser,
     isLoading: isLoadingCurrentUser,
@@ -24,32 +21,27 @@ export function useUser() {
     meta: {
       onError: (error: any) => {
         console.error('Error fetching current user:', error);
-        // Om vi inte kan hämta användaren, men har en token, kanske vi behöver skapa profilen
         if (localStorage.getItem('jwt_token') && localStorage.getItem('wallet_address')) {
-          // Logga problemet för debugging
           console.log('Token finns men kunde inte hämta användaren - kan behöva profiluppsättning');
         }
       }
     }
   });
 
-  // Kontrollera om en användare med given wallet-adress existerar
   const checkWalletUser = (walletAddress: string) => {
     return useQuery({
       queryKey: ['walletUser', walletAddress],
       queryFn: () => userService.getUserByWalletAddress(walletAddress),
-      enabled: false, // Körs bara manuellt
+      enabled: false,
       retry: 1,
       meta: {
         onError: () => {
-          // Om vi får ett fel här så finns troligen ingen användare med denna adress
           console.log('Ingen användare hittad med denna wallet-adress');
         }
       }
     });
   };
 
-  // Uppdatera användarprofil
   const updateProfileMutation = useMutation({
     mutationFn: (profileData: Partial<User>) => userService.updateProfile(profileData),
     onSuccess: (data) => {
@@ -66,14 +58,11 @@ export function useUser() {
     }
   });
 
-  // Skapa ny användarprofil
   const createProfileMutation = useMutation({
     mutationFn: (profileData: Partial<User>) => userService.setupProfile(profileData),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
       toast.success("Profil skapad");
-      
-      // Uppdatera lokal lagring för snabbare åtkomst
       localStorage.setItem('current_user', JSON.stringify(data));
     },
     onError: (error: any) => {
@@ -83,7 +72,6 @@ export function useUser() {
     }
   });
 
-  // Följ användare
   const followUserMutation = useMutation({
     mutationFn: (userId: string) => userService.followUser(userId),
     onSuccess: (_, userId) => {
@@ -99,7 +87,6 @@ export function useUser() {
     }
   });
 
-  // Sluta följa användare
   const unfollowUserMutation = useMutation({
     mutationFn: (userId: string) => userService.unfollowUser(userId),
     onSuccess: (_, userId) => {
@@ -115,17 +102,15 @@ export function useUser() {
     }
   });
 
-  // Hämta användarprofil med konsekvent funktion
   const getUserProfile = (identifier: string, options = {}) => {
     return useQuery({
       queryKey: ['userProfile', identifier],
       queryFn: () => userService.getUserProfile(identifier, options),
-      staleTime: 2 * 60 * 1000, // 2 minuter
+      staleTime: 2 * 60 * 1000,
       ...options
     });
   };
 
-  // Hämta en användares följare med paginering
   const getUserFollowers = (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
     return useQuery({
       queryKey: ['userFollowers', userId, page, limit, sortBy],
@@ -133,7 +118,6 @@ export function useUser() {
     });
   };
 
-  // Hämta användare som användaren följer med paginering
   const getUserFollowing = (userId: string, page = 1, limit = 20, sortBy = 'recent') => {
     return useQuery({
       queryKey: ['userFollowing', userId, page, limit, sortBy],
@@ -141,7 +125,6 @@ export function useUser() {
     });
   };
 
-  // Hämta användares tweets med alternativ
   const getUserTweets = (userId: string, options = {}) => {
     return useQuery({
       queryKey: ['userTweets', userId, options],
@@ -149,7 +132,6 @@ export function useUser() {
     });
   };
 
-  // Kontrollera om användaren behöver göra profiluppsättning
   const needsProfileSetup = () => {
     if (!currentUser) return true;
     
@@ -157,6 +139,30 @@ export function useUser() {
            currentUser.username.startsWith('user_') || 
            !currentUser.displayName || 
            currentUser.displayName === 'New User';
+  };
+
+  const refetchCurrentUser = async () => {
+    try {
+      const result = await queryClient.fetchQuery({
+        queryKey: ['currentUser'],
+        queryFn: () => authService.getCurrentUser()
+      });
+      return result;
+    } catch (error) {
+      console.error('Error refetching current user:', error);
+      throw error;
+    }
+  };
+
+  const updateCachedUser = (userData: Partial<User>) => {
+    queryClient.setQueryData(['currentUser'], (oldData: User | undefined) => {
+      if (!oldData) return oldData;
+      
+      return {
+        ...oldData,
+        ...userData
+      };
+    });
   };
 
   return {
@@ -177,6 +183,7 @@ export function useUser() {
     getUserFollowers,
     getUserFollowing,
     getUserTweets,
-    needsProfileSetup
+    needsProfileSetup,
+    updateCachedUser
   };
 }
