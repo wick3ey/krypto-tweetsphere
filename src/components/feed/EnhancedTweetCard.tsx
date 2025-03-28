@@ -1,274 +1,304 @@
 
-import React, { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import { enUS } from 'date-fns/locale';
-import {
-  Heart,
-  MessageSquare,
-  Repeat,
-  Share2,
-  Verified,
-  MoreHorizontal,
-  ArrowUpRight,
-  HeartIcon,
-  MessageSquareIcon,
-  RepeatIcon,
-  Share2Icon,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { User, Tweet } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { toast } from 'sonner';
-import { useUser } from '@/hooks/useUser';
-import { tweetService } from '@/api/tweetService';
+import { useState, useEffect } from 'react';
+import { Heart, MessageSquare, Repeat2, Share, MoreHorizontal, Calendar, Shield, Zap } from 'lucide-react';
+import { Tweet } from '@/lib/types';
 import { Link } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface EnhancedTweetCardProps {
   tweet: Tweet;
+  className?: string;
+  style?: React.CSSProperties;
+  compact?: boolean;
   animated?: boolean;
-  animationDelay?: number; // Add this prop to fix the TypeScript error
 }
 
-const EnhancedTweetCard = ({ tweet, animated = true, animationDelay = 0 }: EnhancedTweetCardProps) => {
-  const [isLiked, setIsLiked] = useState(tweet.likedBy?.includes('current-user-id') || false);
-  const [likesCount, setLikesCount] = useState(tweet.likes || 0);
-  const { currentUser } = useUser();
-  const [isRetweeted, setIsRetweeted] = useState(tweet.retweetedBy?.includes('current-user-id') || false);
-  const [retweetsCount, setRetweetsCount] = useState(tweet.retweets || 0);
-  const [isDeleting, setIsDeleting] = useState(false);
+const EnhancedTweetCard = ({ 
+  tweet, 
+  className, 
+  style, 
+  compact = false, 
+  animated = true 
+}: EnhancedTweetCardProps) => {
+  const [liked, setLiked] = useState(false);
+  const [retweeted, setRetweeted] = useState(false);
+  const [likeCount, setLikeCount] = useState(tweet.likes);
+  const [retweetCount, setRetweetCount] = useState(tweet.retweets);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isVisible, setIsVisible] = useState(!animated);
+  const [isHovered, setIsHovered] = useState(false);
   
-  const mockUser: User = {
-    id: 'mock-user-id',
-    username: 'mock-user',
-    displayName: 'Mock User',
-    avatarUrl: '',
-    bio: '',
-    joinedDate: new Date().toISOString(),
-    following: [],
-    followers: [],
-    verified: false
-  };
-  
-  const handleLike = async () => {
-    if (!currentUser) {
-      toast.error('Du måste vara inloggad för att gilla ett inlägg');
-      return;
-    }
-    
-    try {
-      if (isLiked) {
-        await tweetService.unlikeTweet(tweet.id);
-        setIsLiked(false);
-        setLikesCount(prevCount => Math.max(0, prevCount - 1));
-      } else {
-        await tweetService.likeTweet(tweet.id);
-        setIsLiked(true);
-        setLikesCount(prevCount => prevCount + 1);
-      }
-    } catch (error) {
-      console.error('Error toggling like:', error);
-      toast.error('Kunde inte gilla/ogilla inlägg');
-    }
-  };
-  
-  const handleRetweet = async () => {
-    if (!currentUser) {
-      toast.error('Du måste vara inloggad för att dela ett inlägg');
-      return;
-    }
-    
-    try {
-      if (isRetweeted) {
-        await tweetService.unretweet(tweet.id);
-        setIsRetweeted(false);
-        setRetweetsCount(prevCount => Math.max(0, prevCount - 1));
-      } else {
-        await tweetService.retweet(tweet.id);
-        setIsRetweeted(true);
-        setRetweetsCount(prevCount => prevCount + 1);
-      }
-    } catch (error) {
-      console.error('Error toggling retweet:', error);
-      toast.error('Kunde inte dela/ta bort delning av inlägg');
-    }
-  };
-  
-  const handleDelete = async () => {
-    if (!currentUser) {
-      toast.error('Du måste vara inloggad för att ta bort ett inlägg');
-      return;
-    }
-    
-    setIsDeleting(true);
-    try {
-      await tweetService.deleteTweet(tweet.id);
-      toast.success('Inlägg borttaget');
-      // Refresh feed after deleting
-      window.location.reload();
-    } catch (error) {
-      console.error('Error deleting tweet:', error);
-      toast.error('Kunde inte ta bort inlägg');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-  
-  const handleShare = async (platform: string) => {
-    try {
-      await tweetService.shareTweet(tweet.id, platform);
-    } catch (error) {
-      console.error('Error sharing tweet:', error);
-      toast.error('Kunde inte dela inlägg');
-    }
-  };
-  
-  const renderTweetActions = () => (
-    <div className="flex items-center justify-between w-full">
-      <Button variant="ghost" size="icon" className="group">
-        <MessageSquareIcon className="h-5 w-5 shrink-0" />
-        <span className="sr-only">Kommentera</span>
-      </Button>
+  // Add null check to ensure tweet and tweet.user exist
+  if (!tweet || !tweet.user) {
+    console.error("Tweet or tweet.user is undefined:", tweet);
+    return null;
+  }
+
+  useEffect(() => {
+    if (animated) {
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+      }, Math.random() * 500);
       
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className={cn("group", isRetweeted && "text-green-500")}
-        onClick={handleRetweet}
-        disabled={isDeleting}
-      >
-        <RepeatIcon className="h-5 w-5 shrink-0" />
-        <span className="sr-only">Dela</span>
-        {retweetsCount > 0 && (
-          <span className="ml-1 text-sm text-muted-foreground">{retweetsCount}</span>
-        )}
-      </Button>
-      
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className={cn("group", isLiked && "text-red-500")}
-        onClick={handleLike}
-        disabled={isDeleting}
-      >
-        <HeartIcon className="h-5 w-5 shrink-0" />
-        <span className="sr-only">Gilla</span>
-        {likesCount > 0 && (
-          <span className="ml-1 text-sm text-muted-foreground">{likesCount}</span>
-        )}
-      </Button>
-      
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="group">
-            <Share2Icon className="h-5 w-5 shrink-0" />
-            <span className="sr-only">Dela</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Dela inlägg</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => handleShare('twitter')}>
-            Twitter
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleShare('facebook')}>
-            Facebook
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleShare('copy')}>
-            Kopiera länk
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
-  );
-  
-  const renderDropdownMenu = () => {
-    if (tweet.user?.id !== currentUser?.id) {
-      return null;
+      return () => clearTimeout(timer);
     }
-    
+  }, [animated]);
+
+  const formattedDate = formatDistanceToNow(new Date(tweet.timestamp), { addSuffix: true });
+  
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
+  };
+  
+  const handleLike = () => {
+    setLiked(!liked);
+    setLikeCount(prevCount => liked ? prevCount - 1 : prevCount + 1);
+  };
+  
+  const handleRetweet = () => {
+    setRetweeted(!retweeted);
+    setRetweetCount(prevCount => retweeted ? prevCount - 1 : prevCount + 1);
+  };
+  
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  if (compact) {
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="absolute right-2 top-2">
-            <MoreHorizontal className="h-4 w-4" />
-            <span className="sr-only">Mer</span>
+      <div 
+        className={cn(
+          "crypto-card p-3 hover:shadow-md transition-all duration-300",
+          !isVisible && "opacity-0 translate-y-4",
+          isVisible && "opacity-100 translate-y-0",
+          className
+        )}
+        style={{
+          ...style,
+          transitionDelay: animated ? `${Math.random() * 0.3}s` : '0s',
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="flex items-center">
+          <Link to={`/profile/${tweet.user.username}`} className="flex-shrink-0">
+            <div className={cn(
+              "h-8 w-8 rounded-full overflow-hidden border border-border/50",
+              "transition-transform duration-300",
+              isHovered && "scale-110"
+            )}>
+              <img
+                src={tweet.user.avatarUrl}
+                alt={tweet.user.displayName}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </Link>
+          
+          <div className="ml-2 flex-1 min-w-0">
+            <div className="flex items-center">
+              <Link to={`/profile/${tweet.user.username}`} className="font-medium text-sm truncate">
+                {tweet.user.displayName}
+              </Link>
+              <span className="mx-1 text-muted-foreground">·</span>
+              <span className="text-xs text-muted-foreground">{formattedDate}</span>
+            </div>
+            <p className="text-sm line-clamp-1">{tweet.content}</p>
+          </div>
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 ml-2 text-muted-foreground hover:text-crypto-blue"
+          >
+            <MessageSquare className="h-4 w-4" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" forceMount>
-          <DropdownMenuLabel>Alternativ</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={isDeleting} onClick={handleDelete}>
-            {isDeleting ? (
-              <>Tar bort...</>
-            ) : (
-              <>Ta bort inlägg</>
-            )}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </div>
+      </div>
     );
-  };
-  
+  }
+
   return (
     <div 
       className={cn(
-        "relative border rounded-lg bg-card text-card-foreground shadow-sm transition-all duration-300 hover:shadow-md",
-        animated ? "hover:scale-[1.01]" : ""
+        "crypto-card p-4 overflow-hidden transition-all duration-300", 
+        liked && "border-crypto-red/20", 
+        retweeted && "border-crypto-green/20",
+        !isVisible && "opacity-0 translate-y-4",
+        isVisible && "opacity-100 translate-y-0",
+        className
       )}
-      style={{ animationDelay: animationDelay ? `${animationDelay}ms` : undefined }}
+      style={{
+        ...style,
+        transitionDelay: animated ? `${Math.random() * 0.3}s` : '0s',
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
-      {renderDropdownMenu()}
-      
-      <div className="flex space-x-3 p-4">
-        <Link to={`/profile/${tweet.user?.username || tweet.user?.id}`}>
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={tweet.user?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tweet.user?.username || tweet.user?.id}`} alt={tweet.user?.displayName} />
-            <AvatarFallback>{tweet.user?.displayName?.charAt(0)}</AvatarFallback>
-          </Avatar>
+      <div className="flex space-x-3">
+        <Link to={`/profile/${tweet.user.username}`} className="flex-shrink-0">
+          <div className={cn(
+            "h-10 w-10 rounded-full overflow-hidden border border-border/50",
+            "transition-transform duration-300",
+            isHovered && "scale-110"
+          )}>
+            <img
+              src={tweet.user.avatarUrl}
+              alt={tweet.user.displayName}
+              className="h-full w-full object-cover"
+            />
+          </div>
         </Link>
         
-        <div className="flex-1 space-y-1.5">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <div>
-              <Link to={`/profile/${tweet.user?.username || tweet.user?.id}`}>
-                <h4 className="text-sm font-semibold leading-none">{tweet.user?.displayName}</h4>
-                <p className="text-sm text-muted-foreground">
-                  @{tweet.user?.username}
-                  {tweet.user?.verified && (
-                    <Verified className="ml-1 inline-block h-4 w-4 text-blue-500" />
-                  )}
-                </p>
+            <div className="flex items-center overflow-hidden">
+              <Link to={`/profile/${tweet.user.username}`} className="font-semibold hover:underline truncate">
+                {tweet.user.displayName}
               </Link>
+              {tweet.user.verified && (
+                <Badge variant="outline" className="ml-1 h-5 px-1 text-xs text-crypto-blue border-crypto-blue/30">
+                  <Shield className="h-3 w-3 mr-0.5" />
+                  <span className="hidden xxs:inline">Verified</span>
+                </Badge>
+              )}
+              <span className="mx-1 text-muted-foreground flex-shrink-0">·</span>
+              <span className="text-muted-foreground text-sm truncate hover:underline cursor-pointer flex-shrink-0">
+                @{tweet.user.username}
+              </span>
             </div>
-            <div className="ml-2 text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(tweet.timestamp), { addSuffix: true, locale: enUS })}
+            
+            <div className="flex items-center">
+              <span className="text-xs text-muted-foreground hidden md:inline-block">
+                <time dateTime={tweet.timestamp} title={new Date(tweet.timestamp).toLocaleString()}>
+                  {formattedDate}
+                </time>
+              </span>
+              <Button variant="ghost" size="icon" className="h-8 w-8 ml-1">
+                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+              </Button>
             </div>
           </div>
-          <p className="text-sm leading-tight">{tweet.content}</p>
-          {tweet.attachments && tweet.attachments.length > 0 && (
-            <div className="mt-2">
-              {tweet.attachments.map((attachment, index) => (
-                <img
-                  key={index}
-                  src={attachment}
-                  alt={`Attachment ${index + 1}`}
-                  className="mt-2 max-h-40 w-full rounded-md object-cover"
-                />
+          
+          <p className={cn(
+            "mt-1 text-balance transition-all duration-300",
+            isExpanded ? "line-clamp-none" : "line-clamp-3"
+          )}>
+            {tweet.content}
+          </p>
+          
+          {tweet.content.length > 150 && !isExpanded && (
+            <button 
+              className="text-xs text-crypto-blue hover:underline mt-1"
+              onClick={toggleExpand}
+            >
+              Show more
+            </button>
+          )}
+          
+          {isExpanded && (
+            <button 
+              className="text-xs text-crypto-blue hover:underline mt-1"
+              onClick={toggleExpand}
+            >
+              Show less
+            </button>
+          )}
+          
+          {tweet.hashtags && tweet.hashtags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {tweet.hashtags.map((tag) => (
+                <Link 
+                  key={tag} 
+                  to={`/hashtag/${tag}`} 
+                  className={cn(
+                    "text-crypto-blue hover:bg-crypto-blue/10 px-2 py-0.5 rounded-full text-sm transition-colors",
+                    isHovered && "animate-pulse-slow"
+                  )}
+                  style={{ animationDelay: `${Math.random() * 1}s` }}
+                >
+                  #{tag}
+                </Link>
               ))}
             </div>
           )}
+          
+          <div className="mt-3 flex justify-between text-muted-foreground text-sm max-w-md">
+            <button 
+              className={cn(
+                "flex items-center space-x-1 group transition-colors",
+                "hover:text-crypto-blue"
+              )}
+            >
+              <div className="p-1.5 rounded-full group-hover:bg-crypto-blue/10 transition-colors">
+                <MessageSquare className="h-4 w-4 transition-colors" />
+              </div>
+              <span>{formatNumber(tweet.comments)}</span>
+            </button>
+            
+            <button 
+              className={cn(
+                "flex items-center space-x-1 group transition-colors",
+                retweeted ? "text-crypto-green" : "hover:text-crypto-green"
+              )}
+              onClick={handleRetweet}
+            >
+              <div className={cn(
+                "p-1.5 rounded-full transition-colors",
+                retweeted ? "bg-crypto-green/10" : "group-hover:bg-crypto-green/10"
+              )}>
+                <Repeat2 className="h-4 w-4 transition-colors" />
+              </div>
+              <span>{formatNumber(retweetCount)}</span>
+            </button>
+            
+            <button 
+              className={cn(
+                "flex items-center space-x-1 group transition-colors",
+                liked ? "text-crypto-red" : "hover:text-crypto-red"
+              )}
+              onClick={handleLike}
+            >
+              <div className={cn(
+                "p-1.5 rounded-full transition-colors relative",
+                liked ? "bg-crypto-red/10" : "group-hover:bg-crypto-red/10"
+              )}>
+                <Heart 
+                  className={cn(
+                    "h-4 w-4 transition-transform duration-300", 
+                    liked && "scale-110 fill-crypto-red"
+                  )} 
+                />
+                {liked && (
+                  <span className="animate-ping absolute inset-0 h-full w-full rounded-full bg-crypto-red opacity-30" />
+                )}
+              </div>
+              <span>{formatNumber(likeCount)}</span>
+            </button>
+            
+            <button className="flex items-center space-x-1 group hover:text-crypto-blue transition-colors">
+              <div className="p-1.5 rounded-full group-hover:bg-crypto-blue/10 transition-colors">
+                <Share className="h-4 w-4" />
+              </div>
+            </button>
+          </div>
+          
+          <div className="mt-2 md:hidden text-xs text-muted-foreground">
+            <Calendar className="h-3 w-3 inline-block align-text-bottom mr-1" />
+            <time dateTime={tweet.timestamp}>
+              {new Date(tweet.timestamp).toLocaleString()}
+            </time>
+          </div>
         </div>
       </div>
-      
-      {renderTweetActions()}
     </div>
   );
 };

@@ -1,137 +1,28 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import Header from '@/components/layout/Header';
+import Navigation from '@/components/layout/Navigation';
+import AnimatedCard from '@/components/common/AnimatedCard';
+import { mockTweets, suggestedUsers } from '@/lib/mockData';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Compass, Filter, Search, TrendingUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import AnimatedCard from '@/components/common/AnimatedCard';
-import { useQuery } from '@tanstack/react-query';
-import { exploreService } from '@/api/exploreService';
-import { 
-  TrendingData, 
-  CommunitiesData, 
-  TrendingTopic, 
-  TrendingCoin, 
-  TrendingEvent,
-  CommunityTopic,
-  CommunityProject,
-  CommunityGroup,
-  SuggestedUser,
-  Tweet
-} from '@/lib/types';
-import { toast } from '@/components/ui/use-toast';
 
 const Explore = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { tag } = useParams<{ tag: string }>();
-  
-  // Fetch trending hashtags with proper type definition
-  const { 
-    data: trendingData = { topics: [], coins: [], events: [] }, 
-    isLoading: isLoadingTrending,
-    refetch: refetchTrending
-  } = useQuery({
-    queryKey: ['trending'],
-    queryFn: () => exploreService.getTrending(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-  
-  // Fetch suggested users
-  const { 
-    data: suggestedUsers = [], 
-    isLoading: isLoadingSuggestedUsers,
-    refetch: refetchUsers 
-  } = useQuery({
-    queryKey: ['suggestedUsers'],
-    queryFn: () => exploreService.getSuggestedUsers(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-  
-  // Fetch communities
-  const { 
-    data: communities = { topics: [], projects: [], groups: [] }, 
-    isLoading: isLoadingCommunities,
-    refetch: refetchCommunities 
-  } = useQuery({
-    queryKey: ['communities'],
-    queryFn: () => exploreService.getCommunities(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
-  });
-  
-  // Fetch tweets for specific hashtag if provided
-  const { 
-    data: hashtagTweets = [], 
-    isLoading: isLoadingHashtagTweets,
-    refetch: refetchHashtagTweets
-  } = useQuery({
-    queryKey: ['hashtagTweets', tag],
-    queryFn: () => exploreService.getHashtagTweets(tag || ''),
-    enabled: !!tag,
-    staleTime: 3 * 60 * 1000, // 3 minutes
-  });
-  
-  // Set active tab based on params
-  const [activeTab, setActiveTab] = useState('trending');
-  
-  useEffect(() => {
-    // If tag is present, switch to trending tab since that shows hashtag content
-    if (tag) {
-      setActiveTab('trending');
-    }
-  }, [tag]);
-
-  // Handle manual refresh
-  const handleRefresh = () => {
-    switch(activeTab) {
-      case 'trending':
-        refetchTrending();
-        if (tag) {
-          refetchHashtagTweets();
-        }
-        toast({
-          title: "Refreshed",
-          description: "Trending data has been updated",
-        });
-        break;
-      case 'discover':
-        refetchCommunities();
-        toast({
-          title: "Refreshed",
-          description: "Communities data has been updated",
-        });
-        break;
-      case 'people':
-        refetchUsers();
-        toast({
-          title: "Refreshed",
-          description: "User suggestions have been updated",
-        });
-        break;
-    }
-  };
   
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0 md:pl-20">
+      <Header />
+      <Navigation />
+      
       <main className="container max-w-4xl pt-20 px-4">
-        <div className="mb-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Explore</h1>
-            <p className="text-muted-foreground">Discover the latest trends in crypto</p>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-full hover:bg-secondary" 
-            onClick={handleRefresh}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-              <path d="M3 3v5h5"></path>
-            </svg>
-            <span className="sr-only">Refresh</span>
-          </Button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Explore</h1>
+          <p className="text-muted-foreground">Discover the latest trends in crypto</p>
         </div>
         
         <div className="relative mb-6">
@@ -147,7 +38,7 @@ const Explore = () => {
           </Button>
         </div>
         
-        <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs defaultValue="trending" className="w-full">
           <TabsList className="grid grid-cols-3 glass-card">
             <TabsTrigger value="trending">
               <TrendingUp className="h-4 w-4 mr-2" />
@@ -169,317 +60,199 @@ const Explore = () => {
           </TabsList>
           
           <TabsContent value="trending" className="mt-6">
-            {tag && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-medium">#{tag}</h2>
-                  <Link to="/explore">
-                    <Button variant="outline" size="sm">
-                      Back to Explore
-                    </Button>
-                  </Link>
+            <div className="grid gap-6 md:grid-cols-2">
+              <AnimatedCard className="p-4 overflow-hidden">
+                <div className="flex items-center space-x-2 mb-4">
+                  <TrendingUp className="h-5 w-5 text-crypto-blue" />
+                  <h3 className="font-semibold">Trending Topics</h3>
                 </div>
                 
-                {isLoadingHashtagTweets ? (
-                  <div className="space-y-4 mt-4">
-                    {Array(3).fill(0).map((_, i) => (
-                      <div key={i} className="p-4 border border-border rounded-lg animate-pulse">
-                        <div className="flex gap-3">
-                          <div className="h-10 w-10 rounded-full bg-muted"></div>
-                          <div className="flex-1 space-y-2">
-                            <div className="h-4 bg-muted rounded w-1/4"></div>
-                            <div className="h-4 bg-muted rounded w-full"></div>
-                            <div className="h-4 bg-muted rounded w-3/4"></div>
+                <div className="space-y-4">
+                  {[
+                    { tag: "Bitcoin", tweets: "120K", description: "New all-time high approaching?" },
+                    { tag: "Ethereum", tweets: "85K", description: "ETF approval speculation intensifies" },
+                    { tag: "NFT", tweets: "42K", description: "New collection by Beeple launches today" },
+                    { tag: "DeFi", tweets: "36K", description: "Total Value Locked reaches $50B" },
+                    { tag: "Web3", tweets: "24K", description: "Major adoption milestone announced" }
+                  ].map((item, index) => (
+                    <Link 
+                      key={item.tag} 
+                      to={`/hashtag/${item.tag}`}
+                      className="block hover:bg-secondary/50 p-3 rounded-lg transition-colors animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">#{item.tag}</p>
+                          <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
+                        </div>
+                        <span className="bg-secondary px-2 py-1 rounded-full text-xs">
+                          {item.tweets} tweets
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </AnimatedCard>
+              
+              <div className="space-y-6">
+                <AnimatedCard className="p-4" delay={100}>
+                  <h3 className="font-semibold mb-4">Trending Coins</h3>
+                  
+                  <div className="space-y-3">
+                    {[
+                      { name: "Bitcoin", symbol: "BTC", price: "$37,500", change: "+2.3%", logo: "https://cryptologos.cc/logos/bitcoin-btc-logo.svg?v=024" },
+                      { name: "Ethereum", symbol: "ETH", price: "$1,960", change: "+3.7%", logo: "https://cryptologos.cc/logos/ethereum-eth-logo.svg?v=024" },
+                      { name: "Solana", symbol: "SOL", price: "$72.40", change: "+5.6%", logo: "https://cryptologos.cc/logos/solana-sol-logo.svg?v=024" },
+                      { name: "Chainlink", symbol: "LINK", price: "$12.30", change: "-1.2%", logo: "https://cryptologos.cc/logos/chainlink-link-logo.svg?v=024" }
+                    ].map((coin, index) => (
+                      <div 
+                        key={coin.symbol} 
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors animate-fade-in"
+                        style={{ animationDelay: `${index * 50 + 200}ms` }}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <img src={coin.logo} alt={coin.name} className="h-8 w-8" />
+                          <div>
+                            <p className="font-medium">{coin.name}</p>
+                            <p className="text-xs text-muted-foreground">{coin.symbol}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono">{coin.price}</p>
+                          <p className={cn(
+                            "text-xs",
+                            coin.change.startsWith("+") ? "text-crypto-green" : "text-crypto-red"
+                          )}>
+                            {coin.change}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </AnimatedCard>
+                
+                <AnimatedCard className="p-4" delay={200}>
+                  <h3 className="font-semibold mb-4">Hot Events</h3>
+                  
+                  <div className="space-y-3">
+                    {[
+                      { name: "ETH London Upgrade", date: "May 25, 2024", type: "Protocol Update", image: "https://api.dicebear.com/7.x/identicon/svg?seed=eth-event" },
+                      { name: "Web3 Summit", date: "June 10-12, 2024", type: "Conference", image: "https://api.dicebear.com/7.x/identicon/svg?seed=web3-event" },
+                      { name: "Bitcoin Halving", date: "April 2024", type: "Network Event", image: "https://api.dicebear.com/7.x/identicon/svg?seed=btc-event" }
+                    ].map((event, index) => (
+                      <div 
+                        key={event.name} 
+                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors animate-fade-in"
+                        style={{ animationDelay: `${index * 50 + 300}ms` }}
+                      >
+                        <img src={event.image} alt={event.name} className="h-12 w-12 rounded-lg object-cover" />
+                        <div>
+                          <p className="font-medium">{event.name}</p>
+                          <div className="flex items-center mt-1">
+                            <span className="text-xs bg-crypto-blue/10 text-crypto-blue px-2 py-0.5 rounded-full">
+                              {event.type}
+                            </span>
+                            <span className="text-xs text-muted-foreground ml-2">{event.date}</span>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : hashtagTweets.length > 0 ? (
-                  <div className="space-y-4 mt-4">
-                    {hashtagTweets.map((tweet: Tweet) => (
-                      <AnimatedCard key={tweet.id} className="p-4">
-                        <div className="flex gap-3">
-                          <img src={tweet.user.avatarUrl} alt={tweet.user.displayName} className="h-10 w-10 rounded-full" />
-                          <div>
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">{tweet.user.displayName}</span>
-                              <span className="text-muted-foreground">@{tweet.user.username}</span>
-                            </div>
-                            <p className="mt-1">{tweet.content}</p>
-                            <div className="flex gap-4 mt-2 text-muted-foreground text-sm">
-                              <span>{tweet.likes} likes</span>
-                              <span>{tweet.comments} replies</span>
-                            </div>
-                          </div>
-                        </div>
-                      </AnimatedCard>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-muted-foreground mt-8">No tweets found for #{tag}</p>
-                )}
-              </div>
-            )}
-            
-            {!tag && (
-              <div className="grid gap-6 md:grid-cols-2">
-                <AnimatedCard className="p-4 overflow-hidden">
-                  <div className="flex items-center space-x-2 mb-4">
-                    <TrendingUp className="h-5 w-5 text-crypto-blue" />
-                    <h3 className="font-semibold">Trending Topics</h3>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {isLoadingTrending ? (
-                      Array(5).fill(0).map((_, i) => (
-                        <div 
-                          key={i} 
-                          className="block p-3 rounded-lg animate-pulse"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="space-y-2">
-                              <div className="h-5 bg-muted rounded w-20"></div>
-                              <div className="h-4 bg-muted rounded w-40"></div>
-                            </div>
-                            <div className="h-6 bg-muted rounded w-16"></div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      trendingData.topics.map((item: TrendingTopic, index: number) => (
-                        <Link 
-                          key={item.tag} 
-                          to={`/hashtag/${item.tag}`}
-                          className="block hover:bg-secondary/50 p-3 rounded-lg transition-colors animate-fade-in"
-                          style={{ animationDelay: `${index * 50}ms` }}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium">#{item.tag}</p>
-                              <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
-                            </div>
-                            <span className="bg-secondary px-2 py-1 rounded-full text-xs">
-                              {item.tweets} tweets
-                            </span>
-                          </div>
-                        </Link>
-                      ))
-                    )}
-                  </div>
                 </AnimatedCard>
-                
-                <div className="space-y-6">
-                  <AnimatedCard className="p-4" delay={100}>
-                    <h3 className="font-semibold mb-4">Trending Coins</h3>
-                    
-                    <div className="space-y-3">
-                      {isLoadingTrending ? (
-                        Array(4).fill(0).map((_, i) => (
-                          <div 
-                            key={i} 
-                            className="flex items-center justify-between p-2 rounded-lg animate-pulse"
-                          >
-                            <div className="flex items-center space-x-3">
-                              <div className="h-8 w-8 rounded-full bg-muted"></div>
-                              <div className="space-y-2">
-                                <div className="h-4 bg-muted rounded w-20"></div>
-                                <div className="h-3 bg-muted rounded w-12"></div>
-                              </div>
-                            </div>
-                            <div className="space-y-2 text-right">
-                              <div className="h-4 bg-muted rounded w-16"></div>
-                              <div className="h-3 bg-muted rounded w-10"></div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        trendingData.coins.map((coin: TrendingCoin, index: number) => (
-                          <div 
-                            key={coin.symbol} 
-                            className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/50 transition-colors animate-fade-in"
-                            style={{ animationDelay: `${index * 50 + 200}ms` }}
-                          >
-                            <div className="flex items-center space-x-3">
-                              <img src={coin.logo} alt={coin.name} className="h-8 w-8" />
-                              <div>
-                                <p className="font-medium">{coin.name}</p>
-                                <p className="text-xs text-muted-foreground">{coin.symbol}</p>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-mono">{coin.price}</p>
-                              <p className={cn(
-                                "text-xs",
-                                coin.change.startsWith("+") ? "text-crypto-green" : "text-crypto-red"
-                              )}>
-                                {coin.change}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </AnimatedCard>
-                  
-                  <AnimatedCard className="p-4" delay={200}>
-                    <h3 className="font-semibold mb-4">Hot Events</h3>
-                    
-                    <div className="space-y-3">
-                      {isLoadingTrending ? (
-                        Array(3).fill(0).map((_, i) => (
-                          <div 
-                            key={i} 
-                            className="flex items-center space-x-3 p-2 rounded-lg animate-pulse"
-                          >
-                            <div className="h-12 w-12 rounded-lg bg-muted"></div>
-                            <div className="space-y-2 flex-1">
-                              <div className="h-4 bg-muted rounded w-32"></div>
-                              <div className="flex gap-2">
-                                <div className="h-4 bg-muted rounded w-16"></div>
-                                <div className="h-4 bg-muted rounded w-24"></div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        trendingData.events.map((event: TrendingEvent, index: number) => (
-                          <div 
-                            key={event.name} 
-                            className="flex items-center space-x-3 p-2 rounded-lg hover:bg-secondary/50 transition-colors animate-fade-in"
-                            style={{ animationDelay: `${index * 50 + 300}ms` }}
-                          >
-                            <img src={event.image} alt={event.name} className="h-12 w-12 rounded-lg object-cover" />
-                            <div>
-                              <p className="font-medium">{event.name}</p>
-                              <div className="flex items-center mt-1">
-                                <span className="text-xs bg-crypto-blue/10 text-crypto-blue px-2 py-0.5 rounded-full">
-                                  {event.type}
-                                </span>
-                                <span className="text-xs text-muted-foreground ml-2">{event.date}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </AnimatedCard>
-                </div>
               </div>
-            )}
+            </div>
           </TabsContent>
           
           <TabsContent value="discover" className="mt-6">
             <div className="grid gap-6 md:grid-cols-3">
-              {isLoadingCommunities ? (
-                Array(6).fill(0).map((_, i) => (
-                  <AnimatedCard 
-                    key={i} 
-                    className="overflow-hidden"
-                    delay={i * 100}
-                  >
-                    <div className="h-36 bg-muted animate-pulse"></div>
-                    <div className="p-3 flex justify-between items-center">
-                      <div className="h-4 bg-muted rounded w-24"></div>
-                      <div className="h-6 bg-muted rounded w-12"></div>
+              {[
+                { title: "DeFi Revolution", image: "https://api.dicebear.com/7.x/identicon/svg?seed=defi-banner", category: "DeFi", articles: 23 },
+                { title: "NFT Marketplace", image: "https://api.dicebear.com/7.x/identicon/svg?seed=nft-banner", category: "NFTs", articles: 18 },
+                { title: "Layer 2 Solutions", image: "https://api.dicebear.com/7.x/identicon/svg?seed=l2-banner", category: "Scaling", articles: 15 },
+                { title: "Web3 Gaming", image: "https://api.dicebear.com/7.x/identicon/svg?seed=gaming-banner", category: "Gaming", articles: 12 },
+                { title: "DAO Governance", image: "https://api.dicebear.com/7.x/identicon/svg?seed=dao-banner", category: "DAOs", articles: 9 },
+                { title: "Zero Knowledge", image: "https://api.dicebear.com/7.x/identicon/svg?seed=zk-banner", category: "Privacy", articles: 7 }
+              ].map((topic, index) => (
+                <AnimatedCard 
+                  key={topic.title} 
+                  className="overflow-hidden hover-scale"
+                  delay={index * 100}
+                >
+                  <div className="relative h-36">
+                    <img 
+                      src={topic.image} 
+                      alt={topic.title} 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <span className="inline-block px-2 py-1 bg-crypto-blue text-white text-xs rounded-full">
+                        {topic.category}
+                      </span>
+                      <h3 className="text-white font-medium mt-1">{topic.title}</h3>
                     </div>
-                  </AnimatedCard>
-                ))
-              ) : (
-                communities.topics.map((topic: CommunityTopic, index: number) => (
-                  <AnimatedCard 
-                    key={topic.title} 
-                    className="overflow-hidden hover-scale"
-                    delay={index * 100}
-                  >
-                    <div className="relative h-36">
-                      <img 
-                        src={topic.image} 
-                        alt={topic.title} 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                      <div className="absolute bottom-3 left-3 right-3">
-                        <span className="inline-block px-2 py-1 bg-crypto-blue text-white text-xs rounded-full">
-                          {topic.category}
-                        </span>
-                        <h3 className="text-white font-medium mt-1">{topic.title}</h3>
-                      </div>
-                    </div>
-                    <div className="p-3 flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">{topic.articles} articles</span>
-                      <Button variant="ghost" size="sm" className="text-crypto-blue">
-                        View
-                      </Button>
-                    </div>
-                  </AnimatedCard>
-                ))
-              )}
+                  </div>
+                  <div className="p-3 flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">{topic.articles} articles</span>
+                    <Button variant="ghost" size="sm" className="text-crypto-blue">
+                      View
+                    </Button>
+                  </div>
+                </AnimatedCard>
+              ))}
             </div>
             
             <div className="mt-8">
               <h3 className="text-lg font-medium mb-4">Featured Projects</h3>
               
               <div className="grid gap-6 md:grid-cols-2">
-                {isLoadingCommunities ? (
-                  Array(2).fill(0).map((_, i) => (
-                    <AnimatedCard 
-                      key={i} 
-                      className="p-4 animate-pulse"
-                      delay={600 + i * 100}
-                    >
-                      <div className="flex items-start space-x-4">
-                        <div className="h-12 w-12 rounded-full bg-muted"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="flex justify-between">
-                            <div className="h-5 bg-muted rounded w-32"></div>
-                            <div className="h-5 bg-muted rounded w-16"></div>
-                          </div>
-                          <div className="h-4 bg-muted rounded w-full"></div>
-                          <div className="h-4 bg-muted rounded w-3/4"></div>
-                          
-                          <div className="mt-3 flex space-x-4">
-                            <div className="h-12 w-20 bg-muted rounded"></div>
-                            <div className="h-12 w-20 bg-muted rounded"></div>
-                          </div>
+                {[
+                  { 
+                    name: "UniVerse Swap", 
+                    description: "Next-generation AMM with optimized liquidity and reduced slippage", 
+                    category: "DeFi", 
+                    logo: "https://api.dicebear.com/7.x/identicon/svg?seed=uniswap",
+                    stats: { tvl: "$1.2B", volume: "$320M" }
+                  },
+                  { 
+                    name: "OrbitChain", 
+                    description: "High-throughput Layer 2 scaling solution with EVM compatibility", 
+                    category: "Layer 2", 
+                    logo: "https://api.dicebear.com/7.x/identicon/svg?seed=arbitrum",
+                    stats: { tps: "4,500", users: "1.8M" }
+                  },
+                ].map((project, index) => (
+                  <AnimatedCard 
+                    key={project.name} 
+                    className="p-4"
+                    delay={600 + index * 100}
+                  >
+                    <div className="flex items-start space-x-4">
+                      <div className="h-12 w-12 rounded-full overflow-hidden bg-crypto-blue/10">
+                        <img src={project.logo} alt={project.name} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">{project.name}</h4>
+                          <span className="bg-secondary px-2 py-0.5 rounded-full text-xs">
+                            {project.category}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
+                        
+                        <div className="mt-3 flex space-x-4">
+                          {Object.entries(project.stats).map(([key, value]) => (
+                            <div key={key} className="bg-secondary/50 px-3 py-1 rounded-lg">
+                              <span className="text-xs text-muted-foreground uppercase">{key}</span>
+                              <p className="font-medium">{value}</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    </AnimatedCard>
-                  ))
-                ) : (
-                  communities.projects.map((project: CommunityProject, index: number) => (
-                    <AnimatedCard 
-                      key={project.name} 
-                      className="p-4"
-                      delay={600 + index * 100}
-                    >
-                      <div className="flex items-start space-x-4">
-                        <div className="h-12 w-12 rounded-full overflow-hidden bg-crypto-blue/10">
-                          <img src={project.logo} alt={project.name} className="h-full w-full object-cover" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">{project.name}</h4>
-                            <span className="bg-secondary px-2 py-0.5 rounded-full text-xs">
-                              {project.category}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
-                          
-                          <div className="mt-3 flex space-x-4">
-                            {project.stats && typeof project.stats === 'object' ? 
-                              Object.entries(project.stats).map(([key, value]) => (
-                                <div key={key} className="bg-secondary/50 px-3 py-1 rounded-lg">
-                                  <span className="text-xs text-muted-foreground uppercase">{key}</span>
-                                  <p className="font-medium">{String(value)}</p>
-                                </div>
-                              )) : null}
-                          </div>
-                        </div>
-                      </div>
-                    </AnimatedCard>
-                  ))
-                )}
+                    </div>
+                  </AnimatedCard>
+                ))}
               </div>
             </div>
           </TabsContent>
@@ -492,57 +265,36 @@ const Explore = () => {
                 </div>
                 
                 <div className="divide-y divide-border">
-                  {isLoadingSuggestedUsers ? (
-                    Array(5).fill(0).map((_, i) => (
-                      <div 
-                        key={i} 
-                        className="p-4 animate-pulse"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="h-12 w-12 rounded-full bg-muted"></div>
-                            <div className="space-y-2">
-                              <div className="h-4 bg-muted rounded w-24"></div>
-                              <div className="h-3 bg-muted rounded w-16"></div>
-                              <div className="h-3 bg-muted rounded w-32"></div>
+                  {suggestedUsers.map((user, index) => (
+                    <div 
+                      key={user.id} 
+                      className="p-4 hover:bg-secondary/50 transition-colors animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Link to={`/profile/${user.username}`} className="flex items-center space-x-3">
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.displayName}
+                            className="h-12 w-12 rounded-full object-cover border border-border"
+                          />
+                          <div>
+                            <div className="flex items-center">
+                              <p className="font-medium">{user.displayName}</p>
+                              {user.verified && (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1 text-crypto-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+                                </svg>
+                              )}
                             </div>
+                            <p className="text-sm text-muted-foreground">@{user.username}</p>
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{user.bio}</p>
                           </div>
-                          <div className="h-8 bg-muted rounded w-16"></div>
-                        </div>
+                        </Link>
+                        <Button size="sm" className="rounded-full">Follow</Button>
                       </div>
-                    ))
-                  ) : (
-                    suggestedUsers.map((user: SuggestedUser, index: number) => (
-                      <div 
-                        key={user.id} 
-                        className="p-4 hover:bg-secondary/50 transition-colors animate-fade-in"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Link to={`/profile/${user.username}`} className="flex items-center space-x-3">
-                            <img
-                              src={user.avatarUrl}
-                              alt={user.displayName}
-                              className="h-12 w-12 rounded-full object-cover border border-border"
-                            />
-                            <div>
-                              <div className="flex items-center">
-                                <p className="font-medium">{user.displayName}</p>
-                                {user.verified && (
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1 text-crypto-blue" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-                                  </svg>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground">@{user.username}</p>
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{user.bio}</p>
-                            </div>
-                          </Link>
-                          <Button size="sm" className="rounded-full">Follow</Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                    </div>
+                  ))}
                 </div>
               </AnimatedCard>
               
@@ -550,38 +302,28 @@ const Explore = () => {
                 <h3 className="font-semibold mb-4">Communities</h3>
                 
                 <div className="grid gap-4 md:grid-cols-2">
-                  {isLoadingCommunities ? (
-                    Array(4).fill(0).map((_, i) => (
-                      <div 
-                        key={i} 
-                        className="flex items-center space-x-3 p-3 rounded-lg border border-border animate-pulse"
-                      >
-                        <div className="h-12 w-12 rounded-lg bg-muted"></div>
-                        <div className="space-y-2">
-                          <div className="h-4 bg-muted rounded w-32"></div>
-                          <div className="h-3 bg-muted rounded w-24"></div>
-                        </div>
+                  {[
+                    { name: "Ethereum Developers", members: "45.2K", image: "https://api.dicebear.com/7.x/identicon/svg?seed=eth-community" },
+                    { name: "NFT Collectors", members: "32.8K", image: "https://api.dicebear.com/7.x/identicon/svg?seed=nft-community" },
+                    { name: "DeFi Explorers", members: "28.4K", image: "https://api.dicebear.com/7.x/identicon/svg?seed=defi-community" },
+                    { name: "Bitcoin Maximalists", members: "51.6K", image: "https://api.dicebear.com/7.x/identicon/svg?seed=btc-community" }
+                  ].map((community, index) => (
+                    <div 
+                      key={community.name} 
+                      className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors animate-fade-in"
+                      style={{ animationDelay: `${index * 50 + 400}ms` }}
+                    >
+                      <img 
+                        src={community.image} 
+                        alt={community.name} 
+                        className="h-12 w-12 rounded-lg"
+                      />
+                      <div>
+                        <p className="font-medium">{community.name}</p>
+                        <p className="text-xs text-muted-foreground">{community.members} members</p>
                       </div>
-                    ))
-                  ) : (
-                    communities.groups.map((community: CommunityGroup, index: number) => (
-                      <div 
-                        key={community.name} 
-                        className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-secondary/50 transition-colors animate-fade-in"
-                        style={{ animationDelay: `${index * 50 + 400}ms` }}
-                      >
-                        <img 
-                          src={community.image} 
-                          alt={community.name} 
-                          className="h-12 w-12 rounded-lg"
-                        />
-                        <div>
-                          <p className="font-medium">{community.name}</p>
-                          <p className="text-xs text-muted-foreground">{community.members} members</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                    </div>
+                  ))}
                 </div>
               </AnimatedCard>
             </div>

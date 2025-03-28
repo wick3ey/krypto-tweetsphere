@@ -1,16 +1,15 @@
+
 export interface User {
   id: string;
   username: string;
   displayName: string;
   avatarUrl: string;
+  walletAddress: string;
   bio: string;
   joinedDate: string;
-  following: string[];
-  followers: string[];
+  following: number;
+  followers: number;
   verified: boolean;
-  email?: string;
-  walletAddress?: string;
-  headerUrl?: string;  // Add headerUrl property
 }
 
 export interface Tweet {
@@ -24,16 +23,6 @@ export interface Tweet {
   attachments?: string[];
   mentions?: string[];
   hashtags?: string[];
-  _id?: string;
-  userId?: User | string;
-  likeCount?: number;
-  retweetCount?: number;
-  commentCount?: number;
-  createdAt?: string;
-  retweetOf?: string;
-  replyTo?: string;
-  likedBy?: string[];  // Array of user IDs who liked this tweet
-  retweetedBy?: string[]; // Array of user IDs who retweeted this tweet
 }
 
 export interface Transaction {
@@ -70,62 +59,4 @@ export interface UserProfile extends User {
   pnlData: PnLData[];
   tokens: TokenBalance[];
   totalBalance: number;
-}
-
-export interface TrendingTopic {
-  tag: string;
-  description: string;
-  tweets: number;
-}
-
-export interface TrendingCoin {
-  name: string;
-  symbol: string;
-  logo: string;
-  price: string;
-  change: string;
-}
-
-export interface TrendingEvent {
-  name: string;
-  image: string;
-  type: string;
-  date: string;
-}
-
-export interface CommunityTopic {
-  title: string;
-  image: string;
-  category: string;
-  articles: number;
-}
-
-export interface CommunityProject {
-  name: string;
-  logo: string;
-  description: string;
-  category: string;
-  stats?: Record<string, string | number>;
-}
-
-export interface CommunityGroup {
-  name: string;
-  image: string;
-  members: number;
-}
-
-export interface TrendingData {
-  topics: TrendingTopic[];
-  coins: TrendingCoin[];
-  events: TrendingEvent[];
-}
-
-export interface CommunitiesData {
-  topics: CommunityTopic[];
-  projects: CommunityProject[];
-  groups: CommunityGroup[];
-}
-
-export interface SuggestedUser extends User {
-  bio: string;
 }

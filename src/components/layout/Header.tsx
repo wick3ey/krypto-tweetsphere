@@ -1,51 +1,17 @@
+
 import { useState, useEffect } from 'react';
 import { Bell, Menu, X, Moon, Sun, PlusCircle } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import WalletConnect from '@/components/common/WalletConnect';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { notificationService } from '@/api/notificationService';
-import { authService } from '@/api/authService';
-import { useQuery } from '@tanstack/react-query';
-import { AuthDialog } from '@/components/auth/AuthDialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { toast } from 'sonner';
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const navigate = useNavigate();
-  const isAuthenticated = !!localStorage.getItem('jwt_token');
-  
-  // Fetch notification count if user is authenticated
-  const { data: notificationCount = 0 } = useQuery({
-    queryKey: ['notificationCount'],
-    queryFn: () => notificationService.getUnreadCount().then(res => res.count),
-    enabled: isAuthenticated,
-    refetchInterval: 60000, // Refetch every minute
-    retry: 1,
-    meta: {
-      onError: (error: any) => {
-        console.error('Error fetching unread notification count:', error);
-      }
-    }
-  });
-  
-  // Fetch user profile
-  const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
-    queryFn: () => authService.getCurrentUser(),
-    enabled: isAuthenticated,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    retry: 1
-  });
+  const [notificationCount, setNotificationCount] = useState(3);
+  const [isDark, setIsDark] = useState(true); // Since we implemented a dark theme by default
   
   useEffect(() => {
     const handleScroll = () => {
@@ -55,94 +21,119 @@ const Header = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const handleSignOut = async () => {
-    try {
-      await authService.signOut();
-      // Navigation now handled by auth state change listener
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Det gick inte att logga ut. Försök igen.');
-    }
-  };
-  
-  const navigateToProfile = () => {
-    navigate('/profile');
-    // Close any open dropdown
-    document.body.click();
-  };
-  
-  const navigateToEditProfile = () => {
-    navigate('/setup-profile');
-    // Close any open dropdown
-    document.body.click();
-  };
-  
-  // Ensure avatar uses proper fallback for broken images
-  const handleAvatarError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const target = e.target as HTMLImageElement;
-    target.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${currentUser?.username || 'user'}`;
-  };
   
   return (
     <header className={cn(
       "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-      scrolled ? "bg-background/80 backdrop-blur-sm shadow-sm" : "bg-transparent"
+      scrolled 
+        ? "backdrop-blur-lg bg-background/80 border-b border-border/50 shadow-sm" 
+        : "bg-transparent"
     )}>
-      <div className="flex items-center justify-between h-16 px-4 md:container">
-        <div className="flex items-center">
-          <Link to="/" className="flex items-center mr-6">
-            <span className="text-xl font-bold bg-gradient-to-r from-crypto-blue to-crypto-purple bg-clip-text text-transparent">
-              F3ociety
+      <div className="container flex h-16 items-center justify-between px-4 md:px-6">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="md:hidden"
+            onClick={() => setMobileMenu(!mobileMenu)}
+          >
+            {mobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+          
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="relative h-8 w-8">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-crypto-blue to-crypto-purple animate-glow opacity-50"></div>
+              <div className="relative z-10 h-full w-full rounded-full bg-card flex items-center justify-center border border-border">
+                <span className="text-crypto-blue font-bold text-lg">K</span>
+              </div>
+            </div>
+            <span className={cn(
+              "font-bold text-xl md:text-2xl bg-gradient-to-r from-crypto-blue to-crypto-purple bg-clip-text text-transparent",
+              "hover:from-crypto-blue hover:to-crypto-green transition-all duration-700"
+            )}>
+              KryptoSphere
             </span>
           </Link>
         </div>
         
-        <div className="flex items-center space-x-2">
-          {isAuthenticated ? (
-            <>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-crypto-blue text-[10px] text-white">
-                    {notificationCount > 9 ? '9+' : notificationCount}
-                  </span>
-                )}
-              </Button>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="ml-2 rounded-full relative overflow-hidden p-0 h-8 w-8">
-                    <Avatar className="h-8 w-8 border border-border">
-                      <AvatarImage 
-                        src={currentUser?.avatarUrl} 
-                        alt={currentUser?.displayName || 'User'} 
-                        onError={handleAvatarError}
-                      />
-                      <AvatarFallback>
-                        {currentUser?.displayName?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Min profil</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={navigateToProfile}>
-                    Profil
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={navigateToEditProfile}>
-                    Redigera profil
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    Logga ut
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          ) : (
-            <AuthDialog />
-          )}
+        <div className="flex items-center space-x-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full text-muted-foreground hover:text-foreground"
+            onClick={() => setIsDark(!isDark)}
+          >
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+          
+          <Button 
+            variant="outline"
+            size="sm"
+            className="rounded-full hidden md:flex items-center gap-1"
+          >
+            <PlusCircle className="h-4 w-4 mr-1" />
+            <span>New</span>
+          </Button>
+          
+          <Button variant="ghost" size="icon" className="relative rounded-full">
+            <Bell className="h-5 w-5" />
+            {notificationCount > 0 && (
+              <Badge 
+                className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center bg-crypto-red text-white"
+              >
+                {notificationCount}
+              </Badge>
+            )}
+          </Button>
+          
+          <WalletConnect />
+          
+          <Link to="/profile">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className={cn(
+                "rounded-full overflow-hidden border border-crypto-blue/30 group",
+                "transition-all duration-300 hover:border-crypto-blue hover:shadow-glow-blue"
+              )}
+            >
+              <div className="relative h-8 w-8 overflow-hidden rounded-full">
+                <img
+                  src="https://api.dicebear.com/7.x/identicon/svg?seed=satoshi"
+                  alt="Profile"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                />
+              </div>
+            </Button>
+          </Link>
+        </div>
+      </div>
+      
+      {/* Mobile menu */}
+      <div className={cn(
+        "fixed inset-0 top-16 bg-background/95 backdrop-blur-md z-40 transition-all duration-300 md:hidden border-t border-border/50",
+        mobileMenu ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-full pointer-events-none"
+      )}>
+        <div className="flex flex-col p-4 space-y-4">
+          <nav className="space-y-2">
+            {[
+              { text: 'Home', path: '/' },
+              { text: 'Profile', path: '/profile' },
+              { text: 'Explore', path: '/explore' },
+              { text: 'Dashboard', path: '/dashboard' },
+              { text: 'Messages', path: '/messages' },
+              { text: 'Settings', path: '/settings' },
+            ].map((item) => (
+              <Link 
+                key={item.path} 
+                to={item.path}
+                className="block p-3 rounded-lg hover:bg-secondary/50 transition-colors"
+                onClick={() => setMobileMenu(false)}
+              >
+                {item.text}
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
     </header>
